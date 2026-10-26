@@ -1,0 +1,8 @@
+{
+  "deno.enablePaths": ["core", "launcher", "scripts", "tests"],
+  "[typescript][javascript][vue]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  }
+}

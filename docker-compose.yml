@@ -1,0 +1,49 @@
+# Local test databases. Credentials are for local development only.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: dbm
+      POSTGRES_PASSWORD: dbm
+      POSTGRES_DB: dbm
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["./docker/init/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "dbm"]
+      interval: 2s
+      retries: 30
+
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_USER: dbm
+      MARIADB_PASSWORD: dbm
+      MARIADB_ROOT_PASSWORD: dbm
+      MARIADB_DATABASE: dbm
+    ports: ["127.0.0.1:53306:3306"]
+    volumes: ["./docker/init/mariadb.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 30
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64 # no arm64 image; runs via Rosetta/QEMU on Apple Silicon
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Dbm_Passw0rd!"
+    ports: ["127.0.0.1:51433:1433"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Dbm_Passw0rd!' -Q 'select 1' -b"]
+      interval: 5s
+      retries: 40
+
+  mssql-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    depends_on:
+      mssql: { condition: service_healthy }
+    volumes: ["./docker/init/mssql.sql:/init.sql:ro"]
+    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "mssql", "-U", "sa", "-P", "Dbm_Passw0rd!", "-b", "-i", "/init.sql"]
+    restart: "no"

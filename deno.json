@@ -1,0 +1,28 @@
+{
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "dev": "deno run -A scripts/dev.ts",
+    "desktop": "deno run -A scripts/package.ts desktop",
+    "compile": "deno run -A scripts/package.ts compile",
+    "lint": "deno run -A npm:nuxt prepare && deno run -A npm:eslint .",
+    "lint:fix": "deno run -A npm:nuxt prepare && deno run -A npm:eslint --fix .",
+    "test":"deno test -A --v8-flags=--expose-gc tests/",
+    "typecheck": "deno check core/ launcher/ scripts/ tests/ && deno run -A npm:nuxt typecheck"
+  },
+  "desktop": {
+    "app": {
+      "name": "Colwerk",
+      "identifier": "de.colwerk.app",
+      "icons": {
+        "macos": "./icons/icon.png",
+        "windows": "./icons/icon.ico",
+        "linux": "./icons/icon.png"
+      }
+    },
+    "output": {
+      "macos": "./dist/Colwerk.dmg",
+      "windows": "./dist/Colwerk.msi",
+      "linux": "./dist/Colwerk.AppImage"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+html, body, #__nuxt {
+  height: 100%;
+}
+
+:root {
+  --sql-keyword: #7c3aed;
+  --sql-string: #15803d;
+  --sql-number: #c2410c;
+  --sql-comment: #71717a;
+  --sql-type: #0369a1;
+}
+
+.dark {
+  --sql-keyword: #c4b5fd;
+  --sql-string: #86efac;
+  --sql-number: #fdba74;
+  --sql-comment: #a1a1aa;
+  --sql-type: #7dd3fc;
+}
