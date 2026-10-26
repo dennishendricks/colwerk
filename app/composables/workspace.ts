@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete -- the reactive records below are keyed maps; deleting entries is intended. */
 import type { Ref } from 'vue'
-import type { ColumnInfo, ConnectionInput, ConnectionSummary, DriverInfo, IntrospectRequest, QueryResult, SchemaInfo, TableInfo } from '#core'
+import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IntrospectRequest, QueryResult, SchemaInfo, TableInfo } from '#core'
 
 // Client-side state. The app is a single-window SPA, so module-level reactive state is sufficient.
 
-const drivers = ref<DriverInfo[]>([])
+const drivers = ref<DriverStatus[]>([])
 const connections = ref<ConnectionSummary[]>([])
 const activeConnectionId = ref<string>()
 
 export function useWorkspace() {
   async function load() {
     ;[drivers.value, connections.value] = await Promise.all([
-      api<DriverInfo[]>('/api/drivers'),
+      api<DriverStatus[]>('/api/drivers'),
       api<ConnectionSummary[]>('/api/connections'),
     ])
     activeConnectionId.value ??= connections.value[0]?.id
   }
 
-  function driverOf(connectionId?: string): DriverInfo | undefined {
+  function driverOf(connectionId?: string): DriverStatus | undefined {
     const dialect = connections.value.find(c => c.id === connectionId)?.dialect
     return drivers.value.find(d => d.dialect === dialect)
   }
@@ -41,7 +41,23 @@ export function useWorkspace() {
     return api('/api/connections/test', { method: 'POST', body: input })
   }
 
-  return { drivers, connections, activeConnectionId, load, driverOf, saveConnection, removeConnection, testConnection }
+  /** Downloads the driver's native addon; `drivers` shows the progress meanwhile. */
+  async function installDriver(dialect: Dialect) {
+    let done = false
+    const poll = setInterval(async () => {
+      const status = await api<DriverStatus[]>('/api/drivers')
+      if (!done) drivers.value = status
+    }, 300)
+    try {
+      await api(`/api/drivers/${dialect}/install`, { method: 'POST' })
+    } finally {
+      done = true
+      clearInterval(poll)
+      drivers.value = await api<DriverStatus[]>('/api/drivers')
+    }
+  }
+
+  return { drivers, connections, activeConnectionId, load, driverOf, saveConnection, removeConnection, testConnection, installDriver }
 }
 
 // ---------------------------------------------------------------------------------------------

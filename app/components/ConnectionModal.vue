@@ -4,11 +4,11 @@ import type { ConnectionInput, ConnectionSummary } from '#core'
 const props = defineProps<{ connection?: ConnectionSummary }>()
 const open = defineModel<boolean>('open', { required: true })
 
-const { drivers, connections, saveConnection, removeConnection, testConnection } = useWorkspace()
+const { drivers, connections, saveConnection, removeConnection, testConnection, installDriver } = useWorkspace()
 const toast = useToast()
 
 const form = reactive<Partial<ConnectionInput>>({})
-const busy = ref<'test' | 'save' | 'delete'>()
+const busy = ref<'test' | 'save' | 'delete' | 'install'>()
 const clearPassword = ref(false)
 
 watch(open, (isOpen) => {
@@ -57,12 +57,12 @@ async function pickFile() {
   }
 }
 
-async function act(kind: 'test' | 'save' | 'delete', fn: () => Promise<unknown>, success: string) {
+async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promise<unknown>, success: string) {
   busy.value = kind
   try {
     await fn()
     toast.add({ title: success, color: 'success', icon: 'i-lucide-check' })
-    if (kind !== 'test') open.value = false
+    if (kind === 'save' || kind === 'delete') open.value = false
   } catch (e) {
     toast.add({ title: 'Fehler', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   } finally {
@@ -75,7 +75,7 @@ async function act(kind: 'test' | 'save' | 'delete', fn: () => Promise<unknown>,
   <UModal v-model:open="open" :title="connection ? 'Verbindung bearbeiten' : 'Neue Verbindung'">
     <template #body>
       <!-- Names, hosts and paths are not prose: no autocorrect, capitalization or spell check (Safari/WebView). -->
-      <form class="grid grid-cols-2 gap-3" @submit.prevent="act('save', () => saveConnection(payload()), 'Gespeichert')">
+      <form class="grid grid-cols-2 gap-3" @submit.prevent="driver?.installed && act('save', () => saveConnection(payload()), 'Gespeichert')">
         <UFormField label="Name" required>
           <UInput v-model="form.name" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
         </UFormField>
@@ -155,21 +155,38 @@ async function act(kind: 'test' | 'save' | 'delete', fn: () => Promise<unknown>,
           :loading="busy === 'delete'"
           @click="act('delete', () => removeConnection(connection!.id), 'Gelöscht')"
         />
-        <UButton
-          class="ml-auto"
-          color="neutral"
-          variant="outline"
-          icon="i-lucide-plug-zap"
-          label="Testen"
-          :loading="busy === 'test'"
-          @click="act('test', () => testConnection(payload()), 'Verbindung erfolgreich')"
-        />
-        <UButton
-          icon="i-lucide-save"
-          label="Speichern"
-          :loading="busy === 'save'"
-          @click="act('save', () => saveConnection(payload()), 'Gespeichert')"
-        />
+        <!-- DuckDB's native addon is downloaded on first use; testing and saving need it. -->
+        <template v-if="driver && !driver.installed">
+          <UProgress
+            v-if="busy === 'install'"
+            :model-value="driver.installProgress === undefined ? null : Math.round(driver.installProgress * 100)"
+            class="ml-auto w-40 self-center"
+          />
+          <UButton
+            :class="busy === 'install' ? undefined : 'ml-auto'"
+            icon="i-lucide-download"
+            label="Datenbanktreiber laden"
+            :loading="busy === 'install'"
+            @click="act('install', () => installDriver(driver!.dialect), 'Datenbanktreiber installiert')"
+          />
+        </template>
+        <template v-else>
+          <UButton
+            class="ml-auto"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-plug-zap"
+            label="Testen"
+            :loading="busy === 'test'"
+            @click="act('test', () => testConnection(payload()), 'Verbindung erfolgreich')"
+          />
+          <UButton
+            icon="i-lucide-save"
+            label="Speichern"
+            :loading="busy === 'save'"
+            @click="act('save', () => saveConnection(payload()), 'Gespeichert')"
+          />
+        </template>
       </div>
     </template>
   </UModal>

@@ -1,5 +1,5 @@
 export * from './types.ts'
-export { drivers, loadDriver } from './registry.ts'
+export { drivers, driverStatus, installDriver, loadDriver } from './registry.ts'
 export { ConnectionStore, type ConnectionInput, type ConnectionSummary } from './store.ts'
 export { defaultDataDir } from './data-dir.ts'
 export { Workbench } from './workbench.ts'

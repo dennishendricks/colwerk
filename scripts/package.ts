@@ -63,9 +63,9 @@ await Deno.writeTextFile(
   ),
 )
 
-// DuckDB's native addon comes in one npm package per platform, and only the host's is installed. Every
-// build embeds exactly its target's package: the others are fetched from the registry into a staging
-// directory and swapped into `.output/server` for their build.
+// DuckDB's native addon comes in one npm package per platform. It is not embedded but downloaded on demand
+// (launcher/native.ts): the host's package leaves `.output` during the builds, `duckdb.json` tells each build
+// where to get its target's package, and the bindings load the addon through a stub.
 const DUCKDB = '.output/server/node_modules/@duckdb'
 const STAGING = '.output/duckdb'
 const { version } = JSON.parse(await Deno.readTextFile(`${DUCKDB}/node-bindings/package.json`))
@@ -73,34 +73,24 @@ await Deno.mkdir(STAGING, { recursive: true })
 for await (const entry of Deno.readDir(DUCKDB)) {
   if (entry.name.startsWith('node-bindings-')) await Deno.rename(`${DUCKDB}/${entry.name}`, `${STAGING}/${entry.name}`)
 }
+// `.output` itself also runs without the launcher (e.g. the API test), then the original resolution applies.
+await Deno.rename(`${DUCKDB}/node-bindings/duckdb.js`, `${DUCKDB}/node-bindings/duckdb-npm.js`)
+await Deno.writeTextFile(
+  `${DUCKDB}/node-bindings/duckdb.js`,
+  `module.exports = globalThis.dbmDuckdbAddon ? require(globalThis.dbmDuckdbAddon) : require('./duckdb-npm.js')\n`,
+)
 
-async function stageDuckdb(platform: string) {
-  const pkg = `node-bindings-${platform}`
-  const dir = `${STAGING}/${pkg}`
-  if (!(await Deno.stat(dir).catch(() => null))) {
-    const url = `https://registry.npmjs.org/@duckdb/${pkg}/-/${pkg}-${version}.tgz`
-    console.log(`fetch ${url}`)
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`${url}: ${res.status}`)
-    await Deno.writeFile(`${dir}.tgz`, new Uint8Array(await res.arrayBuffer()))
-    await Deno.mkdir(dir)
-    await exec('tar', ['-xzf', `${dir}.tgz`, '-C', dir, '--strip-components=1'])
-    await Deno.remove(`${dir}.tgz`)
-  }
-  // The macOS packages ship a universal libduckdb (x86_64 + arm64). Keep only the target's slice. Each
-  // slice carries its own signature, so the result stays validly signed (strip would invalidate it).
-  if (platform.startsWith('darwin-')) {
-    const lib = `${dir}/libduckdb.dylib`
-    await exec('lipo', [lib, '-thin', platform === 'darwin-arm64' ? 'arm64' : 'x86_64', '-output', `${lib}.thin`])
-    await Deno.rename(`${lib}.thin`, lib)
-  }
-  return pkg
+async function writeDuckdbManifest(platform: string) {
+  const url = `https://registry.npmjs.org/@duckdb/node-bindings-${platform}/${version}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`${url}: ${res.status}`)
+  const { dist } = await res.json()
+  await Deno.writeTextFile('.output/launcher/duckdb.json', JSON.stringify({ version, platform, tarball: dist.tarball, integrity: dist.integrity }))
 }
 
 for (const target of targets) {
   const { os, duckdb, suffix } = TARGETS[target]!
-  const pkg = await stageDuckdb(duckdb)
-  await Deno.rename(`${STAGING}/${pkg}`, `${DUCKDB}/${pkg}`)
+  await writeDuckdbManifest(duckdb)
 
   // `deno desktop` leaves the unpacked app (e.g. `Colwerk.app`) next to the package and makes the .dmg from
   // the whole output directory, so it builds into an empty staging directory. The package goes to `dist`,
@@ -115,7 +105,7 @@ for (const target of targets) {
     '.output/deno.json',
     // Type-checked in the project context by `deno task typecheck`; `.output` has no type packages.
     '--no-check',
-    // Network for the databases, file access for config and DuckDB files, env for config,
+    // Network for the databases and the DuckDB download, file access for config and DuckDB files, env for config,
     // FFI for DuckDB's native addon, run for the OS keychain tools, the native file dialogs (core/dialog.ts)
     // and opening the browser (compile only).
     '--allow-net',
@@ -129,6 +119,8 @@ for (const target of targets) {
     '.output/public',
     '--include',
     '.output/server',
+    '--include',
+    '.output/launcher/duckdb.json',
     ...(mode === 'desktop' ? ['--target', target] : []),
     // Self-extracting bundle; on macOS `--compress` breaks code signing (Deno 2.9.8), and the .dmg is compressed anyway.
     ...(mode === 'desktop' && os !== 'macos' ? ['--compress=xz'] : []),
@@ -153,9 +145,6 @@ for (const target of targets) {
       await Deno.remove(buildDir, { recursive: true })
     }
   }
-
-  await Deno.rename(`${DUCKDB}/${pkg}`, `${STAGING}/${pkg}`)
 }
 // `.output` itself runs on the host (e.g. the API test), so the host's package goes back.
-const hostPkg = `node-bindings-${TARGETS[Deno.build.target]!.duckdb}`
-await Deno.rename(`${STAGING}/${hostPkg}`, `${DUCKDB}/${hostPkg}`)
+for await (const entry of Deno.readDir(STAGING)) await Deno.rename(`${STAGING}/${entry.name}`, `${DUCKDB}/${entry.name}`)

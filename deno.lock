@@ -4,6 +4,8 @@
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/encoding@1": "1.0.11",
     "jsr:@std/internal@^1.0.12": "1.0.14",
+    "jsr:@std/streams@^1.0.17": "1.2.0",
+    "jsr:@std/tar@0.1": "0.1.10",
     "npm:@codemirror/autocomplete@^6.20.4": "6.20.4",
     "npm:@codemirror/commands@^6.11.1": "6.11.1",
     "npm:@codemirror/lang-sql@^6.10.0": "6.10.0",
@@ -24,6 +26,7 @@
     "npm:eslint@10": "10.13.0_jiti@2.7.0",
     "npm:eslint@9": "9.39.5_jiti@2.7.0",
     "npm:eslint@^10.13.0": "10.13.0_jiti@2.7.0",
+    "npm:hyparquet-writer@0.16.11": "0.16.11",
     "npm:mssql@^12.7.10": "12.7.10",
     "npm:mysql2@^3.24.6": "3.24.6_@types+node@26.6.5",
     "npm:nuxi@latest": "4.0.1",
@@ -53,6 +56,15 @@
     },
     "@std/internal@1.0.14": {
       "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    },
+    "@std/streams@1.2.0": {
+      "integrity": "256b934254778f2bf45f5713b934209ff29e9b4b7fd4ec095219966813758c5f"
+    },
+    "@std/tar@0.1.10": {
+      "integrity": "6bf907f3a4bc8bfef42973ba132d946756a6161ef6b914a9e1c06debe664db17",
+      "dependencies": [
+        "jsr:@std/streams"
+      ]
     }
   },
   "npm": {
@@ -4912,6 +4924,15 @@
     "human-signals@5.0.0": {
       "integrity": "sha512-AXcZb6vzzrFAUE61HnN4mpLqd/cSIwNQjtNWR0euPm6y0iqx3G4gOXaIDdtdDwZmhwe82LA6+zinmW4UBWVePQ=="
     },
+    "hyparquet-writer@0.16.11": {
+      "integrity": "sha512-Q0hI/Cf0RC5PX0iV0L8k02HdnqyPBuYc0t5gq/h9HO9n8eZiu4y5Fq3/AStGKi3lLYCePTCqyrmEymGOlnm61A==",
+      "dependencies": [
+        "hyparquet"
+      ]
+    },
+    "hyparquet@1.31.3": {
+      "integrity": "sha512-qThDJfCrTClFdaIQuQTtFOGp33bkbOyk+y1NrwcC8YZjvr5wxjNdKz7/PUF3xfNd7ZKLsYW+fY6N8dInjjMWJg=="
+    },
     "iconv-lite@0.7.3": {
       "integrity": "sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==",
       "dependencies": [
@@ -5873,7 +5894,7 @@
         "@nuxt/cli",
         "@nuxt/devalue",
         "@nuxt/devtools",
-        "@nuxt/kit@4.6.2_@nuxt+schema@4.6.2_jiti@2.7.0_rolldown@1.2.14_@types+node@26.6.5_magic-string@1.4.3_unplugin@3.4.0_vite@8.3.5__@types+node@26.6.5__esbuild@0.27.7__jiti@2.7.0",
+        "@nuxt/kit@4.6.2_@nuxt+schema@4.6.2_mlly@1.8.2",
         "@nuxt/nitro-server",
         "@nuxt/schema",
         "@nuxt/telemetry",
@@ -7941,6 +7962,7 @@
         "npm:@types/pg-cursor@^2.7.2",
         "npm:@types/pg@^8.23.1",
         "npm:eslint@^10.13.0",
+        "npm:hyparquet-writer@0.16.11",
         "npm:mssql@^12.7.10",
         "npm:mysql2@^3.24.6",
         "npm:nuxt@^4.6.2",

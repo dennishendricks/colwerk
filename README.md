@@ -35,7 +35,7 @@ Tests against Postgres, MariaDB and MSSQL are skipped when the container is not 
 | Windows | – | `Colwerk.msi` |
 | Linux | `Colwerk.AppImage` | `Colwerk-x64.AppImage` |
 
-Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native package for each target is fetched from the npm registry during the build.
+Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native addon is not part of the packages; the app downloads it on first use (see below).
 
 ## Architecture
 
@@ -53,7 +53,7 @@ core/      runtime-agnostic TypeScript, no Nuxt or Deno dependencies (node: buil
 server/    thin Nitro layer: security middleware, routes under /api/*, MCP tools under mcp/tools, no database logic
 app/       Nuxt UI frontend, talks to /api/* only
 launcher/  entry point for deno desktop / deno compile (token, port, window/browser), MCP stdio bridge
-scripts/   dev server, packaging, DuckDB smoke test
+scripts/   dev server, packaging
 ```
 
 **Sessions.** A driver's `connect(config)` returns a `Session` (`execute`, `stream`, `cancel`, `introspect`, `close`) backed by exactly one database connection. Each editor tab gets its own session, so transactions, temp tables and `SET` options persist per tab. Introspection uses a separate metadata session per connection, so a long-running query never blocks the schema tree.
@@ -68,7 +68,7 @@ scripts/   dev server, packaging, DuckDB smoke test
 
 **Scripts.** `execute()` returns every result set, each limited individually. Postgres and DuckDB run scripts statement by statement (split by `core/sql-split.ts`), MySQL sends the script as a whole, MSSQL splits on `GO`.
 
-**Export.** Results can be exported to CSV or Parquet, either the displayed rows or the complete result. The complete result re-runs the statement in the tab's session and streams it with backpressure, so it is only offered for a single read-only statement. The server opens a native save dialog and writes the file itself, because the desktop webview does not handle browser downloads. Files are written to `<target>.part` and renamed on success. Parquet is staged in a temporary DuckDB database and written by DuckDB's Parquet writer.
+**Export.** Results can be exported to CSV or Parquet, either the displayed rows or the complete result. The complete result re-runs the statement in the tab's session and streams it with backpressure, so it is only offered for a single read-only statement. The server opens a native save dialog and writes the file itself, because the desktop webview does not handle browser downloads. Files are written to `<target>.part` and renamed on success. Parquet is written by [hyparquet-writer](https://github.com/hyparam/hyparquet-writer) and does not need DuckDB: rows are staged as JSON lines in a temporary file and encoded in row groups of 100,000. A column gets the Parquet type of its database type only if every value converts; otherwise it is written as a string.
 
 **Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables → columns) and cached on the server.
 
@@ -127,21 +127,21 @@ TLS supports a custom CA certificate (PEM, replaces the system CAs) or disabling
 
 ## DuckDB in compiled builds
 
-In compiled binaries Deno extracts only the `.node` file of a native addon to `<tmpdir>/deno-native-addons/`, but `duckdb.node` loads `libduckdb.dylib`/`.so` from its own directory. Before the first import of `@duckdb/node-api`, `launcher/native.ts` therefore copies the library from the embedded file system next to the addon. `core/` receives this as a hook (`prepareDuckdb()` in `core/registry.ts`) to stay free of Deno dependencies. Verify with:
+Packaged builds do not embed DuckDB's native addon (`libduckdb` alone is about 55 MB per architecture). Instead:
 
-```sh
-deno compile -A -o /tmp/duck-smoke scripts/duckdb-smoke.ts && /tmp/duck-smoke
-deno desktop -A -o /tmp/DuckSmoke scripts/duckdb-smoke.ts   # window shows OK/FAIL
-```
+- `scripts/package.ts` writes `launcher/duckdb.json` with the npm package of the build target (`@duckdb/node-bindings-<platform>` in the version of `@duckdb/node-bindings`), its tarball URL and the registry's SHA-512 integrity hash. It replaces `@duckdb/node-bindings/duckdb.js` with a stub that loads the addon from `globalThis.dbmDuckdbAddon`.
+- Until the addon is installed, the connection dialog of a DuckDB connection shows "Datenbanktreiber laden" instead of "Testen" and "Speichern". Opening a DuckDB connection, also via MCP, fails with `ENODRIVER`.
+- `launcher/native.ts` downloads the tarball, checks the hash, unpacks `duckdb.node` and `libduckdb.*` into `<data dir>/drivers/duckdb-<version>-<platform>/` and removes other versions. `duckdb.node` finds the library next to itself. `core/` reaches this through a hook on globalThis (`installDriver()` in `core/registry.ts`) to stay free of Deno dependencies.
+- Running from source, or `.output` without the launcher, loads the addon from `node_modules` as usual.
 
 Related build details:
-- Nitro keeps `@duckdb/node-api` external, so the addon and its library are traced together into `.output/server/node_modules`.
-- `scripts/package.ts` embeds only `.output` and resolves npm packages from there (`nodeModulesDir: "manual"`). On macOS it thins the universal `libduckdb.dylib` to the target architecture with `lipo -thin`, which keeps the code signature valid.
-- `@duckdb/node-api` is pinned to the LTS release `1.4.5-r.1`.
+- Nitro keeps `@duckdb/node-api` external, so the bindings are traced into `.output/server/node_modules`.
+- `scripts/package.ts` embeds only `.output` and resolves npm packages from there (`nodeModulesDir: "manual"`).
+- `@duckdb/node-api` is pinned to the LTS release `1.4.5-r.1`. Updating it changes the download; the previous version is removed after the next installation.
 
 ## Known limitations
 
-- **DuckDB** relies on Deno's internal extraction directory. On Linux `/tmp` is shared, so `TMPDIR` should be user-specific.
+- **DuckDB** needs `registry.npmjs.org` once per version (proxies via `HTTPS_PROXY`). Without access, DuckDB connections cannot be used.
 - **MSSQL:** tedious returns `DECIMAL`/`NUMERIC`/`MONEY` as JS numbers, losing precision beyond ~15 significant digits; `datetime2` is truncated to milliseconds. The row limit of a batch without `;` also cancels its subsequent statements. `GO n` is not supported, and statements containing blank lines must be selected before running.
 - **MySQL:** the result grid shows protocol type names (`LONGLONG`, `NEWDECIMAL`, …). Cancelling after the row limit opens a short extra connection (`KILL QUERY`).
 - **Postgres/DuckDB scripts** commit each statement individually; a script without its own `BEGIN` is not atomic.

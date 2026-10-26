@@ -1,3 +1,3 @@
-import { drivers } from '#core'
+import { driverStatus } from '#core'
 
-export default defineEventHandler(() => drivers)
+export default defineEventHandler(() => driverStatus())

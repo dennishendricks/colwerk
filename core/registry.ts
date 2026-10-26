@@ -1,4 +1,4 @@
-import type { Dialect, Driver, DriverInfo } from './types.ts'
+import { DbError, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
 
 interface RegistryEntry extends DriverInfo {
   // Driver modules are imported on first use so that e.g. DuckDB's native addon is only loaded when needed.
@@ -35,9 +35,23 @@ const registry: Record<Dialect, RegistryEntry> = {
   },
 }
 
-/** Runs the launcher's hook that puts DuckDB's native library in place (compiled binaries only). Call before importing `@duckdb/node-api`. */
-export async function prepareDuckdb(): Promise<void> {
-  await (globalThis as { dbmPrepareDuckdb?: () => Promise<void> }).dbmPrepareDuckdb?.()
+/**
+ * Packaged builds do not embed DuckDB's native addon: the launcher downloads it on request (launcher/native.ts)
+ * and offers this hook through globalThis, because the bundled server does not share module instances with it.
+ * Without the hook (running from source) the addon comes from node_modules.
+ */
+interface DuckdbHook {
+  installed(): Promise<boolean>
+  install(onProgress: (fraction: number) => void): Promise<void>
+}
+
+const duckdbHook = () => (globalThis as { dbmDuckdb?: DuckdbHook }).dbmDuckdb
+
+/** Fails unless DuckDB's native addon is in place. Call before importing `@duckdb/node-api`. */
+async function prepareDuckdb(): Promise<void> {
+  if (await duckdbHook()?.installed() === false) {
+    throw new DbError('The DuckDB driver is not installed. Open the connection in Colwerk and choose "Datenbanktreiber laden".', 'ENODRIVER')
+  }
 }
 
 export const drivers: DriverInfo[] = Object.values(registry).map(({ load: _, ...info }) => info)
@@ -54,4 +68,27 @@ export function loadDriver(dialect: Dialect): Promise<Driver> {
     loaded.set(dialect, driver)
   }
   return driver
+}
+
+let installing: { progress?: number, done: Promise<void> } | undefined
+
+export async function driverStatus(): Promise<DriverStatus[]> {
+  const duckdb = await duckdbHook()?.installed() ?? true
+  return drivers.map(d => d.dialect === 'duckdb' ? { ...d, installed: duckdb, installProgress: installing?.progress } : { ...d, installed: true })
+}
+
+/** Downloads the native addon of a driver that is not installed yet; concurrent calls share the download. */
+export function installDriver(dialect: Dialect): Promise<void> {
+  const hook = duckdbHook()
+  if (dialect !== 'duckdb' || !hook) return Promise.resolve()
+  if (!installing) {
+    const state: { progress?: number } = {}
+    const done = hook.install(fraction => (state.progress = fraction))
+      .catch((e) => {
+        throw new DbError(`Download of the DuckDB driver failed: ${(e as Error).message}`)
+      })
+      .finally(() => (installing = undefined))
+    installing = Object.assign(state, { done })
+  }
+  return installing.done
 }

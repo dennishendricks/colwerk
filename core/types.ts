@@ -40,6 +40,13 @@ export interface DriverInfo {
   capabilities: DriverCapabilities
 }
 
+export interface DriverStatus extends DriverInfo {
+  /** False while the native addon still has to be downloaded (DuckDB in packaged builds). */
+  installed: boolean
+  /** Share downloaded (0–1) while an installation runs and the size is known. */
+  installProgress?: number
+}
+
 /**
  * Unified value model returned by every driver:
  * - BIGINT and DECIMAL/NUMERIC as string (no precision loss)

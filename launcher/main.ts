@@ -4,10 +4,9 @@
 // Starts Nitro on 127.0.0.1 with a fresh session token, then opens the UI in the desktop window
 // or, for the self-hosted binary, in the default browser. With the argument `mcp` it runs the stdio
 // bridge for MCP clients instead (see mcp-bridge.ts).
-import { fileURLToPath } from 'node:url'
 import { mcpToken } from '../core/mcp-token.ts'
 import { appUrl, createToken, freePort, onExit, removeInstance, writeInstance } from './common.ts'
-import { prepareDuckdbNative } from './native.ts'
+import { duckdbGlobals } from './native.ts'
 
 // Only available inside `deno desktop` binaries; not part of the default type libraries.
 type MenuItem = { item: { label: string, id?: string, enabled: boolean } } | 'separator'
@@ -53,12 +52,10 @@ const port = desktopAddress ? Number(desktopAddress.split(':').pop()) : freePort
 Deno.env.set('NITRO_HOST', '127.0.0.1')
 Deno.env.set('NITRO_PORT', String(port))
 
-// DuckDB's native library is copied on first use, not at every start: core calls this hook before
-// importing `@duckdb/node-api` (`prepareDuckdb()` in core/registry.ts). It goes through globalThis
-// because the bundled server does not share module instances with the launcher.
-const server = fileURLToPath(new URL('../server/index.mjs', import.meta.url))
-let duckdbReady: Promise<void> | undefined
-Object.assign(globalThis, { dbmPrepareDuckdb: () => (duckdbReady ??= prepareDuckdbNative(server)) })
+// DuckDB's native addon is downloaded on demand (native.ts). `duckdb.json` only exists in packaged builds;
+// without it the addon comes from node_modules.
+const duckdb = await Deno.readTextFile(new URL('./duckdb.json', import.meta.url)).then(JSON.parse, () => undefined)
+if (duckdb) Object.assign(globalThis, duckdbGlobals(duckdb))
 // Dynamic import so the environment above is set before Nitro reads it.
 await import('../server/index.mjs')
 
