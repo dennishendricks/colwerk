@@ -20,6 +20,7 @@ deno task dev                  # dev server; prints the URL including the sessio
 | `deno task desktop` | Desktop app for the host system (see [Builds](#builds)) |
 | `deno task desktop --all-targets` | Desktop apps for all supported targets |
 | `deno task compile` | Self-hosted binary `dist/colwerk` that opens the default browser |
+| `deno task release` | Version bump, build of all targets, tag and draft GitHub release (see [Releases](#releases)) |
 | `deno task test` | Driver contract tests, API end-to-end test, SQL splitter tests |
 | `deno task typecheck` | `deno check` for core/launcher/scripts/tests and `nuxt typecheck` |
 
@@ -31,13 +32,19 @@ Tests against Postgres, MariaDB and MSSQL are skipped when the container is not 
 
 | OS | arm64 | x86_64 |
 |---|---|---|
-| macOS | `Colwerk.dmg` | `Colwerk-x64.dmg` |
-| Windows | – | `Colwerk.msi` |
-| Linux | `Colwerk.AppImage` | `Colwerk-x64.AppImage` |
+| macOS | `Colwerk-<version>-macos-arm64.dmg` | `Colwerk-<version>-macos-x64.dmg` |
+| Windows | – | `Colwerk-<version>-windows-x64.msi` |
+| Linux | `Colwerk-<version>-linux-arm64.AppImage` | `Colwerk-<version>-linux-x64.AppImage` |
+
+Next to each package, the unpacked app is written as `.zip` with the same name.
 
 Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native addon is not part of the packages; the app downloads it on first use (see below).
 
 `LICENSE` and `THIRD_PARTY_LICENSES.txt` are embedded in every build and also written to `dist/` for the release. The third-party list covers the Deno runtime and the npm packages that end up in the client and server bundles (recorded during `nuxt build` by a plugin in `nuxt.config.ts`) plus those Nitro copies to `.output/server/node_modules` (`scripts/licenses.ts`).
+
+## Releases
+
+`deno task release` asks for the release type (major, minor, patch) and bumps the version in `package.json`. It then empties `dist/`, builds all targets and writes `SHA256SUMS.txt`. After that it commits `package.json`, pushes it with the tag `v<version>` and creates a draft release on GitHub with all files from `dist/`. The update check in the app only sees the release once the draft is published. The script requires a clean `main` in sync with `origin/main` and a logged-in GitHub CLI (`gh`).
 
 ## Architecture
 

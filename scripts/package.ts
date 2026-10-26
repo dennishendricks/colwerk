@@ -3,7 +3,7 @@
 // Only `.output` is embedded: Nitro has traced the server dependencies into `.output/server/node_modules`,
 // and `.output/deno.json` makes Deno resolve npm packages from there (BYONM) instead of the project's
 // full node_modules.
-import { basename, dirname, resolve } from 'node:path'
+import { basename, dirname, extname, resolve } from 'node:path'
 import { writeThirdPartyLicenses } from './licenses.ts'
 
 const mode = Deno.args[0]
@@ -13,14 +13,14 @@ if (mode !== 'compile' && mode !== 'desktop') {
 }
 
 // `deno desktop --all-targets` itself writes every target to the host's `desktop.output` (Deno 2.9.8),
-// so the targets are built one by one with an explicit `--output`. The arm64 build of an OS takes the plain
-// `desktop.output` name, the x86_64 build gets the suffix next to it (e.g. `Colwerk-x64.dmg`).
-const TARGETS: Record<string, { os: 'macos' | 'windows' | 'linux', duckdb: string, suffix: string }> = {
-  'aarch64-apple-darwin': { os: 'macos', duckdb: 'darwin-arm64', suffix: '' },
-  'x86_64-apple-darwin': { os: 'macos', duckdb: 'darwin-x64', suffix: '-x64' },
-  'x86_64-pc-windows-msvc': { os: 'windows', duckdb: 'win32-x64', suffix: '' },
-  'aarch64-unknown-linux-gnu': { os: 'linux', duckdb: 'linux-arm64', suffix: '-arm64' },
-  'x86_64-unknown-linux-gnu': { os: 'linux', duckdb: 'linux-x64', suffix: '' },
+// so the targets are built one by one with an explicit `--output`. In `dist` each package is named
+// `<app>-<version>-<os>-<arch>` with the extension of its `desktop.output` (e.g. `Colwerk-0.1.0-macos-arm64.dmg`).
+const TARGETS: Record<string, { os: 'macos' | 'windows' | 'linux', duckdb: string, arch: string }> = {
+  'aarch64-apple-darwin': { os: 'macos', duckdb: 'darwin-arm64', arch: 'arm64' },
+  'x86_64-apple-darwin': { os: 'macos', duckdb: 'darwin-x64', arch: 'x64' },
+  'x86_64-pc-windows-msvc': { os: 'windows', duckdb: 'win32-x64', arch: 'x64' },
+  'aarch64-unknown-linux-gnu': { os: 'linux', duckdb: 'linux-arm64', arch: 'arm64' },
+  'x86_64-unknown-linux-gnu': { os: 'linux', duckdb: 'linux-x64', arch: 'x64' },
 }
 const allTargets = mode === 'desktop' && Deno.args.includes('--all-targets')
 const keepOutput = mode === 'desktop' && Deno.args.includes('--keep-output')
@@ -51,6 +51,7 @@ for (const file of ['data-dir.ts', 'keychain.ts', 'mcp-token.ts']) {
 // `desktop.app` and `desktop.output` come from the project's deno.json. Paths are made absolute, otherwise
 // they would resolve relative to `.output/deno.json`.
 const { desktop } = JSON.parse(await Deno.readTextFile('deno.json'))
+const appVersion = JSON.parse(await Deno.readTextFile('package.json')).version
 const absolute = (paths: Record<string, string>) => Object.fromEntries(Object.entries(paths).map(([os, path]) => [os, resolve(path)]))
 await Deno.writeTextFile(
   '.output/deno.json',
@@ -97,12 +98,12 @@ async function writeDuckdbManifest(platform: string) {
 }
 
 for (const target of targets) {
-  const { os, duckdb, suffix } = TARGETS[target]!
+  const { os, duckdb, arch } = TARGETS[target]!
   await writeDuckdbManifest(duckdb)
 
   // `deno desktop` leaves the unpacked app (e.g. `Colwerk.app`) next to the package and makes the .dmg from
   // the whole output directory, so it builds into an empty staging directory. The package goes to `dist`,
-  // the unpacked app next to it as `colwerk-<os><suffix>.zip`.
+  // the unpacked app next to it with the same name as `.zip`.
   const buildDir = resolve('.output/desktop', target)
   if (mode === 'desktop') await Deno.remove(buildDir, { recursive: true }).catch(() => {})
   const output = mode === 'desktop' ? `${buildDir}/${basename(desktop.output[os])}` : `dist/colwerk${os === 'windows' ? '.exe' : ''}`
@@ -142,11 +143,12 @@ for (const target of targets) {
     '.output/launcher/main.ts',
   ])
   if (mode === 'desktop') {
-    const dist = resolve(desktop.output[os]).replace(/(\.\w+)$/, `${suffix}$1`)
+    const name = `${desktop.app.name}-${appVersion}-${os}-${arch}`
+    const dist = resolve(dirname(desktop.output[os]), `${name}${extname(desktop.output[os])}`)
     await Deno.mkdir(dirname(dist), { recursive: true })
     await Deno.rename(output, dist)
 
-    const zip = resolve(dirname(dist), `colwerk-${os}${suffix}.zip`)
+    const zip = resolve(dirname(dist), `${name}.zip`)
     await Deno.remove(zip).catch(() => {})
     const files = [...Deno.readDirSync(buildDir)].map(entry => entry.name)
     // `-y` keeps the symlinks inside a macOS .app (its signature covers them); Windows only has bsdtar.
