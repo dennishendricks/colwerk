@@ -23,12 +23,12 @@ export function createExporter(format: ExportFormat, write: Write): Exporter {
 }
 
 // ---------------------------------------------------------------------------------------------
-// CSV (RFC 4180), see `csvField`.
+// CSV (RFC 4180) with `;` as separator and a UTF-8 BOM, see `csvField`.
 
 function csvExporter(write: Write): Exporter {
   const encoder = new TextEncoder()
   let header: string | undefined
-  const line = (fields: CellValue[]) => `${fields.map(csvField).join(',')}\r\n`
+  const line = (fields: CellValue[]) => `${fields.map(csvField).join(';')}\r\n`
   const takeHeader = () => {
     const h = header ?? ''
     header = ''
@@ -36,7 +36,7 @@ function csvExporter(write: Write): Exporter {
   }
   return {
     columns: (columns) => {
-      header = line(columns.map(c => c.name))
+      header = `\uFEFF${line(columns.map(c => c.name))}`
     },
     rows: rows => write(encoder.encode(takeHeader() + rows.map(line).join(''))),
     finish: async () => {

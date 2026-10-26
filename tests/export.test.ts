@@ -34,10 +34,10 @@ async function encode(format: ExportFormat): Promise<Uint8Array> {
 }
 
 Deno.test('export: csv quotes fields and distinguishes NULL from empty string', async () => {
-  assertEquals(new TextDecoder().decode(await encode('csv')), [
-    'id,dec,ts,text,json,odd',
-    '1,12.50,2024-01-02T03:04:05.123456,"a,""b""\nc","{""k"":[1]}",7',
-    '2,,,"",,x',
+  assertEquals(new TextDecoder('utf-8', { ignoreBOM: true }).decode(await encode('csv')), [
+    '\uFEFF"id";"dec";"ts";"text";"json";"odd"',
+    '"1";"12.50";"2024-01-02T03:04:05.123456";"a,""b""\nc";"{""k"":[1]}";"7"',
+    '"2";;;"";;"x"',
     '',
   ].join('\r\n'))
 })

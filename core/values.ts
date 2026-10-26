@@ -44,9 +44,7 @@ export function normalizeValue(value: unknown): CellValue {
 
 export const cellText = (v: CellValue) => typeof v === 'object' ? JSON.stringify(v) : String(v)
 
-/** CSV field (RFC 4180): NULL is an empty field, an empty string is `""`. */
+/** CSV field (RFC 4180, `;`-separated): every value is quoted, NULL is an empty field. */
 export function csvField(v: CellValue): string {
-  if (v === null) return ''
-  const s = cellText(v)
-  return s === '' || /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s
+  return v === null ? '' : `"${cellText(v).replaceAll('"', '""')}"`
 }

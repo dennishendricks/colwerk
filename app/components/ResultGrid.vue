@@ -145,7 +145,7 @@ async function onRowContextmenu(e: Event, row: TableRow<Row>) {
   if (id === 'json') {
     await navigator.clipboard.writeText(JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2))
   } else if (id === 'csv') {
-    await navigator.clipboard.writeText([columns.map(c => c.name), cells].map(fields => fields.map(csvField).join(',')).join('\r\n'))
+    await navigator.clipboard.writeText([columns.map(c => c.name), cells].map(fields => fields.map(csvField).join(';')).join('\r\n'))
   }
 }
 

@@ -119,9 +119,9 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
         call('/api/tabs/t1/export', { method: 'POST', body: JSON.stringify({ path: `${dir}/${name}`, ...body }) })
       // Full result in the tab's session (sees its temp table), without row limit.
       await json(await exportTo('full.csv', { format: 'csv', connectionId: saved.id, sql: 'select o.id, x.a from sales.orders o cross join x' }))
-      const lines = (await Deno.readTextFile(`${dir}/full.csv`)).trimEnd().split('\r\n')
+      const lines = new TextDecoder('utf-8', { ignoreBOM: true }).decode(await Deno.readFile(`${dir}/full.csv`)).trimEnd().split('\r\n')
       assertEquals(lines.length, 50_001)
-      assertEquals(lines[0], 'id,a')
+      assertEquals(lines[0], '\uFEFF"id";"a"')
 
       await json(await exportTo('shown.parquet', { format: 'parquet', columns: [{ name: 'n', type: 'integer' }], rows: [[1], [2]] }))
       const parquet = await Deno.readFile(`${dir}/shown.parquet`)
