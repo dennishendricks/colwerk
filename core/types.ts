@@ -82,6 +82,13 @@ export interface TableInfo {
   schema: string
   name: string
   kind: 'table' | 'view'
+  /** Row count from the catalog statistics; null for views or when the statistics are missing. */
+  rowEstimate: number | null
+  comment: string | null
+  /** Partitioning definition (e.g. `RANGE (placed_at)`), null if not partitioned. */
+  partitioning: string | null
+  /** Index the rows are physically ordered by, null if none. */
+  clustering: string | null
 }
 
 export interface ColumnInfo {
@@ -93,6 +100,7 @@ export interface ColumnInfo {
   references?: { schema: string, table: string, column: string }
   /** Names of indexes the column participates in (excluding the primary key). */
   indexes: string[]
+  comment: string | null
 }
 
 export type IntrospectRequest =

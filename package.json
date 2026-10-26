@@ -13,6 +13,7 @@
     "@iconify-json/lucide": "^1.2.147",
     "@lezer/highlight": "^1.2.5",
     "@nuxt/ui": "^4.12.0",
+    "@nuxtjs/mcp-toolkit": "^0.24.2",
     "mssql": "^12.7.10",
     "mysql2": "^3.24.6",
     "nuxt": "^4.6.2",
@@ -22,7 +23,8 @@
     "sql-formatter": "^15.9.0",
     "tailwindcss": "^4.3.3",
     "vue": "^3.5.44",
-    "vue-router": "^5.4.0"
+    "vue-router": "^5.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",

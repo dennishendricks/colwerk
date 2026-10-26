@@ -12,17 +12,33 @@ const editing = ref<ConnectionSummary>()
 
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value))
 
+let listening = false
+
 async function init() {
   loadError.value = undefined
   try {
     await load()
     if (!tabs.value.length) addTab(activeConnectionId.value)
+    if (!listening) {
+      listening = true
+      subscribe('/api/events', onServerEvent)
+    }
   } catch (e) {
     loadError.value = errorMessage(e)
   }
 }
 
 watch(sessionToken, init, { immediate: true })
+
+// Queries prepared by an MCP client (tool open-query) open in a new tab, without running.
+function onServerEvent(type: string, data: string) {
+  if (type !== 'open-query') return
+  const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string, sql: string, title?: string }
+  activeConnectionId.value = connectionId
+  const tab = addTab(connectionId)
+  tab.sql = sql
+  if (title) tab.title = title
+}
 
 // A tab without connection picks up the connection selected (or created) in the sidebar.
 watch(activeConnectionId, (id) => {

@@ -18,14 +18,14 @@ const SQL = {
     where database_name = current_database() and schema_name not in ('information_schema', 'pg_catalog')
     order by 1`,
   tables: `
-    select table_name as name, 'table' as kind from duckdb_tables()
+    select table_name as name, 'table' as kind, estimated_size as row_estimate, comment from duckdb_tables()
       where database_name = current_database() and schema_name = $1
     union all
-    select view_name, 'view' from duckdb_views()
+    select view_name, 'view', null, comment from duckdb_views()
       where database_name = current_database() and schema_name = $1 and not internal
     order by 1`,
   columns: `
-    select column_name as name, data_type as type, is_nullable as nullable from duckdb_columns()
+    select column_name as name, data_type as type, is_nullable as nullable, comment from duckdb_columns()
     where database_name = current_database() and schema_name = $1 and table_name = $2
     order by column_index`,
   constraints: `
@@ -97,12 +97,18 @@ class DuckDBSession implements Session {
     try {
       if (req.kind === 'schemas') return await this.rows<SchemaInfo>(SQL.schemas) as IntrospectResult<R>
       if (req.kind === 'tables') {
-        const tables = await this.rows<{ name: string, kind: TableInfo['kind'] }>(SQL.tables, [req.schema])
-        return tables.map(t => ({ schema: req.schema, ...t })) as IntrospectResult<R>
+        const tables = await this.rows<{ name: string, kind: TableInfo['kind'], row_estimate: bigint | null, comment: string | null }>(SQL.tables, [req.schema])
+        return tables.map(({ row_estimate, ...t }): TableInfo => ({
+          schema: req.schema,
+          ...t,
+          rowEstimate: row_estimate === null ? null : Number(row_estimate),
+          partitioning: null,
+          clustering: null,
+        })) as IntrospectResult<R>
       }
       const params = [req.schema, req.table]
       const [columns, constraints, indexes] = await Promise.all([
-        this.rows<{ name: string, type: string, nullable: boolean }>(SQL.columns, params),
+        this.rows<{ name: string, type: string, nullable: boolean, comment: string | null }>(SQL.columns, params),
         this.rows<{ type: string, name: string, cols: string[], ref_table: string | null, ref_cols: string[] }>(SQL.constraints, params),
         this.rows<{ name: string, expressions: string }>(SQL.indexes, params),
       ])

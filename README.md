@@ -50,9 +50,9 @@ core/      runtime-agnostic TypeScript, no Nuxt or Deno dependencies (node: buil
   sql-split.ts    statement splitter, read-only statement detection
   store.ts        connection store, passwords encrypted with AES-256-GCM
   keychain.ts     encryption key in the OS keychain
-server/    thin Nitro layer: security middleware, routes under /api/*, no database logic
+server/    thin Nitro layer: security middleware, routes under /api/*, MCP tools under mcp/tools, no database logic
 app/       Nuxt UI frontend, talks to /api/* only
-launcher/  entry point for deno desktop / deno compile (token, port, window/browser)
+launcher/  entry point for deno desktop / deno compile (token, port, window/browser), MCP stdio bridge
 scripts/   dev server, packaging, DuckDB smoke test
 ```
 
@@ -77,9 +77,33 @@ scripts/   dev server, packaging, DuckDB smoke test
 ## Security
 
 - The server binds to `127.0.0.1` on a random port.
-- Each start generates a random 256-bit token. Every `/api/*` request must send it as `x-dbm-token`; the comparison is constant-time. The dev server and the self-hosted binary pass it in the URL fragment (never logged), the desktop app via a window binding.
+- Each start generates a random 256-bit token. Every `/api/*` request must send it as `x-dbm-token`; the comparison is constant-time. `/mcp` requires the MCP token instead (see [MCP server](#mcp-server)). The dev server and the self-hosted binary pass it in the URL fragment (never logged), the desktop app via a window binding.
 - The middleware rejects requests with a foreign `Host` (DNS rebinding) or `Origin` (cross-site requests) with 403.
 - File dialogs always open on the local machine; export paths are only accepted with a valid token.
+
+## MCP server
+
+Colwerk serves an MCP endpoint (Streamable HTTP, built with [@nuxtjs/mcp-toolkit](https://mcp-toolkit.nuxt.dev)) at `/mcp` on the app's port. Clients that start a command use the stdio bridge, which finds the running app on its own:
+
+```json
+{ "mcpServers": { "colwerk": { "command": "/Applications/Colwerk.app/Contents/MacOS/laufey_webview", "args": ["mcp"] } } }
+```
+
+With `dist/colwerk` (self-hosted binary) the command is `colwerk mcp`, in development `deno run -A launcher/main.ts mcp`. The bridge forwards each JSON-RPC message from stdin to `/mcp` and writes the replies to stdout. It reads the port from `instance.json` in the data directory, which the launcher writes on start and removes on exit, and answers with an error while the app is not running.
+
+MCP clients authenticate with their own token, separate from the UI's session token: `Authorization: Bearer <token>`. It is created on first start and kept, stored like the encryption key in the OS keychain (account suffix `-mcp`), otherwise in `mcp-token` (mode 0600) next to the data. `COLWERK_MCP_TOKEN` overrides it. HTTP clients can use the endpoint directly with this token; the port changes on every start.
+
+| Tool | Purpose |
+|---|---|
+| `list-connections` | Connections with `connectionId`, dialect, databases, reachability, read-only flag. Call first. |
+| `list-schemas` | Schemas with the number of tables and views |
+| `list-tables` | Tables and views with estimated row count and comment |
+| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), partitioning, clustering |
+| `sample-rows` | Up to 50 rows as JSON objects |
+| `run-query` | One `SELECT`/`WITH` statement, up to 1000 rows, 30 s timeout |
+| `open-query` | Opens SQL in a new editor tab without running it (via server-sent events at `/api/events`) |
+
+All tools except `open-query` only read. `run-query` and `sample-rows` accept a single `SELECT`/`WITH` statement (text check) and run it in a session of their own inside a transaction that is never committed and is rolled back on close (Postgres and MySQL: `READ ONLY`; SQL Server: implicit transactions; DuckDB: `BEGIN`). A procedure that commits on its own on SQL Server is not covered by this.
 
 ## Connections and credentials
 

@@ -42,9 +42,19 @@ const SQL = {
     where name not in ('sys', 'INFORMATION_SCHEMA', 'guest') and schema_id < 16384
     order by name`,
   tables: `
-    select name, case type when 'V' then 'view' else 'table' end as kind
-    from sys.objects where schema_id = schema_id(@schema) and type in ('U', 'V')
-    order by name`,
+    select o.name, case o.type when 'V' then 'view' else 'table' end as kind,
+      (select sum(p.rows) from sys.partitions p
+        where p.object_id = o.object_id and p.index_id in (0, 1) and o.type = 'U') as row_estimate,
+      (select cast(e.value as nvarchar(max)) from sys.extended_properties e
+        where e.class = 1 and e.major_id = o.object_id and e.minor_id = 0 and e.name = 'MS_Description') as comment,
+      (select top 1 ps.name + ' (' + pc.name + ')' from sys.indexes i
+         join sys.partition_schemes ps on ps.data_space_id = i.data_space_id
+         join sys.index_columns ic on ic.object_id = i.object_id and ic.index_id = i.index_id and ic.partition_ordinal > 0
+         join sys.columns pc on pc.object_id = ic.object_id and pc.column_id = ic.column_id
+        where i.object_id = o.object_id and i.index_id in (0, 1)) as partitioning,
+      (select i.name from sys.indexes i where i.object_id = o.object_id and i.type = 1) as clustering
+    from sys.objects o where o.schema_id = schema_id(@schema) and o.type in ('U', 'V')
+    order by o.name`,
   columns: `
     select c.name,
       type_name(c.user_type_id) + case
@@ -58,7 +68,9 @@ const SQL = {
       c.is_nullable as nullable,
       cast(case when pk.column_id is null then 0 else 1 end as bit) as pk,
       fk.ref_schema, fk.ref_table, fk.ref_column,
-      ix.idx
+      ix.idx,
+      (select cast(e.value as nvarchar(max)) from sys.extended_properties e
+        where e.class = 1 and e.major_id = c.object_id and e.minor_id = c.column_id and e.name = 'MS_Description') as comment
     from sys.columns c
     outer apply (
       select top 1 ic.column_id from sys.index_columns ic
@@ -221,8 +233,13 @@ class MssqlSession implements Session {
       if (req.kind === 'schemas') return [...(await request.query<SchemaInfo>(SQL.schemas)).recordset] as IntrospectResult<R>
       request.input('schema', sql.NVarChar, req.schema)
       if (req.kind === 'tables') {
-        const { recordset } = await request.query<{ name: string, kind: TableInfo['kind'] }>(SQL.tables)
-        return recordset.map(r => ({ schema: req.schema, ...r })) as IntrospectResult<R>
+        // sum() of bigint arrives as string.
+        const { recordset } = await request.query<Omit<TableInfo, 'schema' | 'rowEstimate'> & { row_estimate: string | null }>(SQL.tables)
+        return recordset.map(({ row_estimate, ...r }): TableInfo => ({
+          schema: req.schema,
+          ...r,
+          rowEstimate: row_estimate === null ? null : Number(row_estimate),
+        })) as IntrospectResult<R>
       }
       request.input('table', sql.NVarChar, req.table)
       const { recordset } = await request.query(SQL.columns)
@@ -233,6 +250,7 @@ class MssqlSession implements Session {
         primaryKey: r.pk,
         references: r.ref_table ? { schema: r.ref_schema, table: r.ref_table, column: r.ref_column } : undefined,
         indexes: r.idx ? String(r.idx).split('\n') : [],
+        comment: r.comment,
       })) as IntrospectResult<R>
     } catch (e) {
       throw wrap(e)

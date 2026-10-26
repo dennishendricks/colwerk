@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1'
-import { isReadOnlyStatement, type SplitDialect, splitStatements, statementAt } from '../core/sql-split.ts'
+import { isReadOnlyStatement, isSelectStatement, type SplitDialect, splitStatements, statementAt } from '../core/sql-split.ts'
 
 const texts = (sql: string, d: SplitDialect) => splitStatements(sql, d).map(r => sql.slice(r.from, r.to))
 
@@ -74,4 +74,13 @@ Deno.test('read-only statements', () => {
   for (const sql of yes) assertEquals(isReadOnlyStatement(sql, 'postgres'), true, sql)
   for (const sql of no) assertEquals(isReadOnlyStatement(sql, 'postgres'), false, sql)
   assertEquals(isReadOnlyStatement('select [delete] from t', 'mssql'), true)
+})
+
+Deno.test('select statement detection', () => {
+  for (const sql of ['select 1', '  -- note\nselect 1;', '(select 1) union (select 2)', 'with a as (select 1) select * from a']) {
+    assertEquals(isSelectStatement(sql, 'postgres'), true, sql)
+  }
+  for (const sql of ['show tables', 'explain select 1', 'values (1)', 'select 1; select 2', 'with d as (delete from t returning *) select * from d']) {
+    assertEquals(isSelectStatement(sql, 'postgres'), false, sql)
+  }
 })

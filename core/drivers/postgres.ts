@@ -51,7 +51,13 @@ const SQL = {
     where nspname not like 'pg\\_%' and nspname <> 'information_schema'
     order by nspname`,
   tables: `
-    select c.relname as name, case when c.relkind in ('v', 'm') then 'view' else 'table' end as kind
+    select c.relname as name, case when c.relkind in ('v', 'm') then 'view' else 'table' end as kind,
+      -- reltuples is -1 until the first ANALYZE; partitioned parents have no rows of their own.
+      case when c.relkind in ('r', 'm') and c.reltuples >= 0 then c.reltuples::float8 end as "rowEstimate",
+      obj_description(c.oid, 'pg_class') as comment,
+      case when c.relkind = 'p' then pg_get_partkeydef(c.oid) end as partitioning,
+      (select ic.relname from pg_index i join pg_class ic on ic.oid = i.indexrelid
+        where i.indrelid = c.oid and i.indisclustered) as clustering
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = $1 and c.relkind in ('r', 'p', 'v', 'm', 'f')
     order by c.relname`,
@@ -72,7 +78,8 @@ const SQL = {
       coalesce((select array_agg(ic.relname::text order by ic.relname)
                   from pg_index i join pg_class ic on ic.oid = i.indexrelid
                  where i.indrelid = c.oid and not i.indisprimary
-                   and a.attnum = any (i.indkey::int2[])), '{}') as indexes
+                   and a.attnum = any (i.indkey::int2[])), '{}') as indexes,
+      col_description(c.oid, a.attnum) as comment
     from pg_attribute a
     join pg_class c on c.oid = a.attrelid
     join pg_namespace n on n.oid = c.relnamespace
@@ -178,7 +185,7 @@ class PostgresSession implements Session {
         return (await this.client.query(SQL.schemas)).rows as IntrospectResult<R>
       }
       if (req.kind === 'tables') {
-        const res = await this.client.query<{ name: string, kind: TableInfo['kind'] }>(SQL.tables, [req.schema])
+        const res = await this.client.query<Omit<TableInfo, 'schema'>>(SQL.tables, [req.schema])
         return res.rows.map(r => ({ schema: req.schema, ...r })) as IntrospectResult<R>
       }
       const res = await this.client.query(SQL.columns, [req.schema, req.table])
@@ -189,6 +196,7 @@ class PostgresSession implements Session {
         primaryKey: r.pk,
         references: r.ref ?? undefined,
         indexes: r.indexes,
+        comment: r.comment,
       })) as IntrospectResult<R>
     } catch (e) {
       throw wrap(e)

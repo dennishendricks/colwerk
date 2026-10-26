@@ -69,8 +69,14 @@ const SQL = {
       and schema_name not in ('information_schema', 'mysql', 'performance_schema', 'sys')
     order by schema_name`,
   tables: `
-    select table_name as name, if(table_type = 'VIEW', 'view', 'table') as kind
-    from information_schema.tables where table_schema = ? order by table_name`,
+    select t.table_name as name, if(t.table_type = 'VIEW', 'view', 'table') as kind,
+      if(t.table_type = 'VIEW', null, t.table_rows) as row_estimate,
+      -- Views carry the comment 'VIEW'.
+      nullif(if(t.table_type = 'VIEW', '', t.table_comment), '') as comment,
+      (select concat(p.partition_method, ' (', p.partition_expression, ')') from information_schema.partitions p
+        where p.table_schema = t.table_schema and p.table_name = t.table_name and p.partition_method is not null
+        limit 1) as partitioning
+    from information_schema.tables t where t.table_schema = ? order by t.table_name`,
   columns: `
     select c.column_name as name, c.column_type as type, c.is_nullable = 'YES' as nullable,
       c.column_key = 'PRI' as pk,
@@ -78,7 +84,8 @@ const SQL = {
       (select group_concat(distinct s.index_name order by s.index_name separator '\\n')
          from information_schema.statistics s
         where s.table_schema = c.table_schema and s.table_name = c.table_name
-          and s.column_name = c.column_name and s.index_name <> 'PRIMARY') as idx
+          and s.column_name = c.column_name and s.index_name <> 'PRIMARY') as idx,
+      nullif(c.column_comment, '') as comment
     from information_schema.columns c
     left join information_schema.key_column_usage k
       on k.table_schema = c.table_schema and k.table_name = c.table_name
@@ -214,7 +221,13 @@ class MysqlSession implements Session {
       if (req.kind === 'schemas') return (await db.query(SQL.schemas))[0] as IntrospectResult<R>
       if (req.kind === 'tables') {
         const [rows] = await db.query(SQL.tables, [req.schema])
-        return (rows as { name: string, kind: TableInfo['kind'] }[]).map(r => ({ schema: req.schema, ...r })) as IntrospectResult<R>
+        type Row = Pick<TableInfo, 'name' | 'kind' | 'comment' | 'partitioning'> & { row_estimate: string | number | null }
+        return (rows as Row[]).map(({ row_estimate, ...r }): TableInfo => ({
+          schema: req.schema,
+          ...r,
+          rowEstimate: row_estimate === null ? null : Number(row_estimate),
+          clustering: null,
+        })) as IntrospectResult<R>
       }
       const [rows] = await db.query(SQL.columns, [req.schema, req.table])
       const seen = new Set<string>()
@@ -230,6 +243,7 @@ class MysqlSession implements Session {
             ? { schema: r.ref_schema as string, table: r.ref_table as string, column: r.ref_column as string }
             : undefined,
           indexes: r.idx ? String(r.idx).split('\n') : [],
+          comment: r.comment as string | null,
         })) as IntrospectResult<R>
     } catch (e) {
       throw wrap(e)

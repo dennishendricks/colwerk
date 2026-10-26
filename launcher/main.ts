@@ -2,9 +2,11 @@
 // directory to `.output/launcher/`, next to the Nitro server it starts.
 //
 // Starts Nitro on 127.0.0.1 with a fresh session token, then opens the UI in the desktop window
-// or, for the self-hosted binary, in the default browser.
+// or, for the self-hosted binary, in the default browser. With the argument `mcp` it runs the stdio
+// bridge for MCP clients instead (see mcp-bridge.ts).
 import { fileURLToPath } from 'node:url'
-import { appUrl, createToken, freePort } from './common.ts'
+import { mcpToken } from '../core/mcp-token.ts'
+import { appUrl, createToken, freePort, onExit, removeInstance, writeInstance } from './common.ts'
 import { prepareDuckdbNative } from './native.ts'
 
 // Only available inside `deno desktop` binaries; not part of the default type libraries.
@@ -15,6 +17,11 @@ type BrowserWindowCtor = new (options: { title?: string, width?: number, height?
   addEventListener(type: 'contextmenuclick', listener: (e: CustomEvent<{ id: string }>) => void): void
 }
 const BrowserWindow = (Deno as unknown as { BrowserWindow?: BrowserWindowCtor }).BrowserWindow
+
+if (Deno.args[0] === 'mcp') {
+  await (await import('./mcp-bridge.ts')).runBridge()
+  Deno.exit(0)
+}
 
 const token = createToken()
 Deno.env.set('DBM_TOKEN', token)
@@ -54,6 +61,14 @@ let duckdbReady: Promise<void> | undefined
 Object.assign(globalThis, { dbmPrepareDuckdb: () => (duckdbReady ??= prepareDuckdbNative(server)) })
 // Dynamic import so the environment above is set before Nitro reads it.
 await import('../server/index.mjs')
+
+// The MCP endpoint answers 401 until the token is read; the middleware reads the variable per request.
+mcpToken({ create: true }).then(
+  t => Deno.env.set('COLWERK_MCP_TOKEN', t!),
+  e => console.error(`MCP not available: ${(e as Error).message}`),
+)
+writeInstance(port)
+onExit(() => removeInstance(port))
 
 if (!BrowserWindow) {
   const url = appUrl(port, token)

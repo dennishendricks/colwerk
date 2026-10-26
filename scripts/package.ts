@@ -39,8 +39,13 @@ function run(args: string[]) {
 await run(['run', '-A', 'npm:nuxt', 'build'])
 
 await Deno.mkdir('.output/launcher', { recursive: true })
-for (const file of ['main.ts', 'common.ts', 'native.ts']) {
+for (const file of ['main.ts', 'common.ts', 'native.ts', 'mcp-bridge.ts']) {
   await Deno.copyFile(`launcher/${file}`, `.output/launcher/${file}`)
+}
+// Imported by the launcher outside the server bundle; same relative paths as in the source tree.
+await Deno.mkdir('.output/core', { recursive: true })
+for (const file of ['data-dir.ts', 'keychain.ts', 'mcp-token.ts']) {
+  await Deno.copyFile(`core/${file}`, `.output/core/${file}`)
 }
 // `desktop.app` and `desktop.output` come from the project's deno.json. Paths are made absolute, otherwise
 // they would resolve relative to `.output/deno.json`.

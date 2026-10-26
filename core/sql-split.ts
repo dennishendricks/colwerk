@@ -141,6 +141,7 @@ export function statementTexts(sql: string, dialect: SplitDialect, options?: Spl
 }
 
 const READ_START = /^\(*\s*(select|with|values|table|show|describe|desc|explain|from)\b/
+const SELECT_START = /^\(*\s*(select|with)\b/
 // Writes (also inside a CTE), `select … into`, `explain analyze` (executes the statement), procedures.
 const SIDE_EFFECT = /\b(insert|update|delete|merge|into|analyze|call|exec|execute)\b/
 
@@ -149,8 +150,17 @@ const SIDE_EFFECT = /\b(insert|update|delete|merge|into|analyze|call|exec|execut
  * A heuristic on the SQL text: functions with side effects (e.g. `nextval`) are not detected.
  */
 export function isReadOnlyStatement(sql: string, dialect: SplitDialect): boolean {
+  return readOnlyCode(sql, dialect, READ_START)
+}
+
+/** Like `isReadOnlyStatement`, but only a SELECT or WITH query. */
+export function isSelectStatement(sql: string, dialect: SplitDialect): boolean {
+  return readOnlyCode(sql, dialect, SELECT_START)
+}
+
+function readOnlyCode(sql: string, dialect: SplitDialect, start: RegExp): boolean {
   const ranges = splitStatements(sql, dialect)
   if (ranges.length !== 1) return false
   const code = maskLiterals(sql.slice(ranges[0]!.from, ranges[0]!.to), dialect).trim().toLowerCase()
-  return READ_START.test(code) && !SIDE_EFFECT.test(code)
+  return start.test(code) && !SIDE_EFFECT.test(code)
 }

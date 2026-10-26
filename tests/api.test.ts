@@ -19,11 +19,12 @@ async function rawStatus(port: number, host: string, token: string): Promise<num
 Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeResources: false, sanitizeOps: false }, async (t) => {
   const port = freePort()
   const token = 'a'.repeat(64)
+  const mcpToken = 'c'.repeat(64)
   const dataDir = await Deno.makeTempDir()
   const server = new Deno.Command(Deno.execPath(), {
     args: ['run', '-A', '--config', '.output/deno.json', '--node-modules-dir=manual', '.output/server/index.mjs'],
     // Without keychain: no entries in the developer's keychain, and the key file can be checked.
-    env: { DBM_TOKEN: token, NITRO_HOST: '127.0.0.1', NITRO_PORT: String(port), DBM_DATA_DIR: dataDir, DBM_KEYCHAIN: 'off' },
+    env: { DBM_TOKEN: token, COLWERK_MCP_TOKEN: mcpToken, NITRO_HOST: '127.0.0.1', NITRO_PORT: String(port), DBM_DATA_DIR: dataDir, DBM_KEYCHAIN: 'off' },
     stdout: 'null',
     stderr: 'null',
   }).spawn()
@@ -155,6 +156,42 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       assertEquals([...Deno.readDirSync(dir)].map(e => e.name).sort(), ['big.parquet', 'full.csv', 'shown.parquet'])
       assertEquals((await json(await call('/api/tabs/t1/execute', { method: 'POST', body: JSON.stringify({ connectionId: saved.id, sql: 'select 1 as x' }) }))).resultSets[0].rows, [[1]])
       await Deno.remove(dir, { recursive: true })
+    })
+
+    await t.step('mcp: requires the MCP token, reads, refuses writes, opens queries in the editor', async () => {
+      let id = 0
+      const mcp = async (method: string, params: object, headers: Record<string, string> = { authorization: `Bearer ${mcpToken}` }) => {
+        const res = await call('/mcp', { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method, params }) }, { accept: 'application/json, text/event-stream', ...headers })
+        return { status: res.status, body: res.ok ? await res.json() : await res.body?.cancel() }
+      }
+      const tool = async (name: string, args: object) => {
+        const { result } = (await mcp('tools/call', { name, arguments: args })).body
+        return { error: result.isError === true, text: result.content[0].text as string }
+      }
+      // The MCP token only: neither none nor the UI's session token is enough.
+      assertEquals((await mcp('tools/list', {}, {})).status, 401)
+      assertEquals((await mcp('tools/list', {}, { 'x-dbm-token': token, authorization: `Bearer ${token}` })).status, 401)
+      const { tools } = (await mcp('tools/list', {})).body.result
+      assertEquals(tools.map((x: { name: string }) => x.name).sort(), ['describe-table', 'list-connections', 'list-schemas', 'list-tables', 'open-query', 'run-query', 'sample-rows'])
+
+      const { connections } = JSON.parse((await tool('list-connections', {})).text)
+      assertEquals(connections[0].connectionId, saved.id)
+      assertEquals(connections[0].status, 'connected')
+      const result = JSON.parse((await tool('run-query', { connectionId: saved.id, sql: 'select id from sales.orders order by id', limit: 2 })).text)
+      assertEquals(result.rows, [['1'], ['2']])
+      assertEquals(result.truncated, true)
+      // Refused by the text check, and by the read-only transaction where the text check cannot tell.
+      for (const sql of ['delete from sales.orders', `select nextval('sales.orders_id_seq')`]) {
+        assertEquals((await tool('run-query', { connectionId: saved.id, sql })).error, true, sql)
+      }
+
+      assertStringIncludes((await tool('open-query', { connectionId: saved.id, sql: 'select 1' })).text, 'No Colwerk editor window')
+      const events = await call('/api/events')
+      const reader = events.body!.pipeThrough(new TextDecoderStream()).getReader()
+      assertEquals((await tool('open-query', { connectionId: saved.id, sql: 'select 1', description: 'Why' })).error, false)
+      await reader.read() // ': connected'
+      assertStringIncludes((await reader.read()).value!, '"sql":"-- Why\\nselect 1"')
+      await reader.cancel()
     })
 
     await t.step('cancel aborts a running statement', async () => {

@@ -30,3 +30,29 @@ export function errorMessage(e: unknown): string {
   const err = e as { data?: { message?: string }, message?: string }
   return err.data?.message ?? err.message ?? String(e)
 }
+
+/**
+ * Reads the server-sent events at `url` and calls `onEvent` for each; reconnects when the stream ends
+ * or fails. `fetch` instead of `EventSource`, which cannot send the token header.
+ */
+export async function subscribe(url: string, onEvent: (event: string, data: string) => void): Promise<never> {
+  for (;;) {
+    try {
+      const res = await fetch(url, { headers: { 'x-dbm-token': sessionToken.value ?? await desktopToken ?? '' } })
+      const reader = res.ok ? res.body?.pipeThrough(new TextDecoderStream()).getReader() : undefined
+      let buffer = ''
+      for (let chunk = await reader?.read(); chunk && !chunk.done; chunk = await reader!.read()) {
+        buffer += chunk.value
+        const blocks = buffer.split('\n\n')
+        buffer = blocks.pop()!
+        for (const block of blocks) {
+          const field = (name: string) => block.split('\n').filter(l => l.startsWith(`${name}:`)).map(l => l.slice(name.length + 1).trimStart()).join('\n')
+          onEvent(field('event'), field('data'))
+        }
+      }
+    } catch {
+      // Server restarted or connection dropped: try again below.
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000))
+  }
+}

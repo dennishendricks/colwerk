@@ -25,6 +25,8 @@ interface Case {
   insertSeven: string
   /** Two statements, the second returns column `b`. */
   multi: string
+  /** Idempotent: comment 'Orders' on `orders`, 'Order total' on `orders.total`, fresh statistics. */
+  annotate: string[]
 }
 
 const cases: Case[] = [
@@ -39,6 +41,7 @@ const cases: Case[] = [
     createTemp: 'create temp table t (x int)',
     insertSeven: 'insert into t select generate_series(1, 7)',
     multi: 'select 1 as a; select 2 as b',
+    annotate: [`comment on table sales.orders is 'Orders'`, `comment on column sales.orders.total is 'Order total'`, 'analyze sales.orders'],
   },
   {
     config: testConnections.mysql,
@@ -51,6 +54,7 @@ const cases: Case[] = [
     createTemp: 'create temporary table t (x int)',
     insertSeven: 'insert into t select seq from seq_1_to_7',
     multi: 'select 1 as a; select 2 as b',
+    annotate: [`alter table orders comment = 'Orders'`, `alter table orders modify total decimal(12, 2) not null comment 'Order total'`, 'analyze table orders'],
   },
   {
     config: testConnections.mssql,
@@ -63,6 +67,12 @@ const cases: Case[] = [
     createTemp: 'create table #t (x int)',
     insertSeven: 'insert into #t select value from generate_series(1, 7)',
     multi: 'select 1 as a; select 2 as b',
+    annotate: [
+      `if not exists (select 1 from sys.extended_properties where major_id = object_id('sales.orders') and minor_id = 0)
+         exec sp_addextendedproperty 'MS_Description', 'Orders', 'SCHEMA', 'sales', 'TABLE', 'orders'`,
+      `if not exists (select 1 from sys.extended_properties where major_id = object_id('sales.orders') and minor_id = columnproperty(object_id('sales.orders'), 'total', 'ColumnId'))
+         exec sp_addextendedproperty 'MS_Description', 'Order total', 'SCHEMA', 'sales', 'TABLE', 'orders', 'COLUMN', 'total'`,
+    ],
   },
   {
     config: { id: 'duck-test', name: 'duck', dialect: 'duckdb', file: ':memory:' },
@@ -84,6 +94,7 @@ const cases: Case[] = [
     createTemp: 'create temp table t (x int)',
     insertSeven: 'insert into t select * from range(7)',
     multi: 'select 1 as a; select 2 as b',
+    annotate: [`comment on table sales.orders is 'Orders'`, `comment on column sales.orders.total is 'Order total'`],
   },
 ]
 
@@ -209,9 +220,18 @@ for (const c of cases) {
     const s = await session()
     const schemas = (await s.introspect({ kind: 'schemas' })).map(x => x.name)
     assert(schemas.includes(c.schema), `schemas: ${schemas}`)
+    for (const stmt of c.annotate) await s.execute(stmt, { rowLimit: 1 })
     const tables = await s.introspect({ kind: 'tables', schema: c.schema })
-    assertEquals(tables.find(t => t.name === 'orders')?.kind, 'table')
-    assertEquals(tables.find(t => t.name === 'order_totals')?.kind, 'view')
+    const orders = tables.find(t => t.name === 'orders')!
+    assertEquals(orders.kind, 'table')
+    assertEquals(orders.comment, 'Orders')
+    assertEquals(orders.partitioning, null)
+    // Statistics are approximate: InnoDB samples pages.
+    assert(orders.rowEstimate! > 25_000 && orders.rowEstimate! < 100_000, `rowEstimate: ${orders.rowEstimate}`)
+    const view = tables.find(t => t.name === 'order_totals')!
+    assertEquals(view.kind, 'view')
+    assertEquals(view.rowEstimate, null)
+    assertEquals(view.comment, null)
     const cols = Object.fromEntries((await s.introspect({ kind: 'columns', schema: c.schema, table: 'orders' })).map(col => [col.name, col]))
     assertEquals(cols.id!.primaryKey, true)
     assertEquals(cols.id!.nullable, false)
@@ -219,6 +239,8 @@ for (const c of cases) {
     assertEquals(cols.customer_id!.references, { schema: c.customersSchema, table: 'customers', column: 'id' })
     assertEquals(cols.customer_id!.indexes, ['orders_customer_idx'])
     assertMatch(cols.total!.type, /^(numeric|decimal)\(12,\s?2\)$/i)
+    assertEquals(cols.total!.comment, 'Order total')
+    assertEquals(cols.id!.comment, null)
   })
 
   Deno.test({ name: `${name}: close`, ...opts }, async () => {

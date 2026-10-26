@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ColumnInfo, Dialect } from '#core'
+import type { ColumnInfo, Dialect, TableInfo } from '#core'
 
 const props = defineProps<{ connectionId: string }>()
 
@@ -66,6 +66,18 @@ function refresh() {
   loadSchemas(props.connectionId, true)
 }
 
+const rowCount = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })
+
+function tableTitle(t: TableInfo) {
+  return [
+    t.comment,
+    t.rowEstimate !== null && `ca. ${t.rowEstimate.toLocaleString('de-DE')} Zeilen (Statistik)`,
+    t.partitioning && `Partitionierung: ${t.partitioning}`,
+    t.clustering && `Clustering: ${t.clustering}`,
+    'Doppelklick: alle Spalten abfragen',
+  ].filter(Boolean).join('\n')
+}
+
 function fkTitle(c: ColumnInfo) {
   return c.references ? `${c.references.schema}.${c.references.table}.${c.references.column}` : ''
 }
@@ -96,7 +108,7 @@ function fkTitle(c: ColumnInfo) {
         <template v-for="table in s.tables[schema.name]" :key="table.name">
           <button
             class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
-            title="Doppelklick: alle Spalten abfragen"
+            :title="tableTitle(table)"
             @click="toggleTable(schema.name, table.name)"
             @dblclick="selectTable(schema.name, table.name)"
           >
@@ -104,17 +116,23 @@ function fkTitle(c: ColumnInfo) {
             <UIcon :name="table.kind === 'view' ? 'i-lucide-eye' : 'i-lucide-table-2'" class="size-4 shrink-0 text-muted" />
             <span class="truncate">{{ table.name }}</span>
             <UIcon v-if="s.loading[keyOf(schema.name, table.name)]" name="i-lucide-loader-circle" class="size-3.5 animate-spin text-dimmed" />
+            <span class="ml-auto flex shrink-0 items-center gap-1 pl-1">
+              <UBadge v-if="table.partitioning" label="PART" size="sm" color="neutral" variant="subtle" />
+              <span v-if="table.rowEstimate !== null" class="text-xs tabular-nums text-dimmed">{{ rowCount.format(table.rowEstimate) }}</span>
+            </span>
           </button>
 
           <div v-if="expanded.has(keyOf(schema.name, table.name))" class="pl-9 pr-2">
             <p v-if="s.errors[keyOf(schema.name, table.name)]" class="py-1 text-xs text-error">{{ s.errors[keyOf(schema.name, table.name)] }}</p>
+            <p v-if="table.comment" class="py-0.5 text-xs italic text-muted">{{ table.comment }}</p>
             <div
               v-for="col in s.columns[keyOf(schema.name, table.name)]"
               :key="col.name"
               class="flex items-center gap-1.5 py-0.5 text-xs"
             >
               <UIcon name="i-lucide-columns-3" class="size-3.5 shrink-0 text-dimmed" />
-              <span class="max-w-[60%] shrink-0 truncate" :class="col.primaryKey ? 'font-semibold' : ''" :title="col.name">{{ col.name }}</span>
+              <span class="max-w-[60%] shrink-0 truncate" :class="col.primaryKey ? 'font-semibold' : ''" :title="[col.name, col.comment].filter(Boolean).join('\n')">{{ col.name }}</span>
+              <UIcon v-if="col.comment" name="i-lucide-message-square-text" class="size-3 shrink-0 text-dimmed" :title="col.comment" />
               <span class="min-w-0 truncate text-dimmed" :title="col.type">{{ col.type }}{{ col.nullable ? '' : ' not null' }}</span>
               <span class="ml-auto flex shrink-0 gap-1">
                 <UBadge v-if="col.primaryKey" label="PK" size="sm" color="warning" variant="subtle" />

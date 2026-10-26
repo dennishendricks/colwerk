@@ -1,4 +1,4 @@
-// Stores one secret per data directory in the OS keychain through the platform's command line tools:
+// Stores secrets per data directory in the OS keychain through the platform's command line tools:
 // macOS `security`, Linux `secret-tool` (libsecret), Windows PowerShell with the Credential Manager API.
 // The secret is always passed on stdin, never as an argument (arguments are visible to other processes).
 import { Buffer } from 'node:buffer'
@@ -32,10 +32,10 @@ function run(cmd: string, args: string[], input = ''): Promise<{ code: number, s
 
 const failed = (r: { stderr: string }) => new Error(`Keychain: ${r.stderr.trim() || 'unknown error'}`)
 
-/** The keychain of this platform, for the secret of the data directory `dir`. */
-export function keychain(dir: string): Keychain {
+/** The keychain of this platform, for a secret of the data directory `dir` (the encryption key without `purpose`). */
+export function keychain(dir: string, purpose?: 'mcp'): Keychain {
   // The account identifies the data directory; hashed, so it contains no spaces or quotes.
-  const account = createHash('sha256').update(dir).digest('hex').slice(0, 16)
+  const account = createHash('sha256').update(dir).digest('hex').slice(0, 16) + (purpose ? `-${purpose}` : '')
   if (process.platform === 'darwin') return macos(account)
   if (process.platform === 'win32') return windows(`${SERVICE}/${account}`)
   return linux(account)

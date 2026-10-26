@@ -1,7 +1,7 @@
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { defaultDataDir } from './data-dir.ts'
 import { type Keychain, keychain, KeychainUnavailable } from './keychain.ts'
 import type { ConnectionConfig } from './types.ts'
 
@@ -21,15 +21,6 @@ type StoredConnection = Omit<ConnectionConfig, 'password'> & { passwordEnc?: str
 // DBM_KEYCHAIN=off, it lives next to the data in `secret.key` (file mode 0600), which only protects
 // against accidental disclosure (backups, sync folders, screen sharing). A `secret.key` of an older
 // version is moved into the keychain on first use.
-export function defaultDataDir(): string {
-  const env = process.env.DBM_DATA_DIR
-  if (env) return env
-  const home = homedir()
-  if (process.platform === 'darwin') return join(home, 'Library', 'Application Support', 'colwerk')
-  if (process.platform === 'win32') return join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'colwerk')
-  return join(process.env.XDG_CONFIG_HOME ?? join(home, '.config'), 'colwerk')
-}
-
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes))
 const unb64 = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0))
 
