@@ -26,8 +26,8 @@ const keepOutput = mode === 'desktop' && Deno.args.includes('--keep-output')
 const targets = allTargets ? Object.keys(TARGETS) : [Deno.build.target]
 const extraArgs = Deno.args.slice(1).filter(arg => arg !== '--all-targets' && arg !== '--keep-output')
 
-async function exec(cmd: string, args: string[]) {
-  const { code } = await new Deno.Command(cmd, { args, stdout: 'inherit', stderr: 'inherit' }).spawn().status
+async function exec(cmd: string, args: string[], cwd?: string) {
+  const { code } = await new Deno.Command(cmd, { args, cwd, stdout: 'inherit', stderr: 'inherit' }).spawn().status
   if (code !== 0) Deno.exit(code)
 }
 
@@ -103,7 +103,8 @@ for (const target of targets) {
   await Deno.rename(`${STAGING}/${pkg}`, `${DUCKDB}/${pkg}`)
 
   // `deno desktop` leaves the unpacked app (e.g. `Colwerk.app`) next to the package and makes the .dmg from
-  // the whole output directory, so it builds into an empty staging directory; only the package goes to `dist`.
+  // the whole output directory, so it builds into an empty staging directory. The package goes to `dist`,
+  // the unpacked app next to it as `colwerk-<os><suffix>.zip`.
   const buildDir = resolve('.output/desktop', target)
   if (mode === 'desktop') await Deno.remove(buildDir, { recursive: true }).catch(() => {})
   const output = mode === 'desktop' ? `${buildDir}/${basename(desktop.output[os])}` : `dist/colwerk${os === 'windows' ? '.exe' : ''}`
@@ -140,6 +141,13 @@ for (const target of targets) {
     const dist = resolve(desktop.output[os]).replace(/(\.\w+)$/, `${suffix}$1`)
     await Deno.mkdir(dirname(dist), { recursive: true })
     await Deno.rename(output, dist)
+
+    const zip = resolve(dirname(dist), `colwerk-${os}${suffix}.zip`)
+    await Deno.remove(zip).catch(() => {})
+    const files = [...Deno.readDirSync(buildDir)].map(entry => entry.name)
+    // `-y` keeps the symlinks inside a macOS .app (its signature covers them); Windows only has bsdtar.
+    if (Deno.build.os === 'windows') await exec('tar', ['-a', '-cf', zip, ...files], buildDir)
+    else await exec('zip', ['-qry', zip, ...files], buildDir)
 
     if (!keepOutput) {
       await Deno.remove(buildDir, { recursive: true })

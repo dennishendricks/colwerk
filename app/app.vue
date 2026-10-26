@@ -51,6 +51,7 @@ function openModal(connection?: ConnectionSummary) {
 }
 
 const shortcutsOpen = ref(false)
+const mcpOpen = ref(false)
 // Tab that waits for confirmation because it still contains a query.
 const closing = ref<string>()
 
@@ -118,7 +119,8 @@ defineShortcuts({
             <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId)" />
-          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
+          <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" class="ml-auto" title="MCP einrichten" @click="mcpOpen = true" />
+          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
@@ -132,6 +134,7 @@ defineShortcuts({
 
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
+    <LazyMcpModal v-model:open="mcpOpen" />
     <UModal
       :open="!!closing"
       title="Tab schließen?"
