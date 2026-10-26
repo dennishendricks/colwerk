@@ -37,6 +37,8 @@ Tests against Postgres, MariaDB and MSSQL are skipped when the container is not 
 
 Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native addon is not part of the packages; the app downloads it on first use (see below).
 
+`LICENSE` and `THIRD_PARTY_LICENSES.txt` are embedded in every build and also written to `dist/` for the release. The third-party list covers the Deno runtime and the npm packages that end up in the client and server bundles (recorded during `nuxt build` by a plugin in `nuxt.config.ts`) plus those Nitro copies to `.output/server/node_modules` (`scripts/licenses.ts`).
+
 ## Architecture
 
 ```
@@ -150,3 +152,7 @@ Related build details:
 - **Autocomplete** loads columns for tables referenced in the editor or expanded in the tree.
 - Tabs and editor contents are not restored after a restart.
 - Tested on macOS arm64 only. Windows and Linux builds, including keychain, file dialogs and DuckDB, are untested.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Third-party licenses: see [Builds](#builds).

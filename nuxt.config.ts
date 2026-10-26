@@ -1,5 +1,21 @@
 import { fileURLToPath } from 'node:url'
+import { writeFileSync } from 'node:fs'
 import pkg from './package.json' with { type: 'json' }
+
+// Records the npm packages that end up in the client and server bundles in `.nuxt/bundled-packages.json`,
+// for the third-party licenses of the packaged app (scripts/licenses.ts).
+const bundledPackages = new Set<string>()
+const recordBundledPackages = {
+  name: 'colwerk:bundled-packages',
+  buildEnd(this: { getModuleIds(): IterableIterator<string> }) {
+    for (const id of this.getModuleIds()) {
+      // Package directory below the last `node_modules`; dot directories are caches (e.g. `.cache`), no packages.
+      const dir = id.replaceAll('\\', '/').match(/^\0?(.*\/node_modules\/(?:@[^/]+\/)?[^./][^/]*)\//)?.[1]
+      if (dir) bundledPackages.add(dir)
+    }
+    writeFileSync('.nuxt/bundled-packages.json', JSON.stringify([...bundledPackages]))
+  },
+}
 
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/mcp-toolkit'],
@@ -20,7 +36,11 @@ export default defineNuxtConfig({
     preset: 'deno-server',
     // Native addon: keep it out of the bundle so its `.node` file and shared library stay next to each other.
     externals: { external: ['@duckdb/node-api'] },
+    rollupConfig: { plugins: [recordBundledPackages] },
+    // Runs on Deno: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
+    esbuild: { options: { target: 'esnext' } },
   },
+  vite: { plugins: [{ ...recordBundledPackages, apply: 'build' }] },
   typescript: { strict: true },
   telemetry: false,
   eslint: { config: { stylistic: { braceStyle: '1tbs' } } },

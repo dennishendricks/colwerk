@@ -4,6 +4,7 @@
 // and `.output/deno.json` makes Deno resolve npm packages from there (BYONM) instead of the project's
 // full node_modules.
 import { basename, dirname, resolve } from 'node:path'
+import { writeThirdPartyLicenses } from './licenses.ts'
 
 const mode = Deno.args[0]
 if (mode !== 'compile' && mode !== 'desktop') {
@@ -80,6 +81,13 @@ await Deno.writeTextFile(
   `module.exports = globalThis.dbmDuckdbAddon ? require(globalThis.dbmDuckdbAddon) : require('./duckdb-npm.js')\n`,
 )
 
+// License texts: embedded in every build and placed next to the packages in `dist` for the release. Written after
+// the DuckDB platform packages left `.output`, since they are downloaded at runtime and not distributed.
+await Deno.copyFile('LICENSE', '.output/LICENSE')
+await writeThirdPartyLicenses('.output/THIRD_PARTY_LICENSES.txt')
+await Deno.mkdir('dist', { recursive: true })
+for (const file of ['LICENSE', 'THIRD_PARTY_LICENSES.txt']) await Deno.copyFile(`.output/${file}`, `dist/${file}`)
+
 async function writeDuckdbManifest(platform: string) {
   const url = `https://registry.npmjs.org/@duckdb/node-bindings-${platform}/${version}`
   const res = await fetch(url)
@@ -121,6 +129,10 @@ for (const target of targets) {
     '.output/server',
     '--include',
     '.output/launcher/duckdb.json',
+    '--include',
+    '.output/LICENSE',
+    '--include',
+    '.output/THIRD_PARTY_LICENSES.txt',
     ...(mode === 'desktop' ? ['--target', target] : []),
     // Self-extracting bundle; on macOS `--compress` breaks code signing (Deno 2.9.8), and the .dmg is compressed anyway.
     ...(mode === 'desktop' && os !== 'macos' ? ['--compress=xz'] : []),

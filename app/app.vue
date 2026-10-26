@@ -31,6 +31,8 @@ async function init() {
 watch(sessionToken, init, { immediate: true })
 checkForUpdate()
 
+const { version } = useRuntimeConfig().public
+
 // Queries prepared by an MCP client (tool open-query) open in a new tab, without running.
 function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
@@ -102,6 +104,9 @@ defineShortcuts({
         </div>
         <div class="min-h-0 flex-1 overflow-auto pb-4">
           <SchemaTree v-if="activeConnectionId" :key="activeConnectionId" :connection-id="activeConnectionId" />
+        </div>
+        <div class="border-t border-default px-3 py-1 text-xs text-muted">
+          Colwerk {{ version }}
         </div>
       </SplitterPanel>
       <SplitterResizeHandle class="w-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary" />
