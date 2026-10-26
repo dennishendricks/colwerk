@@ -5,7 +5,7 @@
 // or, for the self-hosted binary, in the default browser. With the argument `mcp` it runs the stdio
 // bridge for MCP clients instead (see mcp-bridge.ts).
 import { mcpToken } from '../core/mcp-token.ts'
-import { appUrl, createToken, freePort, onExit, removeInstance, writeInstance } from './common.ts'
+import { appUrl, createToken, freePort, onExit, openInBrowser, removeInstance, writeInstance } from './common.ts'
 import { duckdbGlobals } from './native.ts'
 
 // Only available inside `deno desktop` binaries; not part of the default type libraries.
@@ -44,6 +44,11 @@ if (BrowserWindow) {
     win.showContextMenu(x, y, menu)
     return new Promise<string | null>(resolve => (choose = resolve))
   })
+  // Release pages from the update check (app/utils/update.ts). Restricted to GitHub URLs without shell
+  // metacharacters, since the page could pass anything.
+  win.bind('openUrl', (url: string) => {
+    if (/^https:\/\/github\.com\/[\w./-]+$/.test(url)) openInBrowser(url)
+  })
 }
 
 // `deno desktop` picks a random port itself and binds every Deno.serve() to it.
@@ -70,10 +75,6 @@ onExit(() => removeInstance(port))
 if (!BrowserWindow) {
   const url = appUrl(port, token)
   console.log(`\n  Colwerk: ${url}\n`)
-  const [cmd, ...args] = Deno.build.os === 'darwin' ? ['open', url] : Deno.build.os === 'windows' ? ['cmd', '/c', 'start', '', url] : ['xdg-open', url]
-  try {
-    new Deno.Command(cmd!, { args, stdout: 'null', stderr: 'null' }).spawn()
-  } catch {
-    // No browser opener available (e.g. headless server): the URL printed above is enough.
-  }
+  // Without a browser opener (e.g. headless server) the URL printed above is enough.
+  openInBrowser(url)
 }

@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import pkg from './package.json' with { type: 'json' }
 
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/mcp-toolkit'],
@@ -7,6 +8,10 @@ export default defineNuxtConfig({
   app: { head: { title: 'Colwerk', link: [{ rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' }] } },
   css: ['~/assets/css/main.css'],
   ui: { fonts: false },
+  // For the update check (app/utils/update.ts): releases are looked up as `owner/repo` on GitHub.
+  runtimeConfig: {
+    public: { version: pkg.version, repository: pkg.repository.url.replace('https://github.com/', '') },
+  },
   alias: {
     '#core': fileURLToPath(new URL('./core/index.ts', import.meta.url)),
   },

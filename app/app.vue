@@ -29,6 +29,7 @@ async function init() {
 }
 
 watch(sessionToken, init, { immediate: true })
+checkForUpdate()
 
 // Queries prepared by an MCP client (tool open-query) open in a new tab, without running.
 function onServerEvent(type: string, data: string) {

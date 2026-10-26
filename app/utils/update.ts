@@ -1,0 +1,29 @@
+// Desktop app: the launcher opens URLs in the default browser through a binding (see launcher/main.ts).
+const openUrlBinding = (window as { bindings?: { openUrl?(url: string): Promise<void> } }).bindings?.openUrl
+
+/**
+ * Compares the app version with the latest GitHub release of the repository from package.json and offers
+ * the release page if it is newer. Offline, without a release or with a private repository the request
+ * fails; that is ignored.
+ */
+export async function checkForUpdate() {
+  const { version, repository } = useRuntimeConfig().public
+  const toast = useToast()
+  try {
+    const release = await $fetch<{ tag_name: string, html_url: string }>(`https://api.github.com/repos/${repository}/releases/latest`)
+    const latest = release.tag_name.replace(/^v/, '')
+    if (latest.localeCompare(version, undefined, { numeric: true }) <= 0) return
+    toast.add({
+      title: `Colwerk ${latest} ist verfügbar`,
+      description: `Installiert ist ${version}.`,
+      icon: 'i-lucide-download',
+      duration: 0,
+      actions: [{
+        label: 'Herunterladen',
+        onClick: () => (openUrlBinding ? openUrlBinding(release.html_url) : window.open(release.html_url, '_blank')),
+      }],
+    })
+  } catch {
+    // No connection, no release or repository not public: no update hint.
+  }
+}

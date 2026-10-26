@@ -107,14 +107,14 @@ for (const target of targets) {
     '--no-check',
     // Network for the databases and the DuckDB download, file access for config and DuckDB files, env for config,
     // FFI for DuckDB's native addon, run for the OS keychain tools, the native file dialogs (core/dialog.ts)
-    // and opening the browser (compile only).
+    // and opening the browser (app URL, release pages).
     '--allow-net',
     '--allow-read',
     '--allow-write',
     '--allow-env',
     '--allow-sys',
     '--allow-ffi',
-    `--allow-run=${['security', 'secret-tool', 'powershell', 'osascript', 'zenity', 'kdialog', ...(mode === 'compile' ? ['open', 'cmd', 'xdg-open'] : [])].join(',')}`,
+    `--allow-run=${['security', 'secret-tool', 'powershell', 'osascript', 'zenity', 'kdialog', 'open', 'cmd', 'xdg-open'].join(',')}`,
     '--include',
     '.output/public',
     '--include',

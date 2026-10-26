@@ -18,6 +18,16 @@ export function appUrl(port: number, token: string): string {
   return `http://127.0.0.1:${port}/#token=${token}`
 }
 
+/** Opens `url` in the default browser; on Windows it passes through `cmd`, so it must not contain `&`, `^` etc. */
+export function openInBrowser(url: string): void {
+  const [cmd, ...args] = Deno.build.os === 'darwin' ? ['open', url] : Deno.build.os === 'windows' ? ['cmd', '/c', 'start', '', url] : ['xdg-open', url]
+  try {
+    new Deno.Command(cmd!, { args, stdout: 'null', stderr: 'null' }).spawn()
+  } catch {
+    // No browser opener available (e.g. headless server).
+  }
+}
+
 // `instance.json` in the data directory tells the MCP bridge (`colwerk mcp`) the port of the running
 // app. Not secret: requests also need the MCP token.
 const instanceFile = () => join(defaultDataDir(), 'instance.json')

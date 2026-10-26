@@ -1,6 +1,10 @@
 {
   "name": "colwerk",
-  "private": true,
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dennishendricks/colwerk"
+  },
   "type": "module",
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
