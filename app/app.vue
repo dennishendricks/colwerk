@@ -3,7 +3,7 @@ import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 
-const { activeConnectionId, load } = useWorkspace()
+const { connections, activeConnectionId, load } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
 
 const loadError = ref<string>()
@@ -11,6 +11,7 @@ const modalOpen = ref(false)
 const editing = ref<ConnectionSummary>()
 
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value))
+const colorOf = (connectionId?: string) => connections.value.find(c => c.id === connectionId)?.color
 
 let listening = false
 
@@ -172,6 +173,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             @click="activeTabId = t.id"
           >
             <UIcon v-if="t.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+            <span v-if="colorOf(t.connectionId)" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[colorOf(t.connectionId)!].bg" />
             <input
               v-if="renaming === t.id"
               ref="rename-input"

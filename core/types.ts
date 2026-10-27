@@ -2,6 +2,10 @@
 
 export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb'
 
+/** Marking colors for connections, e.g. red for production. */
+export const connectionColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const
+export type ConnectionColor = typeof connectionColors[number]
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -22,6 +26,10 @@ export interface ConnectionConfig {
   file?: string
   /** DuckDB: open the database file read-only. */
   readOnly?: boolean
+  /** Marks the connection in the UI (connection list, tabs, query toolbar). */
+  color?: ConnectionColor
+  /** Ask before running statements that may write (UI only; the database itself is not restricted). */
+  confirmWrites?: boolean
 }
 
 export interface DriverCapabilities {

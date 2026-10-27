@@ -60,3 +60,10 @@ Deno.test('store: an empty password removes the stored one, undefined keeps it',
   await store.save({ ...conn, password: '' })
   assertEquals((await store.list())[0]!.hasPassword, false)
 }))
+
+Deno.test('store: color and write confirmation reach the summary', () => withDir(async (dir) => {
+  const store = new ConnectionStore(dir, new FakeKeychain())
+  await store.save({ ...conn, color: 'red', confirmWrites: true })
+  const [summary] = await store.list()
+  assertEquals([summary!.color, summary!.confirmWrites], ['red', true])
+}))
