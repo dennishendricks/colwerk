@@ -1,6 +1,6 @@
 import pg from 'pg'
 import Cursor from 'pg-cursor'
-import { statementTexts } from '../sql-split.ts'
+import { splitStatements } from '../sql-split.ts'
 import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
@@ -42,7 +42,8 @@ function wrap(e: unknown): DbError {
   if (e instanceof DbError) return e
   const err = e as { message?: string, code?: string, position?: string }
   const pos = err.position ? ` (position ${err.position})` : ''
-  return new DbError(`${err.message ?? String(e)}${pos}`, err.code)
+  // pg reports a 1-based character position within the statement that was sent.
+  return new DbError(`${err.message ?? String(e)}${pos}`, err.code, err.position ? Number(err.position) - 1 : undefined)
 }
 
 const SQL = {
@@ -96,12 +97,12 @@ class PostgresSession implements Session {
   // each reading at most `rowLimit + 1` rows. Every statement commits on its own (no implicit transaction).
   async execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
     const started = performance.now()
-    const statements = statementTexts(sql, 'postgres')
+    const ranges = splitStatements(sql, 'postgres')
     const resultSets: ResultSet[] = []
     let affectedRows: number | undefined
-    for (const [i, statement] of statements.entries()) {
+    for (const [i, { from, to }] of ranges.entries()) {
       try {
-        const { rows: read, result } = await this.readCursor(statement, rowLimit + 1)
+        const { rows: read, result } = await this.readCursor(sql.slice(from, to), rowLimit + 1)
         const fields = result.fields ?? []
         if (fields.length) {
           const truncated = read.length > rowLimit
@@ -117,7 +118,8 @@ class PostgresSession implements Session {
         }
       } catch (e) {
         const err = wrap(e)
-        if (statements.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
+        if (err.position !== undefined) err.position += from
+        if (ranges.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
         throw err
       }
     }

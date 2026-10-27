@@ -2,7 +2,7 @@
 // skipped when not reachable; DuckDB runs in memory.
 import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
 import { loadDriver } from '../core/registry.ts'
-import type { ConnectionConfig, QueryResult, Session } from '../core/types.ts'
+import { type ConnectionConfig, DbError, type QueryResult, type Session } from '../core/types.ts'
 import { reachable, testConnections } from './helpers.ts'
 
 /** Rows of the only result set. */
@@ -153,6 +153,20 @@ for (const c of cases) {
     assertEquals(script.resultSets[1]!.rows[0]![0]!.toString(), '14')
     await assertRejects(() => s.execute('select * from does_not_exist', { rowLimit: 1 }))
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
+  })
+
+  Deno.test({ name: `${name}: error position`, ...opts }, async () => {
+    const s = await session()
+    // [script, text from the reported position on]; MSSQL only reports the line (position: its first non-blank character).
+    const errors: [string, string][] = [
+      ['select 1 frm x', name === 'mssql' ? 'select 1 frm x' : 'x'],
+      ['select 1;\n  select 2 frm x', name === 'mssql' ? 'select 2 frm x' : 'x'],
+    ]
+    if (name === 'mssql') errors.push(['select 1\nGO\n  select 2 frm x', 'select 2 frm x'])
+    for (const [sql, rest] of errors) {
+      const err = await assertRejects(() => s.execute(sql, { rowLimit: 1 }), DbError)
+      assertEquals(err.position, sql.length - rest.length, sql)
+    }
   })
 
   if (name === 'postgres') {
