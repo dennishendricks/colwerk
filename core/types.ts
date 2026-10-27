@@ -142,7 +142,8 @@ export interface Driver {
 }
 
 export class DbError extends Error {
-  constructor(message: string, readonly code?: string) {
+  /** `position`: 0-based character offset of the error in the SQL passed to `Session.execute`, if the database reports it. */
+  constructor(message: string, readonly code?: string, public position?: number) {
     super(message)
     this.name = 'DbError'
   }
