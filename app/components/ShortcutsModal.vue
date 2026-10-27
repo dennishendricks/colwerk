@@ -6,6 +6,7 @@ const shortcuts = [
   { keys: ['meta', 'W'], label: 'Aktuellen Tab schließen' },
   { keys: ['meta', '1–9'], label: 'Zu Tab 1–9 wechseln' },
   { keys: ['meta', 'enter'], label: 'Abfrage ausführen (im Editor)' },
+  { keys: ['meta', 'E'], label: 'Ausführungsplan anzeigen (im Editor)' },
   { keys: ['?'], label: 'Shortcut-Übersicht anzeigen' },
 ]
 </script>

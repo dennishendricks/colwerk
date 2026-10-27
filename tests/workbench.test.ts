@@ -1,8 +1,9 @@
 // Workbench behaviour on top of the drivers: timeout, cancelling on tab close, DuckDB read-only.
-import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1'
+import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
 import { join } from 'node:path'
 import type { ConnectionConfig } from '../core/types.ts'
 import { Workbench } from '../core/workbench.ts'
+import { reachable, testConnections } from './helpers.ts'
 
 const opts = { sanitizeResources: false, sanitizeOps: false }
 const SLOW = 'select count(*) from range(100000000000) a'
@@ -70,3 +71,29 @@ Deno.test({ name: 'duckdb: read-only file', ...opts }, async () => {
   await wb.closeAll()
   await Deno.remove(dir, { recursive: true })
 })
+
+// The plan is taken in the tab's session, so it sees the session's temp table.
+const explainCases: { config: ConnectionConfig, create: string, table: string, analyze: boolean }[] = [
+  { config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' }, create: 'create temp table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
+  { config: testConnections.postgres, create: 'create temp table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
+  { config: testConnections.mysql, create: 'create temporary table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
+  { config: testConnections.mssql, create: 'create table #wb_explain_t (x int)', table: '#wb_explain_t', analyze: false },
+]
+
+for (const c of explainCases) {
+  const ignore = c.config.host ? !(await reachable(c.config)) : false
+  Deno.test({ name: `${c.config.dialect}: explain in the tab session`, ignore, ...opts }, async () => {
+    const wb = workbench(c.config)
+    const id = c.config.id
+    await wb.execute('tab', id, c.create, 1, 10)
+    const select = `select x from ${c.table} where x > 1;`
+    assertMatch((await wb.explain('tab', id, select, false, 10)).plan, /wb_explain_t/)
+    if (c.analyze) assert((await wb.explain('tab', id, select, true, 10)).plan.trim())
+    await assertRejects(() => wb.explain('tab', id, `insert into ${c.table} values (1)`, true, 10), Error, 'read-only')
+    await assertRejects(() => wb.explain('tab', id, 'select 1; select 2', false, 10), Error, 'single statement')
+    // SQL Server: SHOWPLAN is switched off again, so statements run normally afterwards.
+    await wb.execute('tab', id, `insert into ${c.table} values (2)`, 1, 10)
+    assertEquals((await wb.execute('tab', id, select, 10, 10)).resultSets[0]!.rows, [[2]])
+    await wb.closeAll()
+  })
+}
