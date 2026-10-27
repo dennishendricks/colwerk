@@ -1,7 +1,7 @@
 import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
 import { splitStatements } from '../sql-split.ts'
-import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo } from '../types.ts'
+import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -229,6 +229,12 @@ class MysqlSession implements Session {
     } finally {
       killer.destroy()
     }
+  }
+
+  // MariaDB only; MySQL has no such variable, the query fails and the state stays unknown.
+  async transactionState(): Promise<TransactionState | undefined> {
+    const [rows] = await this.conn.promise().query({ sql: 'select @@in_transaction', rowsAsArray: true })
+    return Number((rows as unknown[][])[0]![0]) ? 'open' : 'idle'
   }
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
