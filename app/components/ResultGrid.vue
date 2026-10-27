@@ -26,7 +26,7 @@ watch(() => props.result, () => {
 })
 
 // The table has a fixed layout of exactly the column sizes, which pinned offsets and resizing rely on.
-const table = useTemplateRef<{ tableApi: { getTotalSize(): number } }>('table')
+const table = useTemplateRef<{ tableApi: { getTotalSize(): number, getRowModel(): { rows: TableRow<Row>[] } } }>('table')
 const tableWidth = computed(() => table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined)
 const sizeStyle = ({ column }: { column: Column }) => ({ width: `${column.getSize()}px` })
 // Pinned headers are sticky, which already positions the resize handle.
@@ -132,23 +132,65 @@ function cellText(value: CellValue) {
 
 // Desktop app only: the launcher shows a native context menu (see launcher/main.ts). In the browser
 // the browser's own menu stays.
-type MenuItem = { item: { label: string, id: string, enabled: boolean } }
+type MenuItem = { item: { label: string, id: string, enabled: boolean } } | 'separator'
 const contextMenu = (window as { bindings?: { contextMenu?(x: number, y: number, menu: MenuItem[]): Promise<string | null> } }).bindings?.contextMenu
 
 async function onRowContextmenu(e: Event, row: TableRow<Row>) {
   e.preventDefault()
   const { clientX, clientY } = e as MouseEvent
+  const col = cellColumn(e, row)
   const id = await contextMenu!(clientX, clientY, [
+    { item: { label: 'Wert kopieren', id: 'copy', enabled: col !== undefined } },
+    { item: { label: 'Wert anzeigen …', id: 'show', enabled: col !== undefined } },
+    'separator',
     { item: { label: 'Datensatz als JSON kopieren', id: 'json', enabled: true } },
     { item: { label: 'Datensatz als CSV kopieren', id: 'csv', enabled: true } },
   ])
   const { columns } = props.result
   const { cells } = row.original
-  if (id === 'json') {
+  if (id === 'copy') {
+    await copyValue(cells[col!] ?? null)
+  } else if (id === 'show') {
+    showDetail(row, col!)
+  } else if (id === 'json') {
     await navigator.clipboard.writeText(JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2))
   } else if (id === 'csv') {
     await navigator.clipboard.writeText([columns.map(c => c.name), cells].map(fields => fields.map(csvField).join(';')).join('\r\n'))
   }
+}
+
+// Cells are rendered in `getVisibleCells()` order, so the td's position identifies the column even
+// with pinned or hidden columns. The `#` column has no value.
+function cellColumn(e: Event, row: TableRow<Row>) {
+  const td = (e.target as Element).closest('td')
+  const id = td && row.getVisibleCells()[td.cellIndex]?.column.id
+  return id && id !== '#' ? Number(id) : undefined
+}
+
+// One listener on the table instead of one per cell; rows carry their index in the row model.
+function onDblclick(e: MouseEvent) {
+  const index = (e.target as Element).closest<HTMLElement>('tr[data-index]')?.dataset.index
+  const row = index !== undefined ? table.value?.tableApi.getRowModel().rows[Number(index)] : undefined
+  const col = row && cellColumn(e, row)
+  if (col !== undefined) showDetail(row!, col)
+}
+
+const detailOpen = ref(false)
+const detail = shallowRef<{ column: ResultSet['columns'][number], value: CellValue }>()
+function showDetail(row: TableRow<Row>, col: number) {
+  detail.value = { column: props.result.columns[col]!, value: row.original.cells[col] ?? null }
+  detailOpen.value = true
+}
+
+function detailText(value: CellValue) {
+  return typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value)
+}
+
+const toast = useToast()
+// NULL is copied as an empty string; the text "NULL" would be indistinguishable from a real value.
+async function copyValue(value: CellValue) {
+  await navigator.clipboard.writeText(value === null ? '' : detailText(value))
+  toast.add({ title: 'Wert kopiert', color: 'success', icon: 'i-lucide-check' })
 }
 
 function renderCell(value: CellValue) {
@@ -178,5 +220,15 @@ function renderCell(value: CellValue) {
       th: 'px-2 py-1.5 whitespace-nowrap overflow-hidden bg-elevated',
       td: 'px-2 py-1 whitespace-nowrap truncate',
     }"
+    @dblclick="onDblclick"
   />
+  <UModal v-model:open="detailOpen" :title="detail?.column.name" :description="detail?.column.type" :ui="{ content: 'max-w-3xl' }">
+    <template #body>
+      <span v-if="detail?.value === null" class="font-mono text-xs italic text-dimmed">NULL</span>
+      <pre v-else-if="detail" class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{ detailText(detail.value) }}</pre>
+    </template>
+    <template #footer>
+      <UButton label="Kopieren" icon="i-lucide-copy" color="neutral" variant="outline" @click="copyValue(detail!.value)" />
+    </template>
+  </UModal>
 </template>
