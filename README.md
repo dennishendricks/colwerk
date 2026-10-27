@@ -79,7 +79,7 @@ scripts/   dev server, packaging
 
 **Export.** Results can be exported to CSV or Parquet, either the displayed rows or the complete result. The complete result re-runs the statement in the tab's session and streams it with backpressure, so it is only offered for a single read-only statement. The server opens a native save dialog and writes the file itself, because the desktop webview does not handle browser downloads. Files are written to `<target>.part` and renamed on success. Parquet is written by [hyparquet-writer](https://github.com/hyparam/hyparquet-writer) and does not need DuckDB: rows are staged as JSON lines in a temporary file and encoded in row groups of 100,000. A column gets the Parquet type of its database type only if every value converts; otherwise it is written as a string.
 
-**Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables → columns) and cached on the server.
+**Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables and routines → columns and indexes) and cached on the server. DDL of tables, views and routines is read on demand and not cached; Postgres and SQL Server have no built-in table DDL, so it is assembled from columns, constraints and indexes.
 
 **Formatting.** [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) with 4-space indentation, plus post-processing for leading commas, `!=` instead of `<>`, and `on` on its own line below the join.
 
@@ -107,7 +107,7 @@ MCP clients authenticate with their own token, separate from the UI's session to
 | `list-connections` | Connections with `connectionId`, dialect, databases, reachability, read-only flag. Call first. |
 | `list-schemas` | Schemas with the number of tables and views |
 | `list-tables` | Tables and views with estimated row count and comment |
-| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), partitioning, clustering |
+| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), indexes with key columns, partitioning, clustering |
 | `sample-rows` | Up to 50 rows as JSON objects |
 | `run-query` | One `SELECT`/`WITH` statement, up to 1000 rows, 30 s timeout |
 | `open-query` | Opens SQL in a new editor tab without running it (via server-sent events at `/api/events`) |

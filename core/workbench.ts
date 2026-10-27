@@ -88,6 +88,8 @@ export class Workbench {
   }
 
   introspect<R extends IntrospectRequest>(connectionId: string, request: R, refresh = false): Promise<IntrospectResult<R>> {
+    // DDL is fetched on demand and must reflect the current definition.
+    if (request.kind === 'ddl') return this.runMeta(connectionId, s => s.introspect(request))
     const key = JSON.stringify([connectionId, request.kind, 'schema' in request ? request.schema : '', 'table' in request ? request.table : ''])
     if (refresh) this.invalidate(connectionId, request)
     let result = this.cache.get(key) as Promise<IntrospectResult<R>> | undefined
@@ -124,7 +126,10 @@ export class Workbench {
       const below = !request
         || request.kind === 'schemas'
         || (request.kind === 'tables' && schema === request.schema)
-        || (request.kind === 'columns' && kind === 'columns' && schema === request.schema && table === request.table)
+        // Refreshing a table (its columns) also drops its indexes.
+        || (request.kind === 'columns' && (kind === 'columns' || kind === 'indexes') && schema === request.schema && table === request.table)
+        || (request.kind === 'indexes' && kind === 'indexes' && schema === request.schema && table === request.table)
+        || (request.kind === 'routines' && kind === 'routines' && schema === request.schema)
       if (below) this.cache.delete(key)
     }
   }
