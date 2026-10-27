@@ -122,6 +122,16 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       await other.body?.cancel()
     })
 
+    await t.step('history records executes, newest first, without repeating the newest query', async () => {
+      const history = await json(await call('/api/history'))
+      // The failed run in t2 replaced the identical query from t1.
+      assertEquals(history.map((e: { sql: string }) => e.sql), ['select a from x', 'create temp table x as select 1 as a', 'select * from sales.orders'])
+      assertStringIncludes(history[0].error, 'x')
+      assertEquals(history[2].rowCount, 50)
+      await json(await call('/api/history', { method: 'DELETE' }))
+      assertEquals(await json(await call('/api/history')), [])
+    })
+
     await t.step('export writes the full result or the shown rows to the given path', async () => {
       const dir = await Deno.makeTempDir()
       const exportTo = (name: string, body: object) =>
