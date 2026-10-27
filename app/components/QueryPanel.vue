@@ -7,7 +7,7 @@ import type { QueryTab } from '~/composables/workspace'
 const props = defineProps<{ tab: QueryTab }>()
 
 const { connections, driverOf } = useWorkspace()
-const { activeTabId, run, cancel, exportResult } = useTabs()
+const { activeTabId, run, explain, cancel, exportResult } = useTabs()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 
 const editor = useTemplateRef('editor')
@@ -66,6 +66,20 @@ function confirmRun() {
 // a script of SELECTs runs without asking, a single write in it asks.
 function mayWrite(sql: string, dialect: Dialect) {
   return splitStatements(sql, dialect).some(r => !isReadOnlyStatement(sql.slice(r.from, r.to), dialect))
+}
+
+function showPlan(analyze = false) {
+  explain(props.tab, editor.value?.runnableSql().sql ?? '', analyze)
+}
+
+// SQL Server has no plan with runtime statistics without executing the statement as usual.
+const planItems = computed(() => driver.value?.dialect === 'mssql'
+  ? []
+  : [{ label: 'Mit ANALYZE (führt die Anweisung aus, nur für lesende Anweisungen)', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }])
+
+async function copyPlan() {
+  await navigator.clipboard.writeText(props.tab.plan?.text ?? '')
+  toast.add({ title: 'Ausführungsplan kopiert', color: 'success', icon: 'i-lucide-check' })
 }
 
 const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
@@ -137,10 +151,13 @@ const filter = ref('')
 // The grid resets it itself, but not when a new result mounts a fresh grid (other result index).
 watch(() => props.tab.result, () => (filter.value = ''))
 
+const formatTime = (ms: number) => ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`
+
 const status = computed(() => {
+  if (props.tab.plan) return `Ausführungsplan · ${formatTime(props.tab.plan.durationMs)}`
   const r = props.tab.result
   if (!r) return ''
-  const time = r.durationMs < 1000 ? `${Math.round(r.durationMs)} ms` : `${(r.durationMs / 1000).toFixed(2)} s`
+  const time = formatTime(r.durationMs)
   const set = shown.value
   if (!set) return `${r.affectedRows ?? 0} Zeile(n) betroffen · ${time}`
   const filtered = grid.value?.filteredCount
@@ -170,6 +187,19 @@ const status = computed(() => {
         :disabled="!tab.connectionId || !!tab.exporting"
         @click="execute"
       />
+      <UFieldGroup size="sm">
+        <UButton
+          icon="i-lucide-list-tree"
+          color="neutral"
+          variant="soft"
+          label="Plan"
+          :disabled="!tab.connectionId || busy"
+          @click="showPlan()"
+        />
+        <UDropdownMenu v-if="planItems.length" :items="planItems">
+          <UButton icon="i-lucide-chevron-down" color="neutral" variant="soft" aria-label="Weitere Plan-Optionen" :disabled="!tab.connectionId || busy" />
+        </UDropdownMenu>
+      </UFieldGroup>
       <UButton
         v-if="driver?.capabilities.supportsCancel"
         icon="i-lucide-square"
@@ -207,6 +237,7 @@ const status = computed(() => {
           :default-schema="tab.connectionId ? defaultSchema(tab.connectionId) : undefined"
           :error-at="tab.errorAt"
           @run="execute"
+          @explain="showPlan()"
         />
       </SplitterPanel>
       <SplitterResizeHandle class="h-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary" />
@@ -243,6 +274,16 @@ const status = computed(() => {
               <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" title="Filter leeren" @click="filter = ''" />
             </template>
           </UInput>
+          <UButton
+            v-if="!busy && !tab.error && tab.plan"
+            icon="i-lucide-copy"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            label="Kopieren"
+            class="ml-auto"
+            @click="copyPlan"
+          />
         </div>
         <div class="min-h-0 flex-1 overflow-hidden">
           <UAlert
@@ -253,6 +294,7 @@ const status = computed(() => {
             :description="tab.error"
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
+          <pre v-else-if="tab.plan" class="h-full overflow-auto p-3 font-mono text-xs">{{ tab.plan.text }}</pre>
           <LazyResultGrid v-else-if="shown?.columns.length" ref="grid" :key="tab.resultIndex" v-model:filter="filter" :result="shown" />
         </div>
         <div v-if="!tab.error && shown?.columns.length" class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">

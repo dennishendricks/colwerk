@@ -15,7 +15,7 @@ const props = defineProps<{
   /** Document offset of the last run's error. */
   errorAt?: number
 }>()
-const emit = defineEmits<{ run: [] }>()
+const emit = defineEmits<{ run: [], explain: [] }>()
 const model = defineModel<string>({ required: true })
 
 // DuckDB's grammar is close to PostgreSQL's.
@@ -107,6 +107,7 @@ onMounted(() => {
         errorField,
         keymap.of([
           { key: 'Mod-Enter', run: () => (emit('run'), true) },
+          { key: 'Mod-e', run: () => (emit('explain'), true) },
           ...closeBracketsKeymap,
           ...completionKeymap,
           ...historyKeymap,

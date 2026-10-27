@@ -154,6 +154,8 @@ export interface QueryTab {
   resultIndex: number
   /** Connection and statement that produced `result` (for exporting the full result). */
   source?: { connectionId: string, sql: string }
+  /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */
+  plan?: { text: string, durationMs: number }
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
@@ -209,6 +211,7 @@ export function useTabs() {
     tab.running = true
     tab.error = undefined
     tab.errorAt = undefined
+    tab.plan = undefined
     try {
       // Raw: deep reactivity on up to 100k rows would wrap every row and cell in a proxy.
       tab.result = markRaw(await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
@@ -223,6 +226,28 @@ export function useTabs() {
       tab.error = errorMessage(e)
       const position = (e as { data?: { data?: { position?: number } } }).data?.data?.position
       if (position !== undefined) tab.errorAt = from + position
+    } finally {
+      tab.running = false
+    }
+  }
+
+  /** `analyze` executes the statement; the server only accepts it for read-only statements. */
+  async function explain(tab: QueryTab, sql: string, analyze = false) {
+    if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
+    tab.running = true
+    tab.error = undefined
+    tab.errorAt = undefined
+    tab.result = undefined
+    tab.source = undefined
+    tab.plan = undefined
+    try {
+      const { plan, durationMs } = await api<{ plan: string, durationMs: number }>(`/api/tabs/${tab.id}/explain`, {
+        method: 'POST',
+        body: { connectionId: tab.connectionId, sql, analyze, timeout: tab.timeout },
+      })
+      tab.plan = { text: plan, durationMs }
+    } catch (e) {
+      tab.error = errorMessage(e)
     } finally {
       tab.running = false
     }
@@ -259,5 +284,5 @@ export function useTabs() {
     }
   }
 
-  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, cancel, exportResult }
+  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, explain, cancel, exportResult }
 }

@@ -80,6 +80,8 @@ scripts/   dev server, packaging
 
 **Export.** Results can be exported to CSV or Parquet, either the displayed rows or the complete result. The complete result re-runs the statement in the tab's session and streams it with backpressure, so it is only offered for a single read-only statement. The server opens a native save dialog and writes the file itself, because the desktop webview does not handle browser downloads. Files are written to `<target>.part` and renamed on success. Parquet is written by [hyparquet-writer](https://github.com/hyparam/hyparquet-writer) and does not need DuckDB: rows are staged as JSON lines in a temporary file and encoded in row groups of 100,000. A column gets the Parquet type of its database type only if every value converts; otherwise it is written as a string.
 
+**Execution plan.** The plan of a single statement is taken in the tab's session and shown as text: Postgres `EXPLAIN (FORMAT TEXT)`, DuckDB `EXPLAIN`, MySQL/MariaDB `EXPLAIN FORMAT=JSON` (pretty-printed), MSSQL `SET SHOWPLAN_TEXT ON` in a batch of its own, switched off again afterwards (if that fails, the session is closed). `ANALYZE` executes the statement, so it is only offered for read-only statements and not on MSSQL; on MySQL it uses MariaDB's `ANALYZE FORMAT=JSON`.
+
 **Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables → columns) and cached on the server.
 
 **Formatting.** [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) with 4-space indentation, plus post-processing for leading commas, `!=` instead of `<>`, and `on` on its own line below the join.
