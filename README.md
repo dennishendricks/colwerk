@@ -82,7 +82,7 @@ scripts/   dev server, packaging
 
 **Execution plan.** The plan of a single statement is taken in the tab's session and shown as text: Postgres `EXPLAIN (FORMAT TEXT)`, DuckDB `EXPLAIN`, MySQL/MariaDB `EXPLAIN FORMAT=JSON` (pretty-printed), MSSQL `SET SHOWPLAN_TEXT ON` in a batch of its own, switched off again afterwards (if that fails, the session is closed). `ANALYZE` executes the statement, so it is only offered for read-only statements and not on MSSQL; on MySQL it uses MariaDB's `ANALYZE FORMAT=JSON`.
 
-**Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables → columns) and cached on the server.
+**Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables and routines → columns and indexes) and cached on the server. DDL of tables, views and routines is read on demand and not cached; Postgres and SQL Server have no built-in table DDL, so it is assembled from columns, constraints and indexes.
 
 **Formatting.** [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) with 4-space indentation, plus post-processing for leading commas, `!=` instead of `<>`, and `on` on its own line below the join.
 
@@ -110,7 +110,7 @@ MCP clients authenticate with their own token, separate from the UI's session to
 | `list-connections` | Connections with `connectionId`, dialect, databases, reachability, read-only flag. Call first. |
 | `list-schemas` | Schemas with the number of tables and views |
 | `list-tables` | Tables and views with estimated row count and comment |
-| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), partitioning, clustering |
+| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), indexes with key columns, partitioning, clustering |
 | `sample-rows` | Up to 50 rows as JSON objects |
 | `run-query` | One `SELECT`/`WITH` statement, up to 1000 rows, 30 s timeout |
 | `open-query` | Opens SQL in a new editor tab without running it (via server-sent events at `/api/events`) |
