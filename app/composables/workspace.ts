@@ -157,6 +157,8 @@ export interface QueryTab {
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
+  /** Document offset of the error in the editor, when the database reports it. */
+  errorAt?: number
 }
 
 // Explicit type: unwrapping the recursive CellValue type would be "excessively deep".
@@ -201,10 +203,12 @@ export function useTabs() {
     await api(`/api/tabs/${id}`, { method: 'DELETE' }).catch(() => {})
   }
 
-  async function run(tab: QueryTab, sql: string) {
+  /** `from`: document offset where `sql` starts in the editor, to place the error position. */
+  async function run(tab: QueryTab, sql: string, from = 0) {
     if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
     tab.running = true
     tab.error = undefined
+    tab.errorAt = undefined
     try {
       // Raw: deep reactivity on up to 100k rows would wrap every row and cell in a proxy.
       tab.result = markRaw(await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
@@ -217,6 +221,8 @@ export function useTabs() {
     } catch (e) {
       tab.result = undefined
       tab.error = errorMessage(e)
+      const position = (e as { data?: { data?: { position?: number } } }).data?.data?.position
+      if (position !== undefined) tab.errorAt = from + position
     } finally {
       tab.running = false
     }
