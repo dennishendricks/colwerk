@@ -12,7 +12,7 @@
     "npm:@codemirror/language@^6.11.0": "6.13.1",
     "npm:@codemirror/state@^6.7.6": "6.7.6",
     "npm:@codemirror/view@^6.43.15": "6.43.15",
-    "npm:@duckdb/node-api@1.4.5-r.1": "1.4.5-r.1",
+    "npm:@duckdb/node-bindings@1.4.5-r.1": "1.4.5-r.1",
     "npm:@iconify-json/lucide@^1.2.147": "1.2.147",
     "npm:@lezer/highlight@^1.2.5": "1.2.5",
     "npm:@nuxt/eslint@^1.17.0": "1.17.0_eslint@10.13.0_@vue+compiler-sfc@3.5.44_typescript@6.0.3_vite@8.3.5__@types+node@26.6.5__esbuild@0.28.2__jiti@2.7.0",
@@ -568,12 +568,6 @@
         "devframe",
         "h3@2.0.8_crossws@0.4.15",
         "pathe"
-      ]
-    },
-    "@duckdb/node-api@1.4.5-r.1": {
-      "integrity": "sha512-lXPfeJclmhTGhBBnfVXy4siuGNpa8QaUIQGAWlDirC92Dq5fELdITI/LihiFDh5Gz7aM8AN9stCGIH891uv1oQ==",
-      "dependencies": [
-        "@duckdb/node-bindings"
       ]
     },
     "@duckdb/node-bindings-darwin-arm64@1.4.5-r.1": {
@@ -7952,7 +7946,7 @@
         "npm:@codemirror/language@^6.11.0",
         "npm:@codemirror/state@^6.7.6",
         "npm:@codemirror/view@^6.43.15",
-        "npm:@duckdb/node-api@1.4.5-r.1",
+        "npm:@duckdb/node-bindings@1.4.5-r.1",
         "npm:@iconify-json/lucide@^1.2.147",
         "npm:@lezer/highlight@^1.2.5",
         "npm:@nuxt/eslint@^1.17.0",

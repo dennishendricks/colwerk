@@ -1,7 +1,7 @@
 import { DbError, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
 
 interface RegistryEntry extends DriverInfo {
-  // Driver modules are imported on first use so that e.g. DuckDB's native addon is only loaded when needed.
+  // Driver modules are imported on first use so that e.g. DuckDB's native library is only loaded when needed.
   load: () => Promise<Driver>
 }
 
@@ -36,9 +36,9 @@ const registry: Record<Dialect, RegistryEntry> = {
 }
 
 /**
- * Packaged builds do not embed DuckDB's native addon: the launcher downloads it on request (launcher/native.ts)
+ * Packaged builds do not embed DuckDB's native library: the launcher downloads it on request (launcher/native.ts)
  * and offers this hook through globalThis, because the bundled server does not share module instances with it.
- * Without the hook (running from source) the addon comes from node_modules.
+ * Without the hook (running from source) the library comes from node_modules.
  */
 interface DuckdbHook {
   installed(): Promise<boolean>
@@ -47,7 +47,7 @@ interface DuckdbHook {
 
 const duckdbHook = () => (globalThis as { dbmDuckdb?: DuckdbHook }).dbmDuckdb
 
-/** Fails unless DuckDB's native addon is in place. Call before importing `@duckdb/node-api`. */
+/** Fails unless DuckDB's native library is in place. Call before importing the driver. */
 async function prepareDuckdb(): Promise<void> {
   if (await duckdbHook()?.installed() === false) {
     throw new DbError('The DuckDB driver is not installed. Open the connection in Colwerk and choose "Datenbanktreiber laden".', 'ENODRIVER')
@@ -77,7 +77,7 @@ export async function driverStatus(): Promise<DriverStatus[]> {
   return drivers.map(d => d.dialect === 'duckdb' ? { ...d, installed: duckdb, installProgress: installing?.progress } : { ...d, installed: true })
 }
 
-/** Downloads the native addon of a driver that is not installed yet; concurrent calls share the download. */
+/** Downloads the native library of a driver that is not installed yet; concurrent calls share the download. */
 export function installDriver(dialect: Dialect): Promise<void> {
   const hook = duckdbHook()
   if (dialect !== 'duckdb' || !hook) return Promise.resolve()

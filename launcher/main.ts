@@ -57,8 +57,8 @@ const port = desktopAddress ? Number(desktopAddress.split(':').pop()) : freePort
 Deno.env.set('NITRO_HOST', '127.0.0.1')
 Deno.env.set('NITRO_PORT', String(port))
 
-// DuckDB's native addon is downloaded on demand (native.ts). `duckdb.json` only exists in packaged builds;
-// without it the addon comes from node_modules.
+// DuckDB's native library is downloaded on demand (native.ts). `duckdb.json` only exists in packaged builds;
+// without it the library comes from node_modules.
 const duckdb = await Deno.readTextFile(new URL('./duckdb.json', import.meta.url)).then(JSON.parse, () => undefined)
 if (duckdb) Object.assign(globalThis, duckdbGlobals(duckdb))
 // Dynamic import so the environment above is set before Nitro reads it.

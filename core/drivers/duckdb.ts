@@ -1,12 +1,6 @@
-import { DuckDBBlobValue, type DuckDBConnection, type DuckDBInstance, DuckDBInstanceCache, type Json, JsonDuckDBValueConverter, ResultReturnType } from '@duckdb/node-api'
 import { statementTexts } from '../sql-split.ts'
 import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo } from '../types.ts'
-import { sqlTimestampToIso, toHex } from '../values.ts'
-
-// One database file can only be opened once per process and configuration; sessions share the instance.
-// One cache per access mode: switching a connection to read-only would otherwise collide with the
-// read-write instance until it is garbage-collected.
-const instances = { readWrite: new DuckDBInstanceCache(), readOnly: new DuckDBInstanceCache() }
+import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
   return e instanceof DbError ? e : new DbError(e instanceof Error ? e.message : String(e))
@@ -40,53 +34,62 @@ const SQL = {
 }
 
 class DuckDBSession implements Session {
-  // The session keeps its instance alive: once the instance object is garbage-collected while connections
-  // are still open, DuckDB's instance cache spins forever in the next `getOrCreateInstance` for that file.
-  constructor(private instance: DuckDBInstance, private conn: DuckDBConnection) {}
+  // Statements run one after another: a new statement on the connection invalidates a streaming result,
+  // and the connection may only be closed once no native call uses it anymore.
+  private queue: Promise<unknown> = Promise.resolve()
 
-  // Scripts run statement by statement, so every result set is returned and limited on its own.
-  async execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
-    const started = performance.now()
-    const statements = statementTexts(sql, 'duckdb')
-    const resultSets: ResultSet[] = []
-    let affectedRows: number | undefined
-    for (const [i, statement] of statements.entries()) {
-      try {
-        const reader = await this.conn.streamAndReadUntil(statement, rowLimit + 1)
-        if (reader.rowsChanged) affectedRows = (affectedRows ?? 0) + reader.rowsChanged
-        // DML reports its count as a single column `Count`, DDL returns nothing; only queries become result sets.
-        if (reader.returnType !== ResultReturnType.QUERY_RESULT) continue
-        const types = reader.columnTypes().map(t => t.toString())
-        const count = Math.min(reader.currentRowCount, rowLimit)
-        const json = reader.getRowsJson().slice(0, count)
-        const raw = types.some(t => t === 'BLOB') ? reader.getRows().slice(0, count) : []
-        resultSets.push({
-          columns: reader.columnNames().map((name, i) => ({ name, type: types[i]! })),
-          rows: json.map((row, r) => row.map((v, c) => cell(v, types[c]!, raw[r]?.[c]))),
-          truncated: !reader.done || reader.currentRowCount > rowLimit,
-        })
-      } catch (e) {
-        const err = wrap(e)
-        if (statements.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
-        throw err
-      }
-    }
-    return { resultSets, affectedRows: resultSets.length ? undefined : affectedRows, durationMs: performance.now() - started }
+  constructor(private conn: Connection) {}
+
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn)
+    this.queue = run.catch(() => {})
+    return run
   }
 
-  async stream(sql: string, sink: RowSink): Promise<void> {
-    try {
-      const result = await this.conn.stream(sql)
-      const types = result.columnTypes().map(t => t.toString())
-      sink.columns(result.columnNames().map((name, i) => ({ name, type: types[i]! })))
-      const hasBlob = types.includes('BLOB')
-      for (let chunk = await result.fetchChunk(); chunk?.rowCount; chunk = await result.fetchChunk()) {
-        const raw = hasBlob ? chunk.getRows() : []
-        await sink.rows(chunk.convertRows(JsonDuckDBValueConverter).map((row, r) => row.map((v, c) => cell(v, types[c]!, raw[r]?.[c]))))
+  // Scripts run statement by statement, so every result set is returned and limited on its own.
+  execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
+    return this.serial(async () => {
+      const started = performance.now()
+      const statements = statementTexts(sql, 'duckdb')
+      const resultSets: ResultSet[] = []
+      let affectedRows: number | undefined
+      for (const [i, statement] of statements.entries()) {
+        try {
+          const result = await this.conn.query(statement)
+          try {
+            if (result.rowsChanged) affectedRows = (affectedRows ?? 0) + result.rowsChanged
+            // DML reports its count as a single column `Count`, DDL returns nothing; only queries become result sets.
+            if (!result.isQuery) continue
+            const rows: CellValue[][] = []
+            for (let chunk; rows.length <= rowLimit && (chunk = await result.next());) rows.push(...chunk)
+            resultSets.push({ columns: result.columns, rows: rows.slice(0, rowLimit), truncated: rows.length > rowLimit })
+          } finally {
+            result.close()
+          }
+        } catch (e) {
+          const err = wrap(e)
+          if (statements.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
+          throw err
+        }
       }
-    } catch (e) {
-      throw wrap(e)
-    }
+      return { resultSets, affectedRows: resultSets.length ? undefined : affectedRows, durationMs: performance.now() - started }
+    })
+  }
+
+  stream(sql: string, sink: RowSink): Promise<void> {
+    return this.serial(async () => {
+      try {
+        const result = await this.conn.query(sql)
+        try {
+          sink.columns(result.columns)
+          for (let chunk; (chunk = await result.next());) await sink.rows(chunk)
+        } finally {
+          result.close()
+        }
+      } catch (e) {
+        throw wrap(e)
+      }
+    })
   }
 
   async cancel(): Promise<void> {
@@ -97,7 +100,7 @@ class DuckDBSession implements Session {
     try {
       if (req.kind === 'schemas') return await this.rows<SchemaInfo>(SQL.schemas) as IntrospectResult<R>
       if (req.kind === 'tables') {
-        const tables = await this.rows<{ name: string, kind: TableInfo['kind'], row_estimate: bigint | null, comment: string | null }>(SQL.tables, [req.schema])
+        const tables = await this.rows<{ name: string, kind: TableInfo['kind'], row_estimate: string | null, comment: string | null }>(SQL.tables, [req.schema])
         return tables.map(({ row_estimate, ...t }): TableInfo => ({
           schema: req.schema,
           ...t,
@@ -132,20 +135,26 @@ class DuckDBSession implements Session {
     }
   }
 
+  // Interrupts a running statement (e.g. when its tab is closed) and closes once it has ended.
   async close(): Promise<void> {
-    this.conn.closeSync()
+    this.conn.interrupt()
+    await this.serial(async () => this.conn.close())
   }
 
-  private async rows<T>(sql: string, params: string[] = []): Promise<T[]> {
-    return (await this.conn.runAndReadAll(sql, params)).getRowObjectsJS() as T[]
+  private rows<T>(sql: string, params: string[] = []): Promise<T[]> {
+    return this.serial(async () => {
+      const result = await this.conn.query(sql, params)
+      try {
+        const rows: T[] = []
+        for (let chunk; (chunk = await result.next());) {
+          for (const row of chunk) rows.push(Object.fromEntries(result.columns.map((c, i) => [c.name, row[i]])) as T)
+        }
+        return rows
+      } finally {
+        result.close()
+      }
+    })
   }
-}
-
-function cell(json: Json, type: string, raw: unknown): CellValue {
-  if (json === null) return null
-  if (raw instanceof DuckDBBlobValue) return toHex(raw.bytes)
-  if (type.startsWith('TIMESTAMP') && typeof json === 'string') return sqlTimestampToIso(json)
-  return json as CellValue
 }
 
 export const duckdbDriver: Driver = {
@@ -153,10 +162,7 @@ export const duckdbDriver: Driver = {
     try {
       // Named in-memory databases keep one shared database per connection across all its sessions.
       const path = !config.file || config.file === ':memory:' ? `:memory:${config.id}` : config.file
-      const instance = config.readOnly
-        ? await instances.readOnly.getOrCreateInstance(path, { access_mode: 'READ_ONLY' })
-        : await instances.readWrite.getOrCreateInstance(path)
-      return new DuckDBSession(instance, await instance.connect())
+      return new DuckDBSession(await connect(path, !!config.readOnly))
     } catch (e) {
       throw wrap(e)
     }

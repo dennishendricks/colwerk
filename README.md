@@ -38,7 +38,7 @@ Tests against Postgres, MariaDB and MSSQL are skipped when the container is not 
 
 Next to each package, the unpacked app is written as `.zip` with the same name.
 
-Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native addon is not part of the packages; the app downloads it on first use (see below).
+Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native library is not part of the packages; the app downloads it on first use (see [Native libraries](#native-libraries)).
 
 `LICENSE` and `THIRD_PARTY_LICENSES.txt` are embedded in every build and also written to `dist/` for the release. The third-party list covers the Deno runtime and the npm packages that end up in the client and server bundles (recorded during `nuxt build` by a plugin in `nuxt.config.ts`) plus those Nitro copies to `.output/server/node_modules` (`scripts/licenses.ts`).
 
@@ -49,10 +49,10 @@ Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` ca
 ## Architecture
 
 ```
-core/      runtime-agnostic TypeScript, no Nuxt or Deno dependencies (node: built-ins only)
+core/      runtime-agnostic TypeScript, no Nuxt or Deno dependencies (node: built-ins only; except the DuckDB FFI layer)
   types.ts        driver/session interface, capabilities, unified type model
   registry.ts     driver metadata, lazy loading of implementations
-  drivers/*.ts    postgres (pg, pg-cursor), mysql (mysql2), mssql (mssql/tedious), duckdb (@duckdb/node-api)
+  drivers/*.ts    postgres (pg, pg-cursor), mysql (mysql2), mssql (mssql/tedious), duckdb (DuckDB C API via Deno FFI, duckdb-ffi.ts)
   workbench.ts    sessions per tab, metadata session per connection, introspection cache
   export.ts       CSV and Parquet encoders for streamed results
   dialog.ts       native file dialogs (osascript, PowerShell, zenity/kdialog)
@@ -133,20 +133,29 @@ TLS supports a custom CA certificate (PEM, replaces the system CAs) or disabling
 2. Extend `Dialect` in `core/types.ts` and register the driver with its capabilities in `core/registry.ts`.
 3. Add the CodeMirror dialect in `app/components/SqlEditor.vue` (`DIALECTS`) and, if needed, quoting rules in `core/sql-split.ts`.
 4. Add an entry to `tests/drivers.test.ts`. The contract test covers the type model, row limit, session state, DML, errors, cancel and introspection. Add a container to `docker-compose.yml` if needed.
+5. If the driver needs a native binary, follow [Native libraries](#native-libraries).
 
-## DuckDB in compiled builds
+## Native libraries
 
-Packaged builds do not embed DuckDB's native addon (`libduckdb` alone is about 55 MB per architecture). Instead:
+Drivers that need a native binary (currently DuckDB, see `core/drivers/duckdb-ffi.ts`) follow these rules.
 
-- `scripts/package.ts` writes `launcher/duckdb.json` with the npm package of the build target (`@duckdb/node-bindings-<platform>` in the version of `@duckdb/node-bindings`), its tarball URL and the registry's SHA-512 integrity hash. It replaces `@duckdb/node-bindings/duckdb.js` with a stub that loads the addon from `globalThis.dbmDuckdbAddon`.
-- Until the addon is installed, the connection dialog of a DuckDB connection shows "Datenbanktreiber laden" instead of "Testen" and "Speichern". Opening a DuckDB connection, also via MCP, fails with `ENODRIVER`.
-- `launcher/native.ts` downloads the tarball, checks the hash, unpacks `duckdb.node` and `libduckdb.*` into `<data dir>/drivers/duckdb-<version>-<platform>/` and removes other versions. `duckdb.node` finds the library next to itself. `core/` reaches this through a hook on globalThis (`installDriver()` in `core/registry.ts`) to stay free of Deno dependencies.
-- Running from source, or `.output` without the launcher, loads the addon from `node_modules` as usual.
+**No Node-API addons.** `.node` addons do not work in `deno desktop` builds: the executable does not export the N-API symbols, so on Windows and Linux the app exits without an error message as soon as the addon is loaded ([denoland/deno#36596](https://github.com/denoland/deno/issues/36596)). macOS and `deno run` hide the problem. Load the library's C API with `Deno.dlopen` instead (`--allow-ffi` is part of every build):
+- Mark calls that can run long as `nonblocking: true`. They run on their own thread, so the event loop stays responsive and cancel/timeout can interrupt them.
+- Never free a native handle while a nonblocking call still uses it. `Session.close()` may be called during a running statement, so it has to interrupt and wait for the statement first.
+- `nuxt typecheck` also checks `core/` and does not know Deno's types: type the FFI API used locally (as in `duckdb-ffi.ts`).
+- Nitro's Deno preset adds `import process from 'node:process'` to every chunk; use named imports from `node:process` in driver modules.
 
-Related build details:
-- Nitro keeps `@duckdb/node-api` external, so the bindings are traced into `.output/server/node_modules`.
-- `scripts/package.ts` embeds only `.output` and resolves npm packages from there (`nodeModulesDir: "manual"`).
-- `@duckdb/node-api` is pinned to the LTS release `1.4.5-r.1`. Updating it changes the download; the previous version is removed after the next installation.
+**Not embedded, downloaded on demand.** Native libraries are large (`libduckdb` is about 55 MB per architecture) and platform-specific, so packages do not contain them:
+- `scripts/package.ts` writes a manifest per build target into `.output/launcher/` (npm package, tarball URL, SHA-512 integrity from the registry). Keep the library's npm package out of `.output`: the driver must not import it, so Nitro does not trace it.
+- `launcher/native.ts` downloads the tarball on request, checks the hash, unpacks only the library into `<data dir>/drivers/<name>-<version>-<platform>/` (atomically via a temp directory) and removes other versions. It passes the library path and an `installed()`/`install()` hook to the server through globalThis.
+- `core/registry.ts` reports `installed: false` until the library is in place. The connection dialog then offers "Datenbanktreiber laden" instead of "Testen"/"Speichern", and connecting fails with `ENODRIVER`.
+- Running from source, the driver loads the library from the host's platform package in `node_modules`, resolved from the working directory (Nitro bundles do not keep `import.meta.url`).
+
+The download path, hook and status are currently written for DuckDB only (`duckdbGlobals()`, `dbmDuckdb`, `installDriver()`); a second native driver has to generalize them.
+
+**Versions and tests.** Pin the package version exactly; updating it changes the download, and the C API functions used must exist in that version. Unit tests and `deno task dev` do not cover packaged builds: test the driver in a `deno desktop` build on every target, at least once on Windows and Linux.
+
+DuckDB uses `@duckdb/node-bindings` (LTS `1.4.5-r.1`) only as the source of `libduckdb.{dylib,so}` / `duckdb.dll`.
 
 ## Known limitations
 

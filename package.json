@@ -14,7 +14,7 @@
     "@codemirror/language": "^6.11.0",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
-    "@duckdb/node-api": "1.4.5-r.1",
+    "@duckdb/node-bindings": "1.4.5-r.1",
     "@iconify-json/lucide": "^1.2.147",
     "@lezer/highlight": "^1.2.5",
     "@nuxt/ui": "^4.12.0",

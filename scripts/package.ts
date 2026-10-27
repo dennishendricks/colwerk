@@ -65,25 +65,13 @@ await Deno.writeTextFile(
   ),
 )
 
-// DuckDB's native addon comes in one npm package per platform. It is not embedded but downloaded on demand
-// (launcher/native.ts): the host's package leaves `.output` during the builds, `duckdb.json` tells each build
-// where to get its target's package, and the bindings load the addon through a stub.
-const DUCKDB = '.output/server/node_modules/@duckdb'
-const STAGING = '.output/duckdb'
-const { version } = JSON.parse(await Deno.readTextFile(`${DUCKDB}/node-bindings/package.json`))
-await Deno.mkdir(STAGING, { recursive: true })
-for await (const entry of Deno.readDir(DUCKDB)) {
-  if (entry.name.startsWith('node-bindings-')) await Deno.rename(`${DUCKDB}/${entry.name}`, `${STAGING}/${entry.name}`)
-}
-// `.output` itself also runs without the launcher (e.g. the API test), then the original resolution applies.
-await Deno.rename(`${DUCKDB}/node-bindings/duckdb.js`, `${DUCKDB}/node-bindings/duckdb-npm.js`)
-await Deno.writeTextFile(
-  `${DUCKDB}/node-bindings/duckdb.js`,
-  `module.exports = globalThis.dbmDuckdbAddon ? require(globalThis.dbmDuckdbAddon) : require('./duckdb-npm.js')\n`,
-)
+// DuckDB's native library (core/drivers/duckdb-ffi.ts) comes in one npm package per platform. It is not
+// embedded but downloaded on demand (launcher/native.ts); `duckdb.json` tells each build where to get its
+// target's package.
+const { version } = JSON.parse(await Deno.readTextFile('node_modules/@duckdb/node-bindings/package.json'))
 
-// License texts: embedded in every build and placed next to the packages in `dist` for the release. Written after
-// the DuckDB platform packages left `.output`, since they are downloaded at runtime and not distributed.
+// License texts: embedded in every build and placed next to the packages in `dist` for the release. DuckDB is
+// not part of them, since it is downloaded at runtime and not distributed.
 await Deno.copyFile('LICENSE', '.output/LICENSE')
 await writeThirdPartyLicenses('.output/THIRD_PARTY_LICENSES.txt')
 await Deno.mkdir('dist', { recursive: true })
@@ -115,7 +103,7 @@ for (const target of targets) {
     // Type-checked in the project context by `deno task typecheck`; `.output` has no type packages.
     '--no-check',
     // Network for the databases and the DuckDB download, file access for config and DuckDB files, env for config,
-    // FFI for DuckDB's native addon, run for the OS keychain tools, the native file dialogs (core/dialog.ts)
+    // FFI for DuckDB's native library, run for the OS keychain tools, the native file dialogs (core/dialog.ts)
     // and opening the browser (app URL, release pages).
     '--allow-net',
     '--allow-read',
@@ -160,5 +148,3 @@ for (const target of targets) {
     }
   }
 }
-// `.output` itself runs on the host (e.g. the API test), so the host's package goes back.
-for await (const entry of Deno.readDir(STAGING)) await Deno.rename(`${STAGING}/${entry.name}`, `${DUCKDB}/${entry.name}`)

@@ -41,7 +41,7 @@ export interface DriverInfo {
 }
 
 export interface DriverStatus extends DriverInfo {
-  /** False while the native addon still has to be downloaded (DuckDB in packaged builds). */
+  /** False while the native library still has to be downloaded (DuckDB in packaged builds). */
   installed: boolean
   /** Share downloaded (0–1) while an installation runs and the size is known. */
   installProgress?: number

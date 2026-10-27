@@ -1,8 +1,8 @@
-// DuckDB's native addon in packaged builds. It is not embedded: `scripts/package.ts` writes `duckdb.json` with
-// the npm package of the build target and replaces `@duckdb/node-bindings/duckdb.js` by a stub that loads the
-// addon from `globalThis.dbmDuckdbAddon`. On request (`installDriver()` in core/registry.ts) the package is
-// downloaded from the npm registry, checked against the integrity hash fixed at build time and unpacked into
-// the data directory. There `duckdb.node` finds `libduckdb.{dylib,so}` / `duckdb.dll` next to itself.
+// DuckDB's native library in packaged builds. It is not embedded: `scripts/package.ts` writes `duckdb.json` with
+// the npm package of the build target. On request (`installDriver()` in core/registry.ts) the package is
+// downloaded from the npm registry, checked against the integrity hash fixed at build time, and its
+// `libduckdb.{dylib,so}` / `duckdb.dll` is unpacked into the data directory. core/drivers/duckdb-ffi.ts loads
+// it from the path in `globalThis.dbmDuckdbLibrary`.
 import { basename, join } from 'node:path'
 import { UntarStream } from 'jsr:@std/tar@0.1/untar-stream'
 import { defaultDataDir } from '../core/data-dir.ts'
@@ -16,14 +16,15 @@ export interface DuckdbManifest {
   integrity: string
 }
 
-const FILES = /^(duckdb\.node|(lib)?duckdb\.(dylib|so|dll))$/
+const LIBRARY: Record<string, string> = { darwin: 'libduckdb.dylib', linux: 'libduckdb.so', win32: 'duckdb.dll' }
 
-/** The globals the server and the bindings stub read. */
+/** The globals the server reads. */
 export function duckdbGlobals(manifest: DuckdbManifest) {
   const root = join(defaultDataDir(), 'drivers')
   const dir = join(root, `duckdb-${manifest.version}-${manifest.platform}`)
-  const addon = join(dir, 'duckdb.node')
-  const installed = () => Deno.stat(addon).then(() => true, () => false)
+  const file = LIBRARY[manifest.platform.split('-')[0]!]!
+  const library = join(dir, file)
+  const installed = () => Deno.stat(library).then(() => true, () => false)
 
   async function install(onProgress: (fraction: number) => void) {
     const res = await fetch(manifest.tarball)
@@ -48,7 +49,7 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
       const entries = ReadableStream.from([tgz]).pipeThrough(new DecompressionStream('gzip')).pipeThrough(new UntarStream())
       for await (const entry of entries) {
         const name = basename(entry.path)
-        if (entry.readable && FILES.test(name)) await Deno.writeFile(join(tmp, name), entry.readable)
+        if (entry.readable && name === file) await Deno.writeFile(join(tmp, name), entry.readable)
         else await entry.readable?.cancel()
       }
       // Another instance of the app may have finished first.
@@ -63,5 +64,5 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
     }
   }
 
-  return { dbmDuckdbAddon: addon, dbmDuckdb: { installed, install } }
+  return { dbmDuckdbLibrary: library, dbmDuckdb: { installed, install } }
 }

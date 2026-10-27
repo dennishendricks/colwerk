@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1'
-import { DuckDBInstance } from '@duckdb/node-api'
+import { duckdbDriver } from '../core/drivers/duckdb.ts'
 import { createExporter, type ExportFormat } from '../core/export.ts'
 import type { CellValue, ResultColumn } from '../core/types.ts'
 
@@ -43,35 +43,28 @@ Deno.test('export: csv quotes fields and distinguishes NULL from empty string', 
   ].join('\r\n'))
 })
 
-async function readParquet(data: Uint8Array, sql: (file: string) => string[]): Promise<unknown[][][]> {
+async function readParquet(data: Uint8Array, sql: (file: string) => string[]): Promise<CellValue[][][]> {
   const dir = await Deno.makeTempDir()
+  const session = await duckdbDriver.connect({ id: 'export-test', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   try {
     const file = `${dir}/out.parquet`
     await Deno.writeFile(file, data)
-    const conn = await (await DuckDBInstance.create()).connect()
     const results = []
-    for (const query of sql(`'${file}'`)) results.push((await conn.runAndReadAll(query)).getRows())
-    conn.closeSync()
+    for (const query of sql(`'${file}'`)) results.push((await session.execute(query, { rowLimit: 100 })).resultSets[0]!.rows)
     return results
   } finally {
+    await session.close()
     await Deno.remove(dir, { recursive: true })
   }
 }
 
 Deno.test('export: parquet keeps types where every value converts', async () => {
-  const dir = await Deno.makeTempDir()
-  try {
-    const file = `${dir}/out.parquet`
-    await Deno.writeFile(file, await encode('parquet'))
-    const conn = await (await DuckDBInstance.create()).connect()
-    const types = (await conn.runAndReadAll(`select column_name, column_type from (describe select * from '${file}')`)).getRows()
-    assertEquals(types, [['id', 'INTEGER'], ['dec', 'DECIMAL(12,2)'], ['ts', 'TIMESTAMP'], ['text', 'VARCHAR'], ['json', 'VARCHAR'], ['odd', 'VARCHAR']])
-    const values = (await conn.runAndReadAll(`select dec::varchar, ts::varchar, text, json, odd from '${file}' order by id`)).getRows()
-    assertEquals(values, [['12.50', '2024-01-02 03:04:05.123456', 'a,"b"\nc', '{"k":[1]}', '7'], [null, null, '', null, 'x']])
-    conn.closeSync()
-  } finally {
-    await Deno.remove(dir, { recursive: true })
-  }
+  const [types, values] = await readParquet(await encode('parquet'), file => [
+    `select column_name, column_type from (describe select * from ${file})`,
+    `select dec::varchar, ts::varchar, text, json, odd from ${file} order by id`,
+  ])
+  assertEquals(types, [['id', 'INTEGER'], ['dec', 'DECIMAL(12,2)'], ['ts', 'TIMESTAMP'], ['text', 'VARCHAR'], ['json', 'VARCHAR'], ['odd', 'VARCHAR']])
+  assertEquals(values, [['12.50', '2024-01-02 03:04:05.123456', 'a,"b"\nc', '{"k":[1]}', '7'], [null, null, '', null, 'x']])
 })
 
 Deno.test('export: parquet maps further types and renames repeated columns', async () => {
@@ -99,7 +92,7 @@ Deno.test('export: parquet maps further types and renames repeated columns', asy
   ])
   assertEquals(types, [['id', 'SMALLINT'], ['id_1', 'BIGINT'], ['d', 'DATE'], ['t', 'TIME'], ['tz', 'TIMESTAMP WITH TIME ZONE'], ['u', 'UUID'], ['b', 'BOOLEAN'], ['r', 'FLOAT'], ['bad', 'VARCHAR']])
   assertEquals(values, [
-    [-3, '9007199254740993', '2024-02-29', '13:14:15.5', 1704161045123456n, '0e984725-c51c-4bf4-9960-e1c80e27aba0', true, 1.5, '2024-02-30'],
-    [null, '-1', '1969-12-31', '00:00:00', 1704164645000000n, null, false, null, null],
+    [-3, '9007199254740993', '2024-02-29', '13:14:15.5', '1704161045123456', '0e984725-c51c-4bf4-9960-e1c80e27aba0', true, 1.5, '2024-02-30'],
+    [null, '-1', '1969-12-31', '00:00:00', '1704164645000000', null, false, null, null],
   ])
 })

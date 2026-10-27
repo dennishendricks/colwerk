@@ -155,7 +155,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           :loading="busy === 'delete'"
           @click="act('delete', () => removeConnection(connection!.id), 'Gelöscht')"
         />
-        <!-- DuckDB's native addon is downloaded on first use; testing and saving need it. -->
+        <!-- DuckDB's native library is downloaded on first use; testing and saving need it. -->
         <template v-if="driver && !driver.installed">
           <UProgress
             v-if="busy === 'install'"

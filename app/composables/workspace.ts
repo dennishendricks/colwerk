@@ -41,7 +41,7 @@ export function useWorkspace() {
     return api('/api/connections/test', { method: 'POST', body: input })
   }
 
-  /** Downloads the driver's native addon; `drivers` shows the progress meanwhile. */
+  /** Downloads the driver's native library; `drivers` shows the progress meanwhile. */
   async function installDriver(dialect: Dialect) {
     let done = false
     const poll = setInterval(async () => {

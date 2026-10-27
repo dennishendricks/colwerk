@@ -34,8 +34,6 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
   nitro: {
     preset: 'deno-server',
-    // Native addon: keep it out of the bundle so its `.node` file and shared library stay next to each other.
-    externals: { external: ['@duckdb/node-api'] },
     rollupConfig: { plugins: [recordBundledPackages] },
     // Runs on Deno: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
     esbuild: { options: { target: 'esnext' } },
