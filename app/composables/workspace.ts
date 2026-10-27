@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete -- the reactive records below are keyed maps; deleting entries is intended. */
 import type { Ref } from 'vue'
-import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IntrospectRequest, QueryResult, SchemaInfo, TableInfo } from '#core'
+import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IndexInfo, IntrospectRequest, QueryResult, RoutineInfo, SchemaInfo, TableInfo, TransactionState } from '#core'
 
 // Client-side state. The app is a single-window SPA, so module-level reactive state is sufficient.
 
@@ -67,6 +67,9 @@ interface SchemaState {
   schemas?: SchemaInfo[]
   tables: Record<string, TableInfo[]>
   columns: Record<string, ColumnInfo[]>
+  /** Keyed like `columns`. */
+  indexes: Record<string, IndexInfo[]>
+  routines: Record<string, RoutineInfo[]>
   loading: Record<string, boolean>
   errors: Record<string, string>
 }
@@ -78,7 +81,7 @@ const DEFAULT_SCHEMAS = ['public', 'dbo', 'main']
 
 export function useSchema() {
   function state(connectionId: string): SchemaState {
-    return (schemaState[connectionId] ??= { tables: {}, columns: {}, loading: {}, errors: {} })
+    return (schemaState[connectionId] ??= { tables: {}, columns: {}, indexes: {}, routines: {}, loading: {}, errors: {} })
   }
 
   // A second call while loading waits for the first one instead of loading again.
@@ -101,7 +104,8 @@ export function useSchema() {
     return pending
   }
 
-  const keyOf = (schema: string, table?: string) => JSON.stringify([schema, table ?? null])
+  /** `group` keys the indexes of a table or the routines of a schema (loading state, expansion). */
+  const keyOf = (schema: string, table?: string, group?: 'indexes' | 'routines') => JSON.stringify([schema, table ?? null, ...group ? [group] : []])
 
   const loadSchemas = (connectionId: string, refresh = false) =>
     introspect<SchemaInfo[]>(connectionId, 'schemas', { kind: 'schemas' }, refresh, (s, v) => {
@@ -109,6 +113,8 @@ export function useSchema() {
       if (refresh) {
         s.tables = {}
         s.columns = {}
+        s.indexes = {}
+        s.routines = {}
       }
     })
 
@@ -117,6 +123,17 @@ export function useSchema() {
 
   const loadColumns = (connectionId: string, schema: string, table: string, refresh = false) =>
     introspect<ColumnInfo[]>(connectionId, keyOf(schema, table), { kind: 'columns', schema, table }, refresh, (s, v) => (s.columns[keyOf(schema, table)] = v))
+
+  const loadIndexes = (connectionId: string, schema: string, table: string, refresh = false) =>
+    introspect<IndexInfo[]>(connectionId, keyOf(schema, table, 'indexes'), { kind: 'indexes', schema, table }, refresh, (s, v) => (s.indexes[keyOf(schema, table)] = v))
+
+  const loadRoutines = (connectionId: string, schema: string, refresh = false) =>
+    introspect<RoutineInfo[]>(connectionId, keyOf(schema, undefined, 'routines'), { kind: 'routines', schema }, refresh, (s, v) => (s.routines[schema] = v))
+
+  /** Current definition of a table, view or routine (not cached). */
+  const loadDdl = (connectionId: string, schema: string, name: string, object: 'table' | 'view' | 'routine') =>
+    api<{ ddl: string }>(`/api/connections/${connectionId}/introspect`, { method: 'POST', body: { request: { kind: 'ddl', schema, name, object } } })
+      .then(r => r.ddl)
 
   /** Default schema for unqualified names in autocomplete. */
   function defaultSchema(connectionId: string): string | undefined {
@@ -134,7 +151,7 @@ export function useSchema() {
     return out
   }
 
-  return { state, keyOf, loadSchemas, loadTables, loadColumns, defaultSchema, completionSchema }
+  return { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl, defaultSchema, completionSchema }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -154,9 +171,15 @@ export interface QueryTab {
   resultIndex: number
   /** Connection and statement that produced `result` (for exporting the full result). */
   source?: { connectionId: string, sql: string }
+  /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */
+  plan?: { text: string, durationMs: number }
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
+  /** Document offset of the error in the editor, when the database reports it. */
+  errorAt?: number
+  /** Transaction left open in the tab's session by the last execute (unset when none or unknown). */
+  transaction?: 'open' | 'failed'
 }
 
 // Explicit type: unwrapping the recursive CellValue type would be "excessively deep".
@@ -176,6 +199,8 @@ watch(() => JSON.stringify({
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
 })
+
+const openTransaction = (state?: TransactionState) => state === 'idle' ? undefined : state
 
 export function useTabs() {
   async function restoreTabs() {
@@ -201,10 +226,13 @@ export function useTabs() {
     await api(`/api/tabs/${id}`, { method: 'DELETE' }).catch(() => {})
   }
 
-  async function run(tab: QueryTab, sql: string) {
+  /** `from`: document offset where `sql` starts in the editor, to place the error position. */
+  async function run(tab: QueryTab, sql: string, from = 0) {
     if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
     tab.running = true
     tab.error = undefined
+    tab.errorAt = undefined
+    tab.plan = undefined
     try {
       // Raw: deep reactivity on up to 100k rows would wrap every row and cell in a proxy.
       tab.result = markRaw(await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
@@ -214,8 +242,35 @@ export function useTabs() {
       // The last result set is usually the one a script is run for.
       tab.resultIndex = Math.max(0, tab.result.resultSets.length - 1)
       tab.source = { connectionId: tab.connectionId, sql }
+      tab.transaction = openTransaction(tab.result.transaction)
     } catch (e) {
       tab.result = undefined
+      tab.error = errorMessage(e)
+      const position = (e as { data?: { data?: { position?: number } } }).data?.data?.position
+      if (position !== undefined) tab.errorAt = from + position
+      // A failed statement can leave the transaction open; the server sends the state along with the error.
+      tab.transaction = openTransaction((e as { data?: { data?: { transaction?: TransactionState } } }).data?.data?.transaction)
+    } finally {
+      tab.running = false
+    }
+  }
+
+  /** `analyze` executes the statement; the server only accepts it for read-only statements. */
+  async function explain(tab: QueryTab, sql: string, analyze = false) {
+    if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
+    tab.running = true
+    tab.error = undefined
+    tab.errorAt = undefined
+    tab.result = undefined
+    tab.source = undefined
+    tab.plan = undefined
+    try {
+      const { plan, durationMs } = await api<{ plan: string, durationMs: number }>(`/api/tabs/${tab.id}/explain`, {
+        method: 'POST',
+        body: { connectionId: tab.connectionId, sql, analyze, timeout: tab.timeout },
+      })
+      tab.plan = { text: plan, durationMs }
+    } catch (e) {
       tab.error = errorMessage(e)
     } finally {
       tab.running = false
@@ -253,5 +308,5 @@ export function useTabs() {
     }
   }
 
-  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, cancel, exportResult }
+  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, explain, cancel, exportResult }
 }

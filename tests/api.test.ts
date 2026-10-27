@@ -116,10 +116,22 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       assertEquals(r.truncated, true)
       await json(await exec('t1', 'create temp table x as select 1 as a'))
       assertEquals((await json(await exec('t1', 'select a from x'))).resultSets[0].rows, [[1]])
-      // Another tab has its own session and does not see the temp table.
+      // Another tab has its own session and does not see the temp table. The error carries the transaction state.
+      assertEquals((await json(await exec('t2', 'begin'))).transaction, 'open')
       const other = await exec('t2', 'select a from x')
       assertEquals(other.status, 400)
-      await other.body?.cancel()
+      assertEquals((await other.json()).data.transaction, 'failed')
+      assertEquals((await json(await exec('t2', 'rollback'))).transaction, 'idle')
+    })
+
+    await t.step('history records executes, newest first, including failed ones', async () => {
+      const history = await json(await call('/api/history'))
+      // The failed run in t2 is kept next to the identical query from t1: `begin` ran in between.
+      assertEquals(history.map((e: { sql: string }) => e.sql), ['rollback', 'select a from x', 'begin', 'select a from x', 'create temp table x as select 1 as a', 'select * from sales.orders'])
+      assertStringIncludes(history[1].error, 'x')
+      assertEquals(history[5].rowCount, 50)
+      await json(await call('/api/history', { method: 'DELETE' }))
+      assertEquals(await json(await call('/api/history')), [])
     })
 
     await t.step('export writes the full result or the shown rows to the given path', async () => {

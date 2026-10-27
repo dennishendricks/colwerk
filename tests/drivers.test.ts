@@ -2,7 +2,7 @@
 // skipped when not reachable; DuckDB runs in memory.
 import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
 import { loadDriver } from '../core/registry.ts'
-import type { ConnectionConfig, QueryResult, Session } from '../core/types.ts'
+import { type ConnectionConfig, DbError, type QueryResult, type Session } from '../core/types.ts'
 import { reachable, testConnections } from './helpers.ts'
 
 /** Rows of the only result set. */
@@ -27,6 +27,9 @@ interface Case {
   multi: string
   /** Idempotent: comment 'Orders' on `orders`, 'Order total' on `orders.total`, fresh statistics. */
   annotate: string[]
+  /** Idempotent: function `colwerk_add_so(a)` returning a + 1 (and procedure `colwerk_touch_so` where supported) in `schema`. */
+  routines: string[]
+  dropRoutines: string[]
 }
 
 const cases: Case[] = [
@@ -42,6 +45,11 @@ const cases: Case[] = [
     insertSeven: 'insert into t select generate_series(1, 7)',
     multi: 'select 1 as a; select 2 as b',
     annotate: [`comment on table sales.orders is 'Orders'`, `comment on column sales.orders.total is 'Order total'`, 'analyze sales.orders'],
+    routines: [
+      `create or replace function sales.colwerk_add_so(a int) returns int language sql as 'select a + 1'`,
+      `create or replace procedure sales.colwerk_touch_so() language sql as 'select 1'`,
+    ],
+    dropRoutines: ['drop function if exists sales.colwerk_add_so(int)', 'drop procedure if exists sales.colwerk_touch_so()'],
   },
   {
     config: testConnections.mysql,
@@ -55,6 +63,13 @@ const cases: Case[] = [
     insertSeven: 'insert into t select seq from seq_1_to_7',
     multi: 'select 1 as a; select 2 as b',
     annotate: [`alter table orders comment = 'Orders'`, `alter table orders modify total decimal(12, 2) not null comment 'Order total'`, 'analyze table orders'],
+    routines: [
+      'drop function if exists colwerk_add_so',
+      'create function colwerk_add_so(a int) returns int deterministic return a + 1',
+      'drop procedure if exists colwerk_touch_so',
+      'create procedure colwerk_touch_so() select 1',
+    ],
+    dropRoutines: ['drop function if exists colwerk_add_so', 'drop procedure if exists colwerk_touch_so'],
   },
   {
     config: testConnections.mssql,
@@ -73,6 +88,11 @@ const cases: Case[] = [
       `if not exists (select 1 from sys.extended_properties where major_id = object_id('sales.orders') and minor_id = columnproperty(object_id('sales.orders'), 'total', 'ColumnId'))
          exec sp_addextendedproperty 'MS_Description', 'Order total', 'SCHEMA', 'sales', 'TABLE', 'orders', 'COLUMN', 'total'`,
     ],
+    routines: [
+      'create or alter function sales.colwerk_add_so(@a int) returns int as begin return @a + 1 end',
+      'create or alter procedure sales.colwerk_touch_so as select 1',
+    ],
+    dropRoutines: ['drop function if exists sales.colwerk_add_so', 'drop procedure if exists sales.colwerk_touch_so'],
   },
   {
     config: { id: 'duck-test', name: 'duck', dialect: 'duckdb', file: ':memory:' },
@@ -95,6 +115,8 @@ const cases: Case[] = [
     insertSeven: 'insert into t select * from range(7)',
     multi: 'select 1 as a; select 2 as b',
     annotate: [`comment on table sales.orders is 'Orders'`, `comment on column sales.orders.total is 'Order total'`],
+    routines: ['create or replace macro sales.colwerk_add_so(a) as a + 1'],
+    dropRoutines: ['drop macro if exists sales.colwerk_add_so'],
   },
 ]
 
@@ -153,6 +175,37 @@ for (const c of cases) {
     assertEquals(script.resultSets[1]!.rows[0]![0]!.toString(), '14')
     await assertRejects(() => s.execute('select * from does_not_exist', { rowLimit: 1 }))
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
+  })
+
+  Deno.test({ name: `${name}: error position`, ...opts }, async () => {
+    const s = await session()
+    // [script, text from the reported position on]; MSSQL only reports the line (position: its first non-blank character).
+    const errors: [string, string][] = [
+      ['select 1 frm x', name === 'mssql' ? 'select 1 frm x' : 'x'],
+      ['select 1;\n  select 2 frm x', name === 'mssql' ? 'select 2 frm x' : 'x'],
+    ]
+    if (name === 'mssql') errors.push(['select 1\nGO\n  select 2 frm x', 'select 2 frm x'])
+    for (const [sql, rest] of errors) {
+      const err = await assertRejects(() => s.execute(sql, { rowLimit: 1 }), DbError)
+      assertEquals(err.position, sql.length - rest.length, sql)
+    }
+  })
+
+  Deno.test({ name: `${name}: transaction state`, ...opts }, async () => {
+    const s = await session()
+    const begin = name === 'mysql' ? 'begin' : 'begin transaction'
+    assertEquals(await s.transactionState(), 'idle')
+    await s.execute(begin, { rowLimit: 1 })
+    assertEquals(await s.transactionState(), 'open')
+    await s.execute('commit', { rowLimit: 1 })
+    assertEquals(await s.transactionState(), 'idle')
+    // Postgres aborts the transaction on any error, DuckDB only on runtime errors (not on binder errors);
+    // MySQL and SQL Server keep it usable after this error.
+    await s.execute(begin, { rowLimit: 1 })
+    await assertRejects(() => s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 }))
+    assertEquals(await s.transactionState(), name === 'postgres' || name === 'duckdb' ? 'failed' : 'open')
+    await s.execute('rollback', { rowLimit: 1 })
+    assertEquals(await s.transactionState(), 'idle')
   })
 
   if (name === 'postgres') {
@@ -241,6 +294,30 @@ for (const c of cases) {
     assertMatch(cols.total!.type, /^(numeric|decimal)\(12,\s?2\)$/i)
     assertEquals(cols.total!.comment, 'Order total')
     assertEquals(cols.id!.comment, null)
+  })
+
+  Deno.test({ name: `${name}: indexes, routines, DDL`, ...opts }, async () => {
+    const s = await session()
+    const indexes = await s.introspect({ kind: 'indexes', schema: c.schema, table: 'orders' })
+    assertEquals(indexes.filter(i => i.primary).map(i => [i.columns, i.unique]), [[['id'], true]])
+    assertEquals(indexes.find(i => i.name === 'orders_customer_idx'), { name: 'orders_customer_idx', columns: ['customer_id'], unique: false, primary: false })
+
+    for (const stmt of c.routines) await s.execute(stmt, { rowLimit: 1 })
+    try {
+      const routines = await s.introspect({ kind: 'routines', schema: c.schema })
+      assertEquals(routines.find(r => r.name === 'colwerk_add_so'), { name: 'colwerk_add_so', kind: 'function' })
+      if (name !== 'duckdb') assertEquals(routines.find(r => r.name === 'colwerk_touch_so')?.kind, 'procedure')
+      assert(!routines.some(r => ['sum', 'abs', 'now'].includes(r.name)), 'built-in functions listed')
+      assertMatch(await s.introspect({ kind: 'ddl', schema: c.schema, name: 'colwerk_add_so', object: 'routine' }), /colwerk_add_so[\s\S]*\+ 1/)
+    } finally {
+      for (const stmt of c.dropRoutines) await s.execute(stmt, { rowLimit: 1 })
+    }
+
+    const table = await s.introspect({ kind: 'ddl', schema: c.schema, name: 'orders', object: 'table' })
+    assertMatch(table, /^create table/i)
+    for (const part of [/customer_id/, /references/i, /orders_customer_idx/]) assertMatch(table, part)
+    assertMatch(await s.introspect({ kind: 'ddl', schema: c.schema, name: 'order_totals', object: 'view' }), /^create\b[\s\S]*view[\s\S]*sum\(/i)
+    await assertRejects(() => s.introspect({ kind: 'ddl', schema: c.schema, name: 'does_not_exist_so', object: 'view' }))
   })
 
   Deno.test({ name: `${name}: close`, ...opts }, async () => {

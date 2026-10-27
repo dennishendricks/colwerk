@@ -4,6 +4,8 @@ import type { CellValue, ResultSet } from '#core'
 import { csvField } from '~~/core/values.ts'
 
 const props = defineProps<{ result: ResultSet }>()
+// Text of the quick filter, whose input lives in the caller's status bar.
+const filter = defineModel<string>('filter', { default: '' })
 
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
@@ -17,16 +19,49 @@ const sorting = ref<{ id: string, desc: boolean }[]>([])
 const columnPinning = ref<{ left: string[], right: string[] }>({ left: [], right: [] })
 const columnVisibility = ref<Record<string, boolean>>({})
 const columnSizing = ref<Record<string, number>>({})
+const columnFilters = ref<{ id: string, value: unknown }[]>([])
+const globalFilter = ref(filter.value)
 // Column ids are positions, so state of the previous result must not carry over.
 watch(() => props.result, () => {
   sorting.value = []
   columnPinning.value = { left: [], right: [] }
   columnVisibility.value = {}
   columnSizing.value = {}
+  columnFilters.value = []
+  filter.value = ''
+  globalFilter.value = ''
+  filtering.value = undefined
 })
 
+// Filtering 100k rows on every keystroke would make typing lag.
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+watch(filter, (value) => {
+  clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => globalFilter.value = value, 200)
+})
+onBeforeUnmount(() => clearTimeout(filterTimer))
+
+// The filtered row model is memoized on the filter state, not on visibility: a new array makes the
+// quick filter run again over the columns visible now.
+watch(columnVisibility, () => {
+  if (globalFilter.value) columnFilters.value = [...columnFilters.value]
+})
+
+// Case-insensitive substring match on the displayed text; NULL (undefined here) matches nothing.
+function containsText(row: TableRow<Row>, id: string, query: string) {
+  const value = row.getValue<CellValue | undefined>(id)
+  return value !== undefined && cellText(value).toLowerCase().includes(query)
+}
+// Lower-cased once per filter run instead of once per cell.
+containsText.resolveFilterValue = (query: string) => query.toLowerCase()
+// The default only searches columns whose first value is a string or number.
+const globalFilterOptions = { globalFilterFn: containsText, getColumnCanGlobalFilter: (column: Column) => column.getIsVisible() }
+
+const filteredCount = computed(() => globalFilter.value || columnFilters.value.length ? table.value?.tableApi.getFilteredRowModel().rows.length : undefined)
+defineExpose({ filteredCount })
+
 // The table has a fixed layout of exactly the column sizes, which pinned offsets and resizing rely on.
-const table = useTemplateRef<{ tableApi: { getTotalSize(): number } }>('table')
+const table = useTemplateRef<{ $el: HTMLElement, tableApi: { getTotalSize(): number, getRowModel(): { rows: TableRow<Row>[] }, getFilteredRowModel(): { rows: unknown[] } } }>('table')
 const tableWidth = computed(() => table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined)
 const sizeStyle = ({ column }: { column: Column }) => ({ width: `${column.getSize()}px` })
 // Pinned headers are sticky, which already positions the resize handle.
@@ -74,13 +109,16 @@ const columns = computed<TableColumn<Row>[]>(() => [
     accessorFn: row => row.cells[i] ?? undefined,
     sortingFn: (a, b, id) => compareCells(a.getValue(id), b.getValue(id)),
     sortUndefined: 'last',
+    filterFn: containsText,
     meta: { style: { th: sizeStyle }, class: { th: headerClass, td: pinnedClass } },
-    header: ({ column, header }) => [h(UDropdownMenu, { items: headerItems(column), content: { align: 'start' } }, () => h(UButton, {
+    header: ({ column, header }) => [h(UDropdownMenu, { items: headerItems(column), content: { align: 'start', onCloseAutoFocus: openColumnFilter } }, () => h(UButton, {
       color: 'neutral',
       variant: 'ghost',
       size: 'xs',
       class: '-mx-1.5 -my-1 font-semibold',
       title: col.type,
+      icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
+      'data-column': column.id,
       trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
     }, () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)])), h('div', {
       class: ['absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none hover:bg-primary', column.getIsResizing() && 'bg-primary'],
@@ -112,8 +150,25 @@ function headerItems(column: Column): DropdownMenuItem[][] {
       ...pinned !== 'right' ? [{ label: 'Rechts fixieren', icon: 'i-lucide-pin', onSelect: () => column.pin('right') }] : [],
       ...pinned ? [{ label: 'Fixierung lösen', icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : [],
     ],
+    [
+      { label: 'Filtern …', icon: 'i-lucide-filter', onSelect: () => pendingFilter = column },
+      ...column.getIsFiltered() ? [{ label: 'Filter entfernen', icon: 'i-lucide-filter-x', onSelect: () => column.setFilterValue(undefined) }] : [],
+    ],
     [{ label: 'Ausblenden', icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
   ]
+}
+
+// One popover for all column filters, anchored at the header button. It opens only once the menu
+// has closed, because the menu returning focus to its trigger would dismiss it right away.
+const filtering = shallowRef<{ column: Column, anchor: Element }>()
+let pendingFilter: Column | undefined
+function openColumnFilter(e: Event) {
+  const column = pendingFilter
+  pendingFilter = undefined
+  const anchor = column && table.value?.$el.querySelector(`[data-column="${column.id}"]`)
+  if (!column || !anchor) return
+  e.preventDefault()
+  filtering.value = { column, anchor }
 }
 
 // Decimals and big integers arrive as strings, so numeric strings compare as numbers.
@@ -132,23 +187,65 @@ function cellText(value: CellValue) {
 
 // Desktop app only: the launcher shows a native context menu (see launcher/main.ts). In the browser
 // the browser's own menu stays.
-type MenuItem = { item: { label: string, id: string, enabled: boolean } }
+type MenuItem = { item: { label: string, id: string, enabled: boolean } } | 'separator'
 const contextMenu = (window as { bindings?: { contextMenu?(x: number, y: number, menu: MenuItem[]): Promise<string | null> } }).bindings?.contextMenu
 
 async function onRowContextmenu(e: Event, row: TableRow<Row>) {
   e.preventDefault()
   const { clientX, clientY } = e as MouseEvent
+  const col = cellColumn(e, row)
   const id = await contextMenu!(clientX, clientY, [
+    { item: { label: 'Wert kopieren', id: 'copy', enabled: col !== undefined } },
+    { item: { label: 'Wert anzeigen …', id: 'show', enabled: col !== undefined } },
+    'separator',
     { item: { label: 'Datensatz als JSON kopieren', id: 'json', enabled: true } },
     { item: { label: 'Datensatz als CSV kopieren', id: 'csv', enabled: true } },
   ])
   const { columns } = props.result
   const { cells } = row.original
-  if (id === 'json') {
+  if (id === 'copy') {
+    await copyValue(cells[col!] ?? null)
+  } else if (id === 'show') {
+    showDetail(row, col!)
+  } else if (id === 'json') {
     await navigator.clipboard.writeText(JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2))
   } else if (id === 'csv') {
     await navigator.clipboard.writeText([columns.map(c => c.name), cells].map(fields => fields.map(csvField).join(';')).join('\r\n'))
   }
+}
+
+// Cells are rendered in `getVisibleCells()` order, so the td's position identifies the column even
+// with pinned or hidden columns. The `#` column has no value.
+function cellColumn(e: Event, row: TableRow<Row>) {
+  const td = (e.target as Element).closest('td')
+  const id = td && row.getVisibleCells()[td.cellIndex]?.column.id
+  return id && id !== '#' ? Number(id) : undefined
+}
+
+// One listener on the table instead of one per cell; rows carry their index in the row model.
+function onDblclick(e: MouseEvent) {
+  const index = (e.target as Element).closest<HTMLElement>('tr[data-index]')?.dataset.index
+  const row = index !== undefined ? table.value?.tableApi.getRowModel().rows[Number(index)] : undefined
+  const col = row && cellColumn(e, row)
+  if (col !== undefined) showDetail(row!, col)
+}
+
+const detailOpen = ref(false)
+const detail = shallowRef<{ column: ResultSet['columns'][number], value: CellValue }>()
+function showDetail(row: TableRow<Row>, col: number) {
+  detail.value = { column: props.result.columns[col]!, value: row.original.cells[col] ?? null }
+  detailOpen.value = true
+}
+
+function detailText(value: CellValue) {
+  return typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value)
+}
+
+const toast = useToast()
+// NULL is copied as an empty string; the text "NULL" would be indistinguishable from a real value.
+async function copyValue(value: CellValue) {
+  await navigator.clipboard.writeText(value === null ? '' : detailText(value))
+  toast.add({ title: 'Wert kopiert', color: 'success', icon: 'i-lucide-check' })
 }
 
 function renderCell(value: CellValue) {
@@ -165,6 +262,9 @@ function renderCell(value: CellValue) {
     v-model:column-pinning="columnPinning"
     v-model:column-visibility="columnVisibility"
     v-model:column-sizing="columnSizing"
+    v-model:column-filters="columnFilters"
+    v-model:global-filter="globalFilter"
+    :global-filter-options="globalFilterOptions"
     :column-sizing-options="{ columnResizeMode: 'onChange' }"
     :data="data"
     :columns="columns"
@@ -178,5 +278,29 @@ function renderCell(value: CellValue) {
       th: 'px-2 py-1.5 whitespace-nowrap overflow-hidden bg-elevated',
       td: 'px-2 py-1 whitespace-nowrap truncate',
     }"
+    @dblclick="onDblclick"
   />
+  <UModal v-model:open="detailOpen" :title="detail?.column.name" :description="detail?.column.type" :ui="{ content: 'max-w-3xl' }">
+    <template #body>
+      <span v-if="detail?.value === null" class="font-mono text-xs italic text-dimmed">NULL</span>
+      <pre v-else-if="detail" class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{ detailText(detail.value) }}</pre>
+    </template>
+    <template #footer>
+      <UButton label="Kopieren" icon="i-lucide-copy" color="neutral" variant="outline" @click="copyValue(detail!.value)" />
+    </template>
+  </UModal>
+  <UPopover :open="!!filtering" :reference="filtering?.anchor" :content="{ align: 'start' }" @update:open="open => open || (filtering = undefined)">
+    <template #content>
+      <UInput
+        v-if="filtering"
+        :model-value="String(filtering.column.getFilterValue() ?? '')"
+        placeholder="Spalte enthält …"
+        icon="i-lucide-filter"
+        size="xs"
+        class="m-2 w-56"
+        @update:model-value="value => filtering?.column.setFilterValue(value)"
+        @keydown.enter="filtering = undefined"
+      />
+    </template>
+  </UPopover>
 </template>

@@ -1,16 +1,23 @@
 import sql from 'mssql'
-import { splitStatements, statementTexts } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo } from '../types.ts'
+import { lineStart, splitStatements } from '../sql-split.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
 type ColumnMeta = sql.IColumnMetadata[string]
 
-function wrap(e: unknown): DbError {
+/** `batch`: the text that was sent, to turn the line number into a position (first non-blank character of the line). */
+function wrap(e: unknown, batch?: string): DbError {
   if (e instanceof DbError) return e
-  const err = e as { message?: string, code?: string, number?: number, lineNumber?: number }
+  const err = e as { message?: string, code?: string, number?: number, lineNumber?: number, procName?: string }
   const line = err.lineNumber ? ` (line ${err.lineNumber})` : ''
-  return new DbError(`${err.message ?? String(e)}${line}`, err.code ?? (err.number ? String(err.number) : undefined))
+  let position: number | undefined
+  // Inside a procedure the line refers to the procedure's source, not to the batch.
+  if (batch !== undefined && err.lineNumber && !err.procName) {
+    const start = lineStart(batch, err.lineNumber)
+    position = start + /^[ \t]*/.exec(batch.slice(start))![0].length
+  }
+  return new DbError(`${err.message ?? String(e)}${line}`, err.code ?? (err.number ? String(err.number) : undefined), position)
 }
 
 function typeName(col: ColumnMeta): string {
@@ -36,6 +43,17 @@ function cell(value: unknown, type: string): CellValue {
   return normalizeValue(value)
 }
 
+// Type of sys.columns `c` with length/precision, as in the table definition.
+const COLUMN_TYPE = `
+      type_name(c.user_type_id) + case
+        when type_name(c.user_type_id) in ('varchar', 'char', 'varbinary', 'binary')
+          then '(' + case c.max_length when -1 then 'max' else cast(c.max_length as varchar) end + ')'
+        when type_name(c.user_type_id) in ('nvarchar', 'nchar')
+          then '(' + case c.max_length when -1 then 'max' else cast(c.max_length / 2 as varchar) end + ')'
+        when type_name(c.user_type_id) in ('decimal', 'numeric')
+          then '(' + cast(c.precision as varchar) + ',' + cast(c.scale as varchar) + ')'
+        else '' end`
+
 const SQL = {
   schemas: `
     select name from sys.schemas
@@ -57,14 +75,7 @@ const SQL = {
     order by o.name`,
   columns: `
     select c.name,
-      type_name(c.user_type_id) + case
-        when type_name(c.user_type_id) in ('varchar', 'char', 'varbinary', 'binary')
-          then '(' + case c.max_length when -1 then 'max' else cast(c.max_length as varchar) end + ')'
-        when type_name(c.user_type_id) in ('nvarchar', 'nchar')
-          then '(' + case c.max_length when -1 then 'max' else cast(c.max_length / 2 as varchar) end + ')'
-        when type_name(c.user_type_id) in ('decimal', 'numeric')
-          then '(' + cast(c.precision as varchar) + ',' + cast(c.scale as varchar) + ')'
-        else '' end as type,
+      ${COLUMN_TYPE} as type,
       c.is_nullable as nullable,
       cast(case when pk.column_id is null then 0 else 1 end as bit) as pk,
       fk.ref_schema, fk.ref_table, fk.ref_column,
@@ -90,6 +101,69 @@ const SQL = {
         and i.is_primary_key = 0 and i.name is not null) ix
     where c.object_id = object_id(quotename(@schema) + '.' + quotename(@table))
     order by c.column_id`,
+  indexes: `
+    select i.name, i.is_unique as [unique], i.is_primary_key as [primary],
+      (select string_agg(c.name, char(10)) within group (order by ic.key_ordinal)
+         from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
+        where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0) as cols
+    from sys.indexes i
+    where i.object_id = object_id(quotename(@schema) + '.' + quotename(@table)) and i.type > 0 and i.is_hypothetical = 0
+    order by i.is_primary_key desc, i.name`,
+  routines: `
+    select name, case type when 'P' then 'procedure' else 'function' end as kind from sys.objects
+    where schema_id = schema_id(@schema) and type in ('FN', 'IF', 'TF', 'P') and is_ms_shipped = 0
+    order by name`,
+  definition: `select object_definition(object_id(quotename(@schema) + '.' + quotename(@name))) as ddl`,
+  // SQL Server has no built-in table DDL: columns, key/foreign key/check constraints, then the other indexes.
+  // Aggregates must not contain subqueries, so column lists are built in `cross apply` first.
+  tableDdl: `
+    declare @id int = object_id(quotename(@schema) + '.' + quotename(@name), 'U');
+    declare @table nvarchar(max) = quotename(@schema) + '.' + quotename(@name);
+    select 'create table ' + @table + ' (' + char(10) + (
+        select string_agg(cast('    ' + line as nvarchar(max)), ',' + char(10)) within group (order by grp, ord) from (
+          select 0 as grp, c.column_id as ord, quotename(c.name) + ' ' + ${COLUMN_TYPE}
+            + case when ic.object_id is not null
+                then ' identity(' + cast(ic.seed_value as varchar) + ', ' + cast(ic.increment_value as varchar) + ')' else '' end
+            + case when c.is_nullable = 0 then ' not null' else '' end
+            + coalesce(' default ' + d.definition, '') as line
+          from sys.columns c
+          left join sys.identity_columns ic on ic.object_id = c.object_id and ic.column_id = c.column_id
+          left join sys.default_constraints d on d.object_id = c.default_object_id
+          where c.object_id = @id
+          union all
+          select 1, case k.type when 'PK' then 0 else 1 end, 'constraint ' + quotename(k.name) + case k.type when 'PK' then ' primary key' else ' unique' end
+            + ' (' + cols.list + ')'
+          from sys.key_constraints k
+          cross apply (select string_agg(quotename(c.name), ', ') within group (order by ic.key_ordinal) as list
+            from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
+            where ic.object_id = k.parent_object_id and ic.index_id = k.unique_index_id) cols
+          where k.parent_object_id = @id
+          union all
+          select 2, 0, 'constraint ' + quotename(f.name) + ' foreign key (' + cols.list + ') references '
+            + quotename(schema_name(r.schema_id)) + '.' + quotename(r.name) + ' (' + cols.refs + ')'
+          from sys.foreign_keys f
+          join sys.objects r on r.object_id = f.referenced_object_id
+          cross apply (select string_agg(quotename(c.name), ', ') within group (order by fc.constraint_column_id) as list,
+              string_agg(quotename(rc.name), ', ') within group (order by fc.constraint_column_id) as refs
+            from sys.foreign_key_columns fc
+            join sys.columns c on c.object_id = fc.parent_object_id and c.column_id = fc.parent_column_id
+            join sys.columns rc on rc.object_id = fc.referenced_object_id and rc.column_id = fc.referenced_column_id
+            where fc.constraint_object_id = f.object_id) cols
+          where f.parent_object_id = @id
+          union all
+          select 3, 0, 'constraint ' + quotename(ch.name) + ' check ' + ch.definition
+          from sys.check_constraints ch where ch.parent_object_id = @id
+        ) lines) + char(10) + ');'
+      + coalesce((select string_agg(cast(char(10) + char(10) + 'create ' + case when i.is_unique = 1 then 'unique ' else '' end
+            + 'index ' + quotename(i.name) + ' on ' + @table + ' (' + cols.list + ');' as nvarchar(max)), '')
+            within group (order by i.name)
+          from sys.indexes i
+          cross apply (select string_agg(quotename(c.name), ', ') within group (order by ic.key_ordinal) as list
+            from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
+            where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0) cols
+          where i.object_id = @id and i.type > 0 and i.is_hypothetical = 0
+            and i.is_primary_key = 0 and i.is_unique_constraint = 0), '') as ddl
+    where @id is not null`,
 }
 
 class MssqlSession implements Session {
@@ -102,15 +176,16 @@ class MssqlSession implements Session {
   async execute(text: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
     const started = performance.now()
     this.stopReason = null
-    const batches = statementTexts(text, 'mssql', { semicolons: false })
+    const batches = splitStatements(text, 'mssql', { semicolons: false })
     const resultSets: ResultSet[] = []
     let affectedRows: number | undefined
-    for (const [i, batch] of batches.entries()) {
+    for (const [i, { from, to }] of batches.entries()) {
       try {
-        const n = await this.runBatch(batch, rowLimit, resultSets)
+        const n = await this.runBatch(text.slice(from, to), rowLimit, resultSets)
         if (n !== undefined) affectedRows = (affectedRows ?? 0) + n
       } catch (e) {
         const err = wrap(e)
+        if (err.position !== undefined) err.position += from
         if (batches.length > 1) err.message = `Batch ${i + 1}: ${err.message}`
         throw err
       }
@@ -155,7 +230,7 @@ class MssqlSession implements Session {
       })
       request.on('done', () => {
         this.current = null
-        if (error) return reject(wrap(error))
+        if (error) return reject(wrap(error, text))
         for (const s of sets) {
           resultSets.push({ ...s, rows: s.rows.map(r => r.map((v, i) => cell(v, s.columns[i]!.type))) })
         }
@@ -227,6 +302,12 @@ class MssqlSession implements Session {
     this.current?.cancel()
   }
 
+  // XACT_STATE() is -1 for a doomed transaction that can only be rolled back.
+  async transactionState(): Promise<TransactionState | undefined> {
+    const { recordset } = await this.pool.request().query<{ state: number }>('select xact_state() as state')
+    return ({ [-1]: 'failed', 0: 'idle', 1: 'open' } as const)[recordset[0]!.state as -1 | 0 | 1]
+  }
+
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     try {
       const request = this.pool.request()
@@ -241,7 +322,25 @@ class MssqlSession implements Session {
           rowEstimate: row_estimate === null ? null : Number(row_estimate),
         })) as IntrospectResult<R>
       }
+      if (req.kind === 'routines') return [...(await request.query<RoutineInfo>(SQL.routines)).recordset] as IntrospectResult<R>
+      if (req.kind === 'ddl') {
+        request.input('name', sql.NVarChar, req.name)
+        const { recordset } = await request.query<{ ddl: string | null }>(req.object === 'table' ? SQL.tableDdl : SQL.definition)
+        // Null for missing objects and for definitions created `with encryption`.
+        const ddl = recordset[0]?.ddl
+        if (!ddl) throw new DbError(`Definition of ${req.schema}.${req.name} not available`)
+        return ddl.trim() as IntrospectResult<R>
+      }
       request.input('table', sql.NVarChar, req.table)
+      if (req.kind === 'indexes') {
+        const { recordset } = await request.query(SQL.indexes)
+        return recordset.map((r): IndexInfo => ({
+          name: r.name,
+          columns: r.cols ? String(r.cols).split('\n') : [],
+          unique: r.unique,
+          primary: r.primary,
+        })) as IntrospectResult<R>
+      }
       const { recordset } = await request.query(SQL.columns)
       return recordset.map((r): ColumnInfo => ({
         name: r.name,
