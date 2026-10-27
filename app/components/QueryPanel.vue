@@ -6,7 +6,7 @@ import type { QueryTab } from '~/composables/workspace'
 const props = defineProps<{ tab: QueryTab }>()
 
 const { connections, driverOf } = useWorkspace()
-const { run, cancel, exportResult } = useTabs()
+const { activeTabId, run, cancel, exportResult } = useTabs()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 
 const editor = useTemplateRef('editor')
@@ -97,6 +97,23 @@ async function format() {
 }
 
 const busy = computed(() => props.tab.running || !!props.tab.exporting)
+
+// Every open tab keeps its panel mounted, so the shortcuts only apply to the visible one.
+const active = computed(() => props.tab.id === activeTabId.value)
+defineShortcuts(computed(() => active.value ? { meta_shift_f: { usingInput: true, handler: format } } : {}))
+
+// Ctrl+C cancels like in a terminal. On macOS the key has no other use; elsewhere it is copy, so it
+// only cancels when nothing is selected that it would copy.
+const { macOS } = useKbd()
+function onKeydown(e: KeyboardEvent) {
+  if (!active.value || !busy.value || !driver.value?.capabilities.supportsCancel) return
+  if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'c') return
+  if (!macOS.value && (editor.value?.hasSelection() || !window.getSelection()?.isCollapsed)) return
+  e.preventDefault()
+  cancel(props.tab)
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 const status = computed(() => {
   const r = props.tab.result
