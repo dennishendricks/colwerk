@@ -28,7 +28,10 @@ export class Workbench {
     await session.close()
   }
 
-  /** Cancels the statement when it has not finished after `timeoutSeconds` (connecting does not count). */
+  /**
+   * Cancels the statement when it has not finished after `timeoutSeconds` (connecting does not count).
+   * Result and error carry the session's transaction state: a failed statement can leave a transaction open.
+   */
   execute(tabId: string, connectionId: string, sql: string, rowLimit: number, timeoutSeconds: number): Promise<QueryResult> {
     return this.runTab(tabId, connectionId, async (s) => {
       let timedOut = false
@@ -36,13 +39,16 @@ export class Workbench {
         timedOut = true
         s.cancel().catch(() => {})
       }, timeoutSeconds * 1000)
+      const transaction = () => s.transactionState().catch(() => undefined)
       try {
-        return await s.execute(sql, { rowLimit })
-      } catch (e) {
-        if (timedOut) throw new DbError(`Query did not finish within ${timeoutSeconds} s and was cancelled`, 'ETIMEOUT')
-        throw e
-      } finally {
+        const result = await s.execute(sql, { rowLimit })
         clearTimeout(timer)
+        return { ...result, transaction: await transaction() }
+      } catch (e) {
+        clearTimeout(timer)
+        const err = timedOut ? new DbError(`Query did not finish within ${timeoutSeconds} s and was cancelled`, 'ETIMEOUT') : e
+        if (err instanceof DbError && !CONNECTION_LOST.has(err.code ?? '')) err.transaction = await transaction()
+        throw err
       }
     })
   }

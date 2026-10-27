@@ -1,7 +1,7 @@
 // Workbench behaviour on top of the drivers: timeout, cancelling on tab close, DuckDB read-only.
 import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1'
 import { join } from 'node:path'
-import type { ConnectionConfig } from '../core/types.ts'
+import { type ConnectionConfig, DbError } from '../core/types.ts'
 import { Workbench } from '../core/workbench.ts'
 
 const opts = { sanitizeResources: false, sanitizeOps: false }
@@ -29,6 +29,15 @@ Deno.test({ name: 'closing a tab cancels its statement', ...opts }, async () => 
   await wb.closeTab('tab')
   await running
   assert(performance.now() - started < 5_000, 'cancel took too long')
+  await wb.closeAll()
+})
+
+Deno.test({ name: 'execute reports the transaction state, also on errors', ...opts }, async () => {
+  const wb = workbench({ id: 'wb-tx', name: 'duck', dialect: 'duckdb', file: ':memory:' })
+  assertEquals((await wb.execute('tab', 'wb-tx', 'begin', 1, 10)).transaction, 'open')
+  const err = await assertRejects(() => wb.execute('tab', 'wb-tx', `select 'x'::int`, 1, 10), DbError)
+  assertEquals(err.transaction, 'failed')
+  assertEquals((await wb.execute('tab', 'wb-tx', 'rollback', 1, 10)).transaction, 'idle')
   await wb.closeAll()
 })
 

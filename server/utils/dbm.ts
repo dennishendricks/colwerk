@@ -8,7 +8,7 @@ export async function dbCall<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (e) {
-    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code } })
+    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code, transaction: e.transaction } })
     throw e
   }
 }

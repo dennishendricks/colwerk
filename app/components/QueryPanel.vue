@@ -98,6 +98,21 @@ async function format() {
 
 const busy = computed(() => props.tab.running || !!props.tab.exporting)
 
+// Another connection needs another session; closing the old one rolls back its open transaction, so confirm first.
+const pendingConnection = ref<string>()
+
+function selectConnection(id: string) {
+  if (props.tab.transaction) pendingConnection.value = id
+  else props.tab.connectionId = id
+}
+
+async function confirmConnection() {
+  props.tab.connectionId = pendingConnection.value
+  props.tab.transaction = undefined
+  pendingConnection.value = undefined
+  await api(`/api/tabs/${props.tab.id}`, { method: 'DELETE' }).catch(() => {})
+}
+
 const status = computed(() => {
   const r = props.tab.result
   if (!r) return ''
@@ -112,12 +127,13 @@ const status = computed(() => {
   <div class="flex h-full flex-col">
     <div class="flex items-center gap-2 border-b border-default px-3 py-2">
       <USelect
-        v-model="tab.connectionId"
+        :model-value="tab.connectionId"
         :items="connectionItems"
         placeholder="Verbindung wählen"
         icon="i-lucide-database"
         size="sm"
         class="w-56"
+        @update:model-value="selectConnection"
       />
       <UButton
         icon="i-lucide-play"
@@ -146,6 +162,17 @@ const status = computed(() => {
         :disabled="!tab.sql.trim()"
         @click="format"
       />
+      <template v-if="tab.transaction">
+        <UBadge
+          :label="tab.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'"
+          :color="tab.transaction === 'failed' ? 'error' : 'warning'"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+        />
+        <!-- A failed transaction can only be rolled back (Postgres turns COMMIT into ROLLBACK). -->
+        <UButton v-if="tab.transaction === 'open'" size="sm" color="neutral" variant="soft" label="Commit" :disabled="busy" @click="run(tab, 'COMMIT')" />
+        <UButton size="sm" color="neutral" variant="soft" label="Rollback" :disabled="busy" @click="run(tab, 'ROLLBACK')" />
+      </template>
       <div class="ml-auto flex items-center gap-2 text-sm text-muted">
         <span>Limit</span>
         <UInputNumber v-model="tab.rowLimit" :min="1" :max="100000" :step="100" :step-snapping="false" size="sm" class="w-32" />
@@ -205,5 +232,20 @@ const status = computed(() => {
         </div>
       </SplitterPanel>
     </SplitterGroup>
+
+    <UModal
+      :open="!!pendingConnection"
+      title="Verbindung wechseln?"
+      description="Die offene Transaktion dieses Tabs wird dabei zurückgerollt."
+      :close="false"
+      @update:open="v => !v && (pendingConnection = undefined)"
+    >
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="pendingConnection = undefined" />
+          <UButton label="Wechseln" color="error" @click="confirmConnection" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

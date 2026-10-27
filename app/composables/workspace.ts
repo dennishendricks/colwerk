@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete -- the reactive records below are keyed maps; deleting entries is intended. */
 import type { Ref } from 'vue'
-import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IntrospectRequest, QueryResult, SchemaInfo, TableInfo } from '#core'
+import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IntrospectRequest, QueryResult, SchemaInfo, TableInfo, TransactionState } from '#core'
 
 // Client-side state. The app is a single-window SPA, so module-level reactive state is sufficient.
 
@@ -157,6 +157,8 @@ export interface QueryTab {
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
+  /** Transaction left open in the tab's session by the last execute (unset when none or unknown). */
+  transaction?: 'open' | 'failed'
 }
 
 // Explicit type: unwrapping the recursive CellValue type would be "excessively deep".
@@ -176,6 +178,8 @@ watch(() => JSON.stringify({
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
 })
+
+const openTransaction = (state?: TransactionState) => state === 'idle' ? undefined : state
 
 export function useTabs() {
   async function restoreTabs() {
@@ -214,9 +218,12 @@ export function useTabs() {
       // The last result set is usually the one a script is run for.
       tab.resultIndex = Math.max(0, tab.result.resultSets.length - 1)
       tab.source = { connectionId: tab.connectionId, sql }
+      tab.transaction = openTransaction(tab.result.transaction)
     } catch (e) {
       tab.result = undefined
       tab.error = errorMessage(e)
+      // A failed statement can leave the transaction open; the server sends the state along with the error.
+      tab.transaction = openTransaction((e as { data?: { data?: { transaction?: TransactionState } } }).data?.data?.transaction)
     } finally {
       tab.running = false
     }

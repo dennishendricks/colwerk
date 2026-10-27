@@ -1,6 +1,6 @@
 import sql from 'mssql'
 import { splitStatements, statementTexts } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo } from '../types.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -225,6 +225,12 @@ class MssqlSession implements Session {
   async cancel(): Promise<void> {
     this.stopReason = 'cancel'
     this.current?.cancel()
+  }
+
+  // XACT_STATE() is -1 for a doomed transaction that can only be rolled back.
+  async transactionState(): Promise<TransactionState | undefined> {
+    const { recordset } = await this.pool.request().query<{ state: number }>('select xact_state() as state')
+    return ({ [-1]: 'failed', 0: 'idle', 1: 'open' } as const)[recordset[0]!.state as -1 | 0 | 1]
   }
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
