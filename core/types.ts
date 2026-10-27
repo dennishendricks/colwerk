@@ -75,7 +75,12 @@ export interface QueryResult {
   /** Rows affected by DML, when the driver reports it and no result set was returned. */
   affectedRows?: number
   durationMs: number
+  /** Transaction state of the session after the statement; undefined if the driver cannot tell. */
+  transaction?: TransactionState
 }
+
+/** `failed`: a statement failed inside the transaction, only `ROLLBACK` is accepted (Postgres, DuckDB, SQL Server `XACT_STATE() = -1`). */
+export type TransactionState = 'idle' | 'open' | 'failed'
 
 export interface ExecuteOptions {
   rowLimit: number
@@ -133,6 +138,8 @@ export interface Session {
   stream(sql: string, sink: RowSink): Promise<void>
   /** Aborts the statement currently running in this session (no-op if idle). */
   cancel(): Promise<void>
+  /** Whether the session is inside a transaction; undefined if the driver cannot tell. Called between statements only. */
+  transactionState(): Promise<TransactionState | undefined>
   introspect<R extends IntrospectRequest>(request: R): Promise<IntrospectResult<R>>
   close(): Promise<void>
 }
@@ -142,6 +149,9 @@ export interface Driver {
 }
 
 export class DbError extends Error {
+  /** Transaction state after a failed `execute`, set by the workbench. */
+  transaction?: TransactionState
+
   constructor(message: string, readonly code?: string) {
     super(message)
     this.name = 'DbError'

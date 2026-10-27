@@ -1,5 +1,5 @@
 import { statementTexts } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo } from '../types.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
@@ -94,6 +94,18 @@ class DuckDBSession implements Session {
 
   async cancel(): Promise<void> {
     this.conn.interrupt()
+  }
+
+  // The C API does not expose the transaction state. Outside a transaction every statement gets a new
+  // transaction id; after a failed statement in a transaction every statement fails until ROLLBACK.
+  async transactionState(): Promise<TransactionState | undefined> {
+    const id = async () => (await this.rows<{ id: string }>('select txid_current() as id'))[0]!.id
+    try {
+      return await id() === await id() ? 'open' : 'idle'
+    } catch (e) {
+      if (wrap(e).message.includes('Current transaction is aborted')) return 'failed'
+      throw e
+    }
   }
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {

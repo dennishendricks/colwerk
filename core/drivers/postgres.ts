@@ -1,7 +1,7 @@
 import pg from 'pg'
 import Cursor from 'pg-cursor'
 import { statementTexts } from '../sql-split.ts'
-import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo } from '../types.ts'
+import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -21,6 +21,9 @@ const types: pg.CustomTypesConfig = {
     return pg.types.getTypeParser(oid, format)
   }) as pg.CustomTypesConfig['getTypeParser'],
 }
+
+// Status byte of the last ReadyForQuery message.
+const TX_STATUS: Record<string, TransactionState> = { I: 'idle', T: 'open', E: 'failed' }
 
 const DML = new Set(['INSERT', 'UPDATE', 'DELETE', 'MERGE', 'COPY'])
 
@@ -177,6 +180,10 @@ class PostgresSession implements Session {
     } finally {
       await killer.end().catch(() => {})
     }
+  }
+
+  async transactionState(): Promise<TransactionState | undefined> {
+    return TX_STATUS[this.client.getTransactionStatus() ?? '']
   }
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
