@@ -115,13 +115,19 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
+const grid = useTemplateRef<{ filteredCount?: number }>('grid')
+const filter = ref('')
+// The grid resets it itself, but not when a new result mounts a fresh grid (other result index).
+watch(() => props.tab.result, () => (filter.value = ''))
+
 const status = computed(() => {
   const r = props.tab.result
   if (!r) return ''
   const time = r.durationMs < 1000 ? `${Math.round(r.durationMs)} ms` : `${(r.durationMs / 1000).toFixed(2)} s`
   const set = shown.value
   if (!set) return `${r.affectedRows ?? 0} Zeile(n) betroffen · ${time}`
-  return `${set.rows.length.toLocaleString('de-DE')} Zeile(n)${set.truncated ? ` – auf Limit ${props.tab.rowLimit.toLocaleString('de-DE')} gekürzt` : ''} · ${time}`
+  const filtered = grid.value?.filteredCount
+  return `${filtered === undefined ? '' : `${filtered.toLocaleString('de-DE')} von `}${set.rows.length.toLocaleString('de-DE')} Zeile(n)${set.truncated ? ` – auf Limit ${props.tab.rowLimit.toLocaleString('de-DE')} gekürzt` : ''} · ${time}`
 })
 </script>
 
@@ -202,6 +208,20 @@ const status = computed(() => {
               @click="tab.resultIndex = item.value"
             />
           </span>
+          <!-- Pushed to the right edge itself only without result buttons: two auto margins would split the space. -->
+          <UInput
+            v-if="!tab.error && shown?.columns.length"
+            v-model="filter"
+            placeholder="Ergebnis filtern …"
+            icon="i-lucide-search"
+            size="xs"
+            class="-my-1 w-56"
+            :class="!busy && resultItems.length > 1 ? '' : 'ml-auto'"
+          >
+            <template v-if="filter" #trailing>
+              <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" title="Filter leeren" @click="filter = ''" />
+            </template>
+          </UInput>
         </div>
         <div class="min-h-0 flex-1 overflow-hidden">
           <UAlert
@@ -212,7 +232,7 @@ const status = computed(() => {
             :description="tab.error"
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
-          <LazyResultGrid v-else-if="shown?.columns.length" :key="tab.resultIndex" :result="shown" />
+          <LazyResultGrid v-else-if="shown?.columns.length" ref="grid" :key="tab.resultIndex" v-model:filter="filter" :result="shown" />
         </div>
         <div v-if="!tab.error && shown?.columns.length" class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
           <span>Export</span>
