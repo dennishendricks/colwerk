@@ -1,5 +1,5 @@
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
@@ -48,9 +48,30 @@ const SQL = {
     where database_name = current_database() and schema_name = $1 and table_name = $2
       and constraint_type in ('PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE')`,
   indexes: `
-    select index_name as name, expressions from duckdb_indexes()
+    select index_name as name, expressions, is_unique from duckdb_indexes()
     where database_name = current_database() and schema_name = $1 and table_name = $2`,
+  // User-defined macros only; built-in functions are `internal`.
+  routines: `
+    select distinct function_name as name, 'function' as kind from duckdb_functions()
+    where database_name = current_database() and schema_name = $1 and not internal
+    order by 1`,
+  tableDdl: `
+    select sql from (
+      select 0 as ord, sql from duckdb_tables()
+        where database_name = current_database() and schema_name = $1 and table_name = $2
+      union all
+      select 1, sql from duckdb_indexes()
+        where database_name = current_database() and schema_name = $1 and table_name = $2
+    ) order by ord, sql`,
+  viewDdl: `
+    select sql from duckdb_views()
+    where database_name = current_database() and schema_name = $1 and view_name = $2`,
+  routineDdl: `
+    select function_type as type, parameters, macro_definition as definition from duckdb_functions()
+    where database_name = current_database() and schema_name = $1 and function_name = $2 and not internal`,
 }
+
+const ident = (name: string) => /^[a-z_][a-z0-9_]*$/.test(name) ? name : `"${name.replaceAll('"', '""')}"`
 
 class DuckDBSession implements Session {
   // Statements run one after another: a new statement on the connection invalidates a streaming result,
@@ -143,7 +164,21 @@ class DuckDBSession implements Session {
           clustering: null,
         })) as IntrospectResult<R>
       }
+      if (req.kind === 'routines') return await this.rows<RoutineInfo>(SQL.routines, [req.schema]) as IntrospectResult<R>
+      if (req.kind === 'ddl') return await this.ddl(req) as IntrospectResult<R>
       const params = [req.schema, req.table]
+      if (req.kind === 'indexes') {
+        const [constraints, indexes] = await Promise.all([
+          this.rows<{ type: string, name: string, cols: string[] }>(SQL.constraints, params),
+          this.rows<{ name: string, expressions: string, is_unique: boolean }>(SQL.indexes, params),
+        ])
+        // Primary keys and unique constraints are not listed in duckdb_indexes().
+        return [
+          ...constraints.filter(k => k.type !== 'FOREIGN KEY').sort((a, b) => Number(b.type === 'PRIMARY KEY') - Number(a.type === 'PRIMARY KEY'))
+            .map((k): IndexInfo => ({ name: k.name, columns: k.cols, unique: true, primary: k.type === 'PRIMARY KEY' })),
+          ...indexes.map((i): IndexInfo => ({ name: i.name, columns: i.expressions.slice(1, -1).split(', '), unique: i.is_unique, primary: false })),
+        ] as IntrospectResult<R>
+      }
       const [columns, constraints, indexes] = await Promise.all([
         this.rows<{ name: string, type: string, nullable: boolean, comment: string | null }>(SQL.columns, params),
         this.rows<{ type: string, name: string, cols: string[], ref_table: string | null, ref_cols: string[] }>(SQL.constraints, params),
@@ -167,6 +202,20 @@ class DuckDBSession implements Session {
     } catch (e) {
       throw wrap(e)
     }
+  }
+
+  private async ddl(req: Extract<IntrospectRequest, { kind: 'ddl' }>): Promise<string> {
+    const params = [req.schema, req.name]
+    let ddl: string[]
+    if (req.object === 'routine') {
+      // Macros are stored as their body only; overloads appear as separate rows.
+      const macros = await this.rows<{ type: string, parameters: string[], definition: string }>(SQL.routineDdl, params)
+      ddl = macros.map(m => `create macro ${ident(req.schema)}.${ident(req.name)}(${m.parameters.join(', ')}) as ${m.type === 'table_macro' ? 'table ' : ''}${m.definition};`)
+    } else {
+      ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map(r => r.sql)
+    }
+    if (!ddl.length) throw new DbError(`${req.schema}.${req.name} not found`)
+    return ddl.join('\n\n')
   }
 
   // Interrupts a running statement (e.g. when its tab is closed) and closes once it has ended.

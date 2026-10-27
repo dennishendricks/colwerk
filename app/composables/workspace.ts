@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete -- the reactive records below are keyed maps; deleting entries is intended. */
 import type { Ref } from 'vue'
-import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IntrospectRequest, QueryResult, SchemaInfo, TableInfo, TransactionState } from '#core'
+import type { ColumnInfo, ConnectionInput, ConnectionSummary, Dialect, DriverStatus, IndexInfo, IntrospectRequest, QueryResult, RoutineInfo, SchemaInfo, TableInfo, TransactionState } from '#core'
 
 // Client-side state. The app is a single-window SPA, so module-level reactive state is sufficient.
 
@@ -67,6 +67,9 @@ interface SchemaState {
   schemas?: SchemaInfo[]
   tables: Record<string, TableInfo[]>
   columns: Record<string, ColumnInfo[]>
+  /** Keyed like `columns`. */
+  indexes: Record<string, IndexInfo[]>
+  routines: Record<string, RoutineInfo[]>
   loading: Record<string, boolean>
   errors: Record<string, string>
 }
@@ -78,7 +81,7 @@ const DEFAULT_SCHEMAS = ['public', 'dbo', 'main']
 
 export function useSchema() {
   function state(connectionId: string): SchemaState {
-    return (schemaState[connectionId] ??= { tables: {}, columns: {}, loading: {}, errors: {} })
+    return (schemaState[connectionId] ??= { tables: {}, columns: {}, indexes: {}, routines: {}, loading: {}, errors: {} })
   }
 
   // A second call while loading waits for the first one instead of loading again.
@@ -101,7 +104,8 @@ export function useSchema() {
     return pending
   }
 
-  const keyOf = (schema: string, table?: string) => JSON.stringify([schema, table ?? null])
+  /** `group` keys the indexes of a table or the routines of a schema (loading state, expansion). */
+  const keyOf = (schema: string, table?: string, group?: 'indexes' | 'routines') => JSON.stringify([schema, table ?? null, ...group ? [group] : []])
 
   const loadSchemas = (connectionId: string, refresh = false) =>
     introspect<SchemaInfo[]>(connectionId, 'schemas', { kind: 'schemas' }, refresh, (s, v) => {
@@ -109,6 +113,8 @@ export function useSchema() {
       if (refresh) {
         s.tables = {}
         s.columns = {}
+        s.indexes = {}
+        s.routines = {}
       }
     })
 
@@ -117,6 +123,17 @@ export function useSchema() {
 
   const loadColumns = (connectionId: string, schema: string, table: string, refresh = false) =>
     introspect<ColumnInfo[]>(connectionId, keyOf(schema, table), { kind: 'columns', schema, table }, refresh, (s, v) => (s.columns[keyOf(schema, table)] = v))
+
+  const loadIndexes = (connectionId: string, schema: string, table: string, refresh = false) =>
+    introspect<IndexInfo[]>(connectionId, keyOf(schema, table, 'indexes'), { kind: 'indexes', schema, table }, refresh, (s, v) => (s.indexes[keyOf(schema, table)] = v))
+
+  const loadRoutines = (connectionId: string, schema: string, refresh = false) =>
+    introspect<RoutineInfo[]>(connectionId, keyOf(schema, undefined, 'routines'), { kind: 'routines', schema }, refresh, (s, v) => (s.routines[schema] = v))
+
+  /** Current definition of a table, view or routine (not cached). */
+  const loadDdl = (connectionId: string, schema: string, name: string, object: 'table' | 'view' | 'routine') =>
+    api<{ ddl: string }>(`/api/connections/${connectionId}/introspect`, { method: 'POST', body: { request: { kind: 'ddl', schema, name, object } } })
+      .then(r => r.ddl)
 
   /** Default schema for unqualified names in autocomplete. */
   function defaultSchema(connectionId: string): string | undefined {
@@ -134,7 +151,7 @@ export function useSchema() {
     return out
   }
 
-  return { state, keyOf, loadSchemas, loadTables, loadColumns, defaultSchema, completionSchema }
+  return { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl, defaultSchema, completionSchema }
 }
 
 // ---------------------------------------------------------------------------------------------

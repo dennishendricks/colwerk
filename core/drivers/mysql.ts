@@ -1,7 +1,7 @@
 import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
 import { splitStatements } from '../sql-split.ts'
-import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -108,6 +108,19 @@ const SQL = {
      and k.column_name = c.column_name and k.referenced_table_name is not null
     where c.table_schema = ? and c.table_name = ?
     order by c.ordinal_position`,
+  indexes: `
+    select index_name as name, group_concat(column_name order by seq_in_index separator '\\n') as cols,
+      non_unique = 0 as is_unique
+    from information_schema.statistics where table_schema = ? and table_name = ?
+    group by index_name, non_unique
+    order by index_name = 'PRIMARY' desc, index_name`,
+  routines: `
+    select routine_name as name, lower(routine_type) as kind from information_schema.routines
+    where routine_schema = ? order by routine_name`,
+  // A function and a procedure may share a name.
+  routineTypes: `
+    select routine_type as type from information_schema.routines
+    where routine_schema = ? and routine_name = ? order by routine_type`,
 }
 
 class MysqlSession implements Session {
@@ -250,6 +263,31 @@ class MysqlSession implements Session {
           rowEstimate: row_estimate === null ? null : Number(row_estimate),
           clustering: null,
         })) as IntrospectResult<R>
+      }
+      if (req.kind === 'indexes') {
+        const [rows] = await db.query(SQL.indexes, [req.schema, req.table])
+        return (rows as { name: string, cols: string | null, is_unique: string | number }[]).map((r): IndexInfo => ({
+          name: r.name,
+          // Functional indexes (MySQL 8) have no column name.
+          columns: r.cols ? r.cols.split('\n') : [],
+          unique: Number(r.is_unique) === 1,
+          primary: r.name === 'PRIMARY',
+        })) as IntrospectResult<R>
+      }
+      if (req.kind === 'routines') return (await db.query(SQL.routines, [req.schema]))[0] as IntrospectResult<R>
+      if (req.kind === 'ddl') {
+        const types = req.object === 'routine'
+          ? ((await db.query(SQL.routineTypes, [req.schema, req.name]))[0] as { type: string }[]).map(r => r.type)
+          : [req.object.toUpperCase()]
+        if (!types.length) throw new DbError(`${req.schema}.${req.name} not found`)
+        const ddl: string[] = []
+        for (const type of types) {
+          // The statement's text is in the column `Create Table`, `Create View`, `Create Function` or `Create Procedure`.
+          const [rows] = await db.query(`show create ${type} ??.??`, [req.schema, req.name])
+          const row = (rows as Record<string, string>[])[0]!
+          ddl.push(`${row[`Create ${type[0]}${type.slice(1).toLowerCase()}`]};`)
+        }
+        return ddl.join('\n\n') as IntrospectResult<R>
       }
       const [rows] = await db.query(SQL.columns, [req.schema, req.table])
       const seen = new Set<string>()
