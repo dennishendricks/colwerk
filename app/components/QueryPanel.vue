@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
+import type { Dialect } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 
 const props = defineProps<{ tab: QueryTab }>()
@@ -12,6 +13,7 @@ const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSc
 const editor = useTemplateRef('editor')
 const driver = computed(() => driverOf(props.tab.connectionId))
 const connectionItems = computed(() => connections.value.map(c => ({ label: c.name, value: c.id })))
+const connection = computed(() => connections.value.find(c => c.id === props.tab.connectionId))
 
 // Autocomplete needs at least the tables of the default schema.
 watch(() => props.tab.connectionId, async (id) => {
@@ -46,9 +48,24 @@ async function preloadColumns() {
   }
 }
 
+// SQL that waits for confirmation because the connection asks before writes.
+const pending = ref<string>()
+
 function execute() {
   const sql = editor.value?.runnableSql() ?? ''
-  run(props.tab, sql)
+  if (connection.value?.confirmWrites && mayWrite(sql, connection.value.dialect)) pending.value = sql
+  else run(props.tab, sql)
+}
+
+function confirmRun() {
+  if (pending.value) run(props.tab, pending.value)
+  pending.value = undefined
+}
+
+// isReadOnlyStatement is false for any script with several statements, so check them one by one:
+// a script of SELECTs runs without asking, a single write in it asks.
+function mayWrite(sql: string, dialect: Dialect) {
+  return splitStatements(sql, dialect).some(r => !isReadOnlyStatement(sql.slice(r.from, r.to), dialect))
 }
 
 const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
@@ -133,7 +150,10 @@ const status = computed(() => {
 
 <template>
   <div class="flex h-full flex-col">
-    <div class="flex items-center gap-2 border-b border-default px-3 py-2">
+    <div
+      class="flex items-center gap-2 border-b border-default px-3 py-2"
+      :class="connection?.color && ['border-l-4', connectionColorClasses[connection.color].borderLeft]"
+    >
       <USelect
         v-model="tab.connectionId"
         :items="connectionItems"
@@ -242,5 +262,23 @@ const status = computed(() => {
         </div>
       </SplitterPanel>
     </SplitterGroup>
+
+    <UModal
+      :open="pending !== undefined"
+      title="Schreibende Anweisung ausführen?"
+      :description="`Die Abfrage kann Daten oder Strukturen in „${connection?.name}“ ändern.`"
+      :close="false"
+      @update:open="v => !v && (pending = undefined)"
+    >
+      <template #body>
+        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending }}</pre>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="pending = undefined" />
+          <UButton label="Ausführen" color="error" @click="confirmRun" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
