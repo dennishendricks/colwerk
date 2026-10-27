@@ -2,6 +2,10 @@
 
 export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb'
 
+/** Marking colors for connections, e.g. red for production. */
+export const connectionColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const
+export type ConnectionColor = typeof connectionColors[number]
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -22,6 +26,10 @@ export interface ConnectionConfig {
   file?: string
   /** DuckDB: open the database file read-only. */
   readOnly?: boolean
+  /** Marks the connection in the UI (connection list, tabs, query toolbar). */
+  color?: ConnectionColor
+  /** Ask before running statements that may write (UI only; the database itself is not restricted). */
+  confirmWrites?: boolean
 }
 
 export interface DriverCapabilities {
@@ -75,7 +83,12 @@ export interface QueryResult {
   /** Rows affected by DML, when the driver reports it and no result set was returned. */
   affectedRows?: number
   durationMs: number
+  /** Transaction state of the session after the statement; undefined if the driver cannot tell. */
+  transaction?: TransactionState
 }
+
+/** `failed`: a statement failed inside the transaction, only `ROLLBACK` is accepted (Postgres, DuckDB, SQL Server `XACT_STATE() = -1`). */
+export type TransactionState = 'idle' | 'open' | 'failed'
 
 export interface ExecuteOptions {
   rowLimit: number
@@ -110,15 +123,35 @@ export interface ColumnInfo {
   comment: string | null
 }
 
+export interface IndexInfo {
+  name: string
+  /** Key columns in index order (expressions of expression indexes where the database reports them). */
+  columns: string[]
+  unique: boolean
+  primary: boolean
+}
+
+export interface RoutineInfo {
+  name: string
+  kind: 'function' | 'procedure'
+}
+
 export type IntrospectRequest =
   | { kind: 'schemas' }
   | { kind: 'tables', schema: string }
   | { kind: 'columns', schema: string, table: string }
+  | { kind: 'indexes', schema: string, table: string }
+  | { kind: 'routines', schema: string }
+  /** Source of a table, view or routine (all overloads of the name); never cached. */
+  | { kind: 'ddl', schema: string, name: string, object: 'table' | 'view' | 'routine' }
 
 export type IntrospectResult<R extends IntrospectRequest> =
   R extends { kind: 'schemas' } ? SchemaInfo[]
     : R extends { kind: 'tables' } ? TableInfo[]
-      : ColumnInfo[]
+      : R extends { kind: 'columns' } ? ColumnInfo[]
+        : R extends { kind: 'indexes' } ? IndexInfo[]
+          : R extends { kind: 'routines' } ? RoutineInfo[]
+            : string
 
 /** Receives a streamed result. `rows` is awaited (backpressure); if it rejects, the statement is aborted. */
 export interface RowSink {
@@ -133,6 +166,8 @@ export interface Session {
   stream(sql: string, sink: RowSink): Promise<void>
   /** Aborts the statement currently running in this session (no-op if idle). */
   cancel(): Promise<void>
+  /** Whether the session is inside a transaction; undefined if the driver cannot tell. Called between statements only. */
+  transactionState(): Promise<TransactionState | undefined>
   introspect<R extends IntrospectRequest>(request: R): Promise<IntrospectResult<R>>
   close(): Promise<void>
 }
@@ -142,7 +177,11 @@ export interface Driver {
 }
 
 export class DbError extends Error {
-  constructor(message: string, readonly code?: string) {
+  /** Transaction state after a failed `execute`, set by the workbench. */
+  transaction?: TransactionState
+
+  /** `position`: 0-based character offset of the error in the SQL passed to `Session.execute`, if the database reports it. */
+  constructor(message: string, readonly code?: string, public position?: number) {
     super(message)
     this.name = 'DbError'
   }

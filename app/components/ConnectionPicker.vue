@@ -52,6 +52,7 @@ const dialectIcon = (id: string) => driverOf(id)?.capabilities.supportsNetwork ?
       <span class="truncate">
         <span v-if="active?.folder" class="text-muted">{{ active.folder }} / </span>{{ active?.name ?? 'Verbindung wählen' }}
       </span>
+      <span v-if="active?.color" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[active.color].bg" />
     </UButton>
 
     <template #content>
@@ -82,6 +83,7 @@ const dialectIcon = (id: string) => driverOf(id)?.capabilities.supportsNetwork ?
               >
                 <UIcon :name="dialectIcon(c.id)" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ c.name }}</span>
+                <span v-if="c.color" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[c.color].bg" :title="connectionColorClasses[c.color].label" />
                 <UButton
                   icon="i-lucide-pencil"
                   size="xs"

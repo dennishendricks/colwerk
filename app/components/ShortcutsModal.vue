@@ -5,7 +5,13 @@ const shortcuts = [
   { keys: ['meta', 'T'], label: 'Neuer Tab' },
   { keys: ['meta', 'W'], label: 'Aktuellen Tab schließen' },
   { keys: ['meta', '1–9'], label: 'Zu Tab 1–9 wechseln' },
+  { keys: ['meta', 'shift', 'D'], label: 'Aktuellen Tab duplizieren' },
+  { keys: ['meta', 'shift', '['], label: 'Zum vorherigen Tab wechseln' },
+  { keys: ['meta', 'shift', ']'], label: 'Zum nächsten Tab wechseln' },
   { keys: ['meta', 'enter'], label: 'Abfrage ausführen (im Editor)' },
+  { keys: ['meta', 'shift', 'F'], label: 'SQL formatieren' },
+  { keys: ['ctrl', 'C'], label: 'Laufende Abfrage abbrechen' },
+  { keys: ['meta', 'E'], label: 'Ausführungsplan anzeigen (im Editor)' },
   { keys: ['?'], label: 'Shortcut-Übersicht anzeigen' },
 ]
 </script>

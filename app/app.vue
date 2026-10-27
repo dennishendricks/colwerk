@@ -3,7 +3,7 @@ import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 
-const { activeConnectionId, load } = useWorkspace()
+const { connections, activeConnectionId, load } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
 
 const loadError = ref<string>()
@@ -11,6 +11,7 @@ const modalOpen = ref(false)
 const editing = ref<ConnectionSummary>()
 
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value))
+const colorOf = (connectionId?: string) => connections.value.find(c => c.id === connectionId)?.color
 
 let listening = false
 
@@ -38,6 +39,10 @@ const { version } = useRuntimeConfig().public
 function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
   const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string, sql: string, title?: string }
+  openInNewTab(connectionId, sql, title)
+}
+
+function openInNewTab(connectionId: string, sql: string, title?: string) {
   activeConnectionId.value = connectionId
   const tab = addTab(connectionId)
   tab.sql = sql
@@ -56,12 +61,14 @@ function openModal(connection?: ConnectionSummary) {
 
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
-// Tab that waits for confirmation because it still contains a query.
+const historyOpen = ref(false)
+// Tab that waits for confirmation because it still contains a query or an open transaction.
 const closing = ref<string>()
+const closingTab = computed(() => tabs.value.find(t => t.id === closing.value))
 
 function requestClose(tab?: QueryTab) {
   if (!tab) return
-  if (tab.sql.trim()) closing.value = tab.id
+  if (tab.sql.trim() || tab.transaction) closing.value = tab.id
   else closeTab(tab.id)
 }
 
@@ -70,9 +77,47 @@ function confirmClose() {
   closing.value = undefined
 }
 
+// Inline rename on double-click; the input takes the width of the label it replaces.
+const renaming = ref<string>()
+const draft = ref('')
+const renameWidth = ref(0)
+const renameInput = useTemplateRef<HTMLInputElement[]>('rename-input')
+
+async function startRename(tab: QueryTab, e: MouseEvent) {
+  renaming.value = tab.id
+  draft.value = tab.title
+  renameWidth.value = (e.currentTarget as HTMLElement).offsetWidth
+  await nextTick()
+  renameInput.value?.[0]?.focus()
+  renameInput.value?.[0]?.select()
+}
+
+function commitRename(tab: QueryTab) {
+  // Removing the input after Enter or Escape can fire blur as well.
+  if (renaming.value !== tab.id) return
+  const title = draft.value.trim()
+  if (title) tab.title = title
+  renaming.value = undefined
+}
+
+function duplicateTab(tab?: QueryTab) {
+  if (!tab) return
+  const copy = addTab(tab.connectionId)
+  Object.assign(copy, { title: `${tab.title} (Kopie)`, sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
+}
+
+// Wraps around at both ends.
+function cycleTab(step: number) {
+  const index = tabs.value.findIndex(t => t.id === activeTabId.value)
+  const tab = tabs.value[(index + step + tabs.value.length) % tabs.value.length]
+  if (tab) activeTabId.value = tab.id
+}
+
+// `?` has no usingInput, so it stays inactive while typing in the rename input.
 defineShortcuts({
   meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
+  meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, {
     usingInput: true,
     handler: () => {
@@ -82,6 +127,18 @@ defineShortcuts({
   }])),
   '?': () => (shortcutsOpen.value = !shortcutsOpen.value),
 })
+
+// ⇧⌘[ / ⇧⌘] by physical key, like macOS menus: with shift (and on other layouts) the characters differ,
+// which defineShortcuts matches on.
+const { macOS } = useKbd()
+function onKeydown(e: KeyboardEvent) {
+  const step = e.code === 'BracketLeft' ? -1 : e.code === 'BracketRight' ? 1 : 0
+  if (!step || !e.shiftKey || !(macOS.value ? e.metaKey : e.ctrlKey)) return
+  e.preventDefault()
+  cycleTab(step)
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
@@ -122,11 +179,25 @@ defineShortcuts({
             @click="activeTabId = t.id"
           >
             <UIcon v-if="t.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-            <span class="whitespace-nowrap">{{ t.title }}</span>
+            <UIcon v-else-if="t.transaction" name="i-lucide-triangle-alert" :class="t.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5" :title="t.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'" />
+            <span v-if="colorOf(t.connectionId)" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[colorOf(t.connectionId)!].bg" />
+            <input
+              v-if="renaming === t.id"
+              ref="rename-input"
+              v-model="draft"
+              maxlength="60"
+              class="bg-transparent outline-none"
+              :style="{ width: `${renameWidth}px` }"
+              @keydown.enter="commitRename(t)"
+              @keydown.escape="renaming = undefined"
+              @blur="commitRename(t)"
+            >
+            <span v-else class="max-w-60 truncate" :title="t.title" @dblclick="startRename(t, $event)">{{ t.title }}</span>
             <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId)" />
-          <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" class="ml-auto" title="MCP einrichten" @click="mcpOpen = true" />
+          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
+          <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
           <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
         </div>
         <div class="min-h-0 flex-1">
@@ -142,10 +213,13 @@ defineShortcuts({
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
+    <LazyHistoryModal v-model:open="historyOpen" :connection-id="activeTab?.connectionId ?? activeConnectionId" @select="e => openInNewTab(e.connectionId, e.sql)" />
     <UModal
       :open="!!closing"
       title="Tab schließen?"
-      description="Der Tab enthält eine Abfrage, die beim Schließen verloren geht."
+      :description="closingTab?.transaction
+        ? 'Die offene Transaktion des Tabs wird beim Schließen zurückgerollt.'
+        : 'Der Tab enthält eine Abfrage, die beim Schließen verloren geht.'"
       :close="false"
       @update:open="v => !v && (closing = undefined)"
     >

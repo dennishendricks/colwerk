@@ -58,6 +58,7 @@ core/      runtime-agnostic TypeScript, no Nuxt or Deno dependencies (node: buil
   dialog.ts       native file dialogs (osascript, PowerShell, zenity/kdialog)
   sql-split.ts    statement splitter, read-only statement detection
   store.ts        connection store, passwords encrypted with AES-256-GCM
+  history.ts      query history: newest first, capped at 50 entries
   keychain.ts     encryption key in the OS keychain
 server/    thin Nitro layer: security middleware, routes under /api/*, MCP tools under mcp/tools, no database logic
 app/       Nuxt UI frontend, talks to /api/* only
@@ -65,7 +66,7 @@ launcher/  entry point for deno desktop / deno compile (token, port, window/brow
 scripts/   dev server, packaging
 ```
 
-**Sessions.** A driver's `connect(config)` returns a `Session` (`execute`, `stream`, `cancel`, `introspect`, `close`) backed by exactly one database connection. Each editor tab gets its own session, so transactions, temp tables and `SET` options persist per tab. Introspection uses a separate metadata session per connection, so a long-running query never blocks the schema tree.
+**Sessions.** A driver's `connect(config)` returns a `Session` (`execute`, `stream`, `cancel`, `transactionState`, `introspect`, `close`) backed by exactly one database connection. Each editor tab gets its own session, so transactions, temp tables and `SET` options persist per tab. After every execute, also a failed one, the workbench reports whether the session is inside a transaction (Postgres: status of the last ReadyForQuery message; MariaDB: `@@in_transaction`; SQL Server: `XACT_STATE()`; DuckDB: whether two `txid_current()` calls return the same id). The tab then shows "Transaktion offen" with Commit/Rollback; closing the tab or switching its connection asks first, because closing the session rolls the transaction back. Introspection uses a separate metadata session per connection, so a long-running query never blocks the schema tree.
 
 **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas` and `supportsNetwork`. The UI uses them to show the cancel button, the schema level in the tree, and host/port/user fields versus a file path.
 
@@ -79,7 +80,9 @@ scripts/   dev server, packaging
 
 **Export.** Results can be exported to CSV or Parquet, either the displayed rows or the complete result. The complete result re-runs the statement in the tab's session and streams it with backpressure, so it is only offered for a single read-only statement. The server opens a native save dialog and writes the file itself, because the desktop webview does not handle browser downloads. Files are written to `<target>.part` and renamed on success. Parquet is written by [hyparquet-writer](https://github.com/hyparam/hyparquet-writer) and does not need DuckDB: rows are staged as JSON lines in a temporary file and encoded in row groups of 100,000. A column gets the Parquet type of its database type only if every value converts; otherwise it is written as a string.
 
-**Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables → columns) and cached on the server.
+**Execution plan.** The plan of a single statement is taken in the tab's session and shown as text: Postgres `EXPLAIN (FORMAT TEXT)`, DuckDB `EXPLAIN`, MySQL/MariaDB `EXPLAIN FORMAT=JSON` (pretty-printed), MSSQL `SET SHOWPLAN_TEXT ON` in a batch of its own, switched off again afterwards (if that fails, the session is closed). `ANALYZE` executes the statement, so it is only offered for read-only statements and not on MSSQL; on MySQL it uses MariaDB's `ANALYZE FORMAT=JSON`.
+
+**Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables and routines → columns and indexes) and cached on the server. DDL of tables, views and routines is read on demand and not cached; Postgres and SQL Server have no built-in table DDL, so it is assembled from columns, constraints and indexes.
 
 **Formatting.** [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) with 4-space indentation, plus post-processing for leading commas, `!=` instead of `<>`, and `on` on its own line below the join.
 
@@ -107,7 +110,7 @@ MCP clients authenticate with their own token, separate from the UI's session to
 | `list-connections` | Connections with `connectionId`, dialect, databases, reachability, read-only flag. Call first. |
 | `list-schemas` | Schemas with the number of tables and views |
 | `list-tables` | Tables and views with estimated row count and comment |
-| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), partitioning, clustering |
+| `describe-table` | Columns (type, nullable, PK, FK target, indexes, comment), indexes with key columns, partitioning, clustering |
 | `sample-rows` | Up to 50 rows as JSON objects |
 | `run-query` | One `SELECT`/`WITH` statement, up to 1000 rows, 30 s timeout |
 | `open-query` | Opens SQL in a new editor tab without running it (via server-sent events at `/api/events`) |
@@ -116,7 +119,7 @@ All tools except `open-query` only read. `run-query` and `sample-rows` accept a 
 
 ## Connections and credentials
 
-Connections are stored in `connections.json` with passwords encrypted using AES-256-GCM. Default location: `~/Library/Application Support/colwerk` (macOS), `%APPDATA%\colwerk` (Windows), `$XDG_CONFIG_HOME/colwerk` (Linux); override with `DBM_DATA_DIR`. The open editor tabs (SQL text, limit, timeout, no results) are kept in `workspace.json` in the same directory.
+Connections are stored in `connections.json` with passwords encrypted using AES-256-GCM. Default location: `~/Library/Application Support/colwerk` (macOS), `%APPDATA%\colwerk` (Windows), `$XDG_CONFIG_HOME/colwerk` (Linux); override with `DBM_DATA_DIR`. The open editor tabs (SQL text, limit, timeout, no results) are kept in `workspace.json` in the same directory, the last 50 executed queries (SQL, time, duration, row count or error message) in `history.json`.
 
 The encryption key lives in the OS keychain (service `colwerk`, one entry per data directory): macOS Keychain, Linux Secret Service (`secret-tool`), Windows Credential Manager. Secrets are always passed via stdin, never as arguments. Without a usable keychain, or with `DBM_KEYCHAIN=off`, the key is stored in `secret.key` (mode 0600) next to the data. This only protects against accidental disclosure (backups, sync folders), not against someone with access to the user account. If the keychain denies access, Colwerk reports an error instead of silently falling back to the file.
 
@@ -161,7 +164,7 @@ DuckDB uses `@duckdb/node-bindings` (LTS `1.4.5-r.1`) only as the source of `lib
 
 - **DuckDB** needs `registry.npmjs.org` once per version (proxies via `HTTPS_PROXY`). Without access, DuckDB connections cannot be used.
 - **MSSQL:** tedious returns `DECIMAL`/`NUMERIC`/`MONEY` as JS numbers, losing precision beyond ~15 significant digits; `datetime2` is truncated to milliseconds. The row limit of a batch without `;` also cancels its subsequent statements. `GO n` is not supported, and statements containing blank lines must be selected before running.
-- **MySQL:** the result grid shows protocol type names (`LONGLONG`, `NEWDECIMAL`, …). Cancelling after the row limit opens a short extra connection (`KILL QUERY`).
+- **MySQL:** the result grid shows protocol type names (`LONGLONG`, `NEWDECIMAL`, …). Cancelling after the row limit opens a short extra connection (`KILL QUERY`). Open transactions are only detected on MariaDB (MySQL has no `@@in_transaction`).
 - **Postgres/DuckDB scripts** commit each statement individually; a script without its own `BEGIN` is not atomic.
 - **Export:** read-only detection is a text heuristic (side-effecting functions such as `nextval()` are not detected). Postgres `numeric` without precision and binary data are written to Parquet as strings.
 - **Formatting:** SQL that sql-formatter cannot parse is left unchanged; lines are not wrapped.

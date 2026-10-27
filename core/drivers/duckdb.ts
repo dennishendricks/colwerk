@@ -1,9 +1,28 @@
-import { statementTexts } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo } from '../types.ts'
+import { lineStart, splitStatements } from '../sql-split.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
   return e instanceof DbError ? e : new DbError(e instanceof Error ? e.message : String(e))
+}
+
+/**
+ * Error position within `sql` from DuckDB's context lines ("LINE 2: <line>" and a caret below it;
+ * long lines are cut with "..."). The caret is off to the left on lines with non-ASCII characters,
+ * so a syntax error snaps to its token ("at or near "x"") at or after the caret.
+ */
+function errorPosition(sql: string, message: string): number | undefined {
+  const m = /^(LINE (\d+): )(.*)\n( *)\^/m.exec(message)
+  if (!m) return undefined
+  const [, prefix = '', line, shown = '', caret = ''] = m
+  const start = lineStart(sql, Number(line))
+  const end = sql.indexOf('\n', start)
+  const text = sql.slice(start, end === -1 ? undefined : end)
+  let col = caret.length - prefix.length
+  if (shown.startsWith('...')) col += text.indexOf(shown.slice(3).replace(/\.\.\.$/, '')) - 3
+  const token = /at or near "(.*)"/.exec(message)?.[1]
+  const snapped = token ? text.indexOf(token, col) : -1
+  return start + (snapped === -1 ? col : snapped)
 }
 
 const SQL = {
@@ -29,9 +48,30 @@ const SQL = {
     where database_name = current_database() and schema_name = $1 and table_name = $2
       and constraint_type in ('PRIMARY KEY', 'FOREIGN KEY', 'UNIQUE')`,
   indexes: `
-    select index_name as name, expressions from duckdb_indexes()
+    select index_name as name, expressions, is_unique from duckdb_indexes()
     where database_name = current_database() and schema_name = $1 and table_name = $2`,
+  // User-defined macros only; built-in functions are `internal`.
+  routines: `
+    select distinct function_name as name, 'function' as kind from duckdb_functions()
+    where database_name = current_database() and schema_name = $1 and not internal
+    order by 1`,
+  tableDdl: `
+    select sql from (
+      select 0 as ord, sql from duckdb_tables()
+        where database_name = current_database() and schema_name = $1 and table_name = $2
+      union all
+      select 1, sql from duckdb_indexes()
+        where database_name = current_database() and schema_name = $1 and table_name = $2
+    ) order by ord, sql`,
+  viewDdl: `
+    select sql from duckdb_views()
+    where database_name = current_database() and schema_name = $1 and view_name = $2`,
+  routineDdl: `
+    select function_type as type, parameters, macro_definition as definition from duckdb_functions()
+    where database_name = current_database() and schema_name = $1 and function_name = $2 and not internal`,
 }
+
+const ident = (name: string) => /^[a-z_][a-z0-9_]*$/.test(name) ? name : `"${name.replaceAll('"', '""')}"`
 
 class DuckDBSession implements Session {
   // Statements run one after another: a new statement on the connection invalidates a streaming result,
@@ -50,10 +90,11 @@ class DuckDBSession implements Session {
   execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
     return this.serial(async () => {
       const started = performance.now()
-      const statements = statementTexts(sql, 'duckdb')
+      const ranges = splitStatements(sql, 'duckdb')
       const resultSets: ResultSet[] = []
       let affectedRows: number | undefined
-      for (const [i, statement] of statements.entries()) {
+      for (const [i, { from, to }] of ranges.entries()) {
+        const statement = sql.slice(from, to)
         try {
           const result = await this.conn.query(statement)
           try {
@@ -68,7 +109,9 @@ class DuckDBSession implements Session {
           }
         } catch (e) {
           const err = wrap(e)
-          if (statements.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
+          const at = errorPosition(statement, err.message)
+          if (at !== undefined) err.position = from + at
+          if (ranges.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
           throw err
         }
       }
@@ -96,6 +139,18 @@ class DuckDBSession implements Session {
     this.conn.interrupt()
   }
 
+  // The C API does not expose the transaction state. Outside a transaction every statement gets a new
+  // transaction id; after a failed statement in a transaction every statement fails until ROLLBACK.
+  async transactionState(): Promise<TransactionState | undefined> {
+    const id = async () => (await this.rows<{ id: string }>('select txid_current() as id'))[0]!.id
+    try {
+      return await id() === await id() ? 'open' : 'idle'
+    } catch (e) {
+      if (wrap(e).message.includes('Current transaction is aborted')) return 'failed'
+      throw e
+    }
+  }
+
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     try {
       if (req.kind === 'schemas') return await this.rows<SchemaInfo>(SQL.schemas) as IntrospectResult<R>
@@ -109,7 +164,21 @@ class DuckDBSession implements Session {
           clustering: null,
         })) as IntrospectResult<R>
       }
+      if (req.kind === 'routines') return await this.rows<RoutineInfo>(SQL.routines, [req.schema]) as IntrospectResult<R>
+      if (req.kind === 'ddl') return await this.ddl(req) as IntrospectResult<R>
       const params = [req.schema, req.table]
+      if (req.kind === 'indexes') {
+        const [constraints, indexes] = await Promise.all([
+          this.rows<{ type: string, name: string, cols: string[] }>(SQL.constraints, params),
+          this.rows<{ name: string, expressions: string, is_unique: boolean }>(SQL.indexes, params),
+        ])
+        // Primary keys and unique constraints are not listed in duckdb_indexes().
+        return [
+          ...constraints.filter(k => k.type !== 'FOREIGN KEY').sort((a, b) => Number(b.type === 'PRIMARY KEY') - Number(a.type === 'PRIMARY KEY'))
+            .map((k): IndexInfo => ({ name: k.name, columns: k.cols, unique: true, primary: k.type === 'PRIMARY KEY' })),
+          ...indexes.map((i): IndexInfo => ({ name: i.name, columns: i.expressions.slice(1, -1).split(', '), unique: i.is_unique, primary: false })),
+        ] as IntrospectResult<R>
+      }
       const [columns, constraints, indexes] = await Promise.all([
         this.rows<{ name: string, type: string, nullable: boolean, comment: string | null }>(SQL.columns, params),
         this.rows<{ type: string, name: string, cols: string[], ref_table: string | null, ref_cols: string[] }>(SQL.constraints, params),
@@ -133,6 +202,20 @@ class DuckDBSession implements Session {
     } catch (e) {
       throw wrap(e)
     }
+  }
+
+  private async ddl(req: Extract<IntrospectRequest, { kind: 'ddl' }>): Promise<string> {
+    const params = [req.schema, req.name]
+    let ddl: string[]
+    if (req.object === 'routine') {
+      // Macros are stored as their body only; overloads appear as separate rows.
+      const macros = await this.rows<{ type: string, parameters: string[], definition: string }>(SQL.routineDdl, params)
+      ddl = macros.map(m => `create macro ${ident(req.schema)}.${ident(req.name)}(${m.parameters.join(', ')}) as ${m.type === 'table_macro' ? 'table ' : ''}${m.definition};`)
+    } else {
+      ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map(r => r.sql)
+    }
+    if (!ddl.length) throw new DbError(`${req.schema}.${req.name} not found`)
+    return ddl.join('\n\n')
   }
 
   // Interrupts a running statement (e.g. when its tab is closed) and closes once it has ended.

@@ -1,4 +1,4 @@
-import { ConnectionStore, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
+import { type ConnectionColor, connectionColors, ConnectionStore, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
 
 export const store = new ConnectionStore()
 export const workbench = new Workbench(id => store.get(id))
@@ -8,7 +8,7 @@ export async function dbCall<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (e) {
-    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code } })
+    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code, position: e.position, transaction: e.transaction } })
     throw e
   }
 }
@@ -23,6 +23,8 @@ export function parseConnection(body: unknown): ConnectionInput {
   if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) {
     throw createError({ statusCode: 400, message: 'Invalid port' })
   }
+  const color = str('color') as ConnectionColor | undefined
+  if (color !== undefined && !connectionColors.includes(color)) throw createError({ statusCode: 400, message: 'Invalid color' })
   return {
     id: str('id') ?? crypto.randomUUID(),
     name: str('name')!,
@@ -39,5 +41,7 @@ export function parseConnection(body: unknown): ConnectionInput {
     sslInsecure: b.ssl === true && b.sslInsecure === true,
     file: str('file'),
     readOnly: b.readOnly === true,
+    color,
+    confirmWrites: b.confirmWrites === true,
   }
 }

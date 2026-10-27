@@ -140,6 +140,17 @@ export function statementTexts(sql: string, dialect: SplitDialect, options?: Spl
   return splitStatements(sql, dialect, options).map(r => sql.slice(r.from, r.to))
 }
 
+/** Offset of the first character of the 1-based `line` (the last line if there are fewer). */
+export function lineStart(sql: string, line: number): number {
+  let at = 0
+  for (let l = 1; l < line; l++) {
+    const eol = sql.indexOf('\n', at)
+    if (eol === -1) break
+    at = eol + 1
+  }
+  return at
+}
+
 const READ_START = /^\(*\s*(select|with|values|table|show|describe|desc|explain|from)\b/
 const SELECT_START = /^\(*\s*(select|with)\b/
 // Writes (also inside a CTE), `select … into`, `explain analyze` (executes the statement), procedures.
