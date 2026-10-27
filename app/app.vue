@@ -39,6 +39,10 @@ const { version } = useRuntimeConfig().public
 function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
   const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string, sql: string, title?: string }
+  openInNewTab(connectionId, sql, title)
+}
+
+function openInNewTab(connectionId: string, sql: string, title?: string) {
   activeConnectionId.value = connectionId
   const tab = addTab(connectionId)
   tab.sql = sql
@@ -57,6 +61,7 @@ function openModal(connection?: ConnectionSummary) {
 
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
+const historyOpen = ref(false)
 // Tab that waits for confirmation because it still contains a query.
 const closing = ref<string>()
 
@@ -189,7 +194,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId)" />
-          <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" class="ml-auto" title="MCP einrichten" @click="mcpOpen = true" />
+          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
+          <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
           <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
         </div>
         <div class="min-h-0 flex-1">
@@ -205,6 +211,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
+    <LazyHistoryModal v-model:open="historyOpen" :connection-id="activeTab?.connectionId ?? activeConnectionId" @select="e => openInNewTab(e.connectionId, e.sql)" />
     <UModal
       :open="!!closing"
       title="Tab schließen?"
