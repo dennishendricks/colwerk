@@ -164,7 +164,27 @@ const tabs: Ref<QueryTab[]> = ref([])
 const activeTabId = ref<string>()
 let tabCounter = 0
 
+// Editor content and settings of the open tabs are saved on the server (results are not).
+type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'sql' | 'rowLimit' | 'timeout'>
+interface SavedWorkspace { tabs: SavedTab[], activeTabId?: string }
+
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => JSON.stringify({
+  tabs: tabs.value.map(({ id, title, connectionId, sql, rowLimit, timeout }): SavedTab => ({ id, title, connectionId, sql, rowLimit, timeout })),
+  activeTabId: activeTabId.value,
+} satisfies SavedWorkspace), (body) => {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
+})
+
 export function useTabs() {
+  async function restoreTabs() {
+    const saved = await api<SavedWorkspace>('/api/workspace')
+    tabs.value = saved.tabs.map(t => ({ ...t, running: false, resultIndex: 0 }))
+    activeTabId.value = tabs.value.some(t => t.id === saved.activeTabId) ? saved.activeTabId : tabs.value[0]?.id
+    tabCounter = Math.max(0, ...tabs.value.map(t => Number(t.title.match(/^Abfrage (\d+)$/)?.[1] ?? 0)))
+  }
+
   function addTab(connectionId?: string) {
     const tab: QueryTab = { id: crypto.randomUUID(), title: `Abfrage ${++tabCounter}`, connectionId, sql: '', rowLimit: 200, timeout: 60, running: false, resultIndex: 0 }
     tabs.value.push(tab)
@@ -233,5 +253,5 @@ export function useTabs() {
     }
   }
 
-  return { tabs, activeTabId, addTab, closeTab, run, cancel, exportResult }
+  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, cancel, exportResult }
 }

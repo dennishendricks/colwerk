@@ -64,6 +64,15 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       assertStringIncludes(await res.text(), 'id="__nuxt"')
     })
 
+    await t.step('saves and restores the open tabs', async () => {
+      assertEquals(await json(await call('/api/workspace')), { tabs: [] })
+      const workspace = { tabs: [{ id: 't1', title: 'Abfrage 1', sql: 'select 1', rowLimit: 200, timeout: 60 }], activeTabId: 't1' }
+      await json(await call('/api/workspace', { method: 'POST', body: JSON.stringify(workspace) }))
+      assertEquals(await json(await call('/api/workspace')), workspace)
+      const bad = await call('/api/workspace', { method: 'POST', body: '{}' })
+      assertEquals((bad.body?.cancel(), bad.status), 400)
+    })
+
     if (!pgUp) return
     const pg = testConnections.postgres
 
