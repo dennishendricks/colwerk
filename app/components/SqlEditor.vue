@@ -125,7 +125,10 @@ function runnableSql(): string {
   return doc.slice(range.from, range.to)
 }
 
-defineExpose({ runnableSql, focus: () => view?.focus() })
+// Only while focused: otherwise copy acts on the page's selection, not the editor's.
+const hasSelection = () => !!view?.hasFocus && !view.state.selection.main.empty
+
+defineExpose({ runnableSql, hasSelection, focus: () => view?.focus() })
 </script>
 
 <template>
