@@ -186,10 +186,11 @@ export function useTabs() {
     tab.running = true
     tab.error = undefined
     try {
-      tab.result = await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
+      // Raw: deep reactivity on up to 100k rows would wrap every row and cell in a proxy.
+      tab.result = markRaw(await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
         method: 'POST',
         body: { connectionId: tab.connectionId, sql, rowLimit: tab.rowLimit, timeout: tab.timeout },
-      })
+      }))
       // The last result set is usually the one a script is run for.
       tab.resultIndex = Math.max(0, tab.result.resultSets.length - 1)
       tab.source = { connectionId: tab.connectionId, sql }
