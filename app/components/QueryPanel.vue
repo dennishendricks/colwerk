@@ -100,6 +100,8 @@ const busy = computed(() => props.tab.running || !!props.tab.exporting)
 
 const grid = useTemplateRef<{ filteredCount?: number }>('grid')
 const filter = ref('')
+// The grid resets it itself, but not when a new result mounts a fresh grid (other result index).
+watch(() => props.tab.result, () => (filter.value = ''))
 
 const status = computed(() => {
   const r = props.tab.result
