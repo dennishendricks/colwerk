@@ -116,10 +116,12 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       assertEquals(r.truncated, true)
       await json(await exec('t1', 'create temp table x as select 1 as a'))
       assertEquals((await json(await exec('t1', 'select a from x'))).resultSets[0].rows, [[1]])
-      // Another tab has its own session and does not see the temp table.
+      // Another tab has its own session and does not see the temp table. The error carries the transaction state.
+      assertEquals((await json(await exec('t2', 'begin'))).transaction, 'open')
       const other = await exec('t2', 'select a from x')
       assertEquals(other.status, 400)
-      await other.body?.cancel()
+      assertEquals((await other.json()).data.transaction, 'failed')
+      assertEquals((await json(await exec('t2', 'rollback'))).transaction, 'idle')
     })
 
     await t.step('history records executes, newest first, without repeating the newest query', async () => {

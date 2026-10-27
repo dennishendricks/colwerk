@@ -169,6 +169,23 @@ for (const c of cases) {
     }
   })
 
+  Deno.test({ name: `${name}: transaction state`, ...opts }, async () => {
+    const s = await session()
+    const begin = name === 'mysql' ? 'begin' : 'begin transaction'
+    assertEquals(await s.transactionState(), 'idle')
+    await s.execute(begin, { rowLimit: 1 })
+    assertEquals(await s.transactionState(), 'open')
+    await s.execute('commit', { rowLimit: 1 })
+    assertEquals(await s.transactionState(), 'idle')
+    // Postgres aborts the transaction on any error, DuckDB only on runtime errors (not on binder errors);
+    // MySQL and SQL Server keep it usable after this error.
+    await s.execute(begin, { rowLimit: 1 })
+    await assertRejects(() => s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 }))
+    assertEquals(await s.transactionState(), name === 'postgres' || name === 'duckdb' ? 'failed' : 'open')
+    await s.execute('rollback', { rowLimit: 1 })
+    assertEquals(await s.transactionState(), 'idle')
+  })
+
   if (name === 'postgres') {
     Deno.test({ name: `${name}: date and timestamp arrays keep the unified string form`, ...opts }, async () => {
       const [[ts, d, tz]] = rows(await (await session()).execute(

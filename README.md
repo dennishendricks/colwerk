@@ -66,7 +66,7 @@ launcher/  entry point for deno desktop / deno compile (token, port, window/brow
 scripts/   dev server, packaging
 ```
 
-**Sessions.** A driver's `connect(config)` returns a `Session` (`execute`, `stream`, `cancel`, `introspect`, `close`) backed by exactly one database connection. Each editor tab gets its own session, so transactions, temp tables and `SET` options persist per tab. Introspection uses a separate metadata session per connection, so a long-running query never blocks the schema tree.
+**Sessions.** A driver's `connect(config)` returns a `Session` (`execute`, `stream`, `cancel`, `transactionState`, `introspect`, `close`) backed by exactly one database connection. Each editor tab gets its own session, so transactions, temp tables and `SET` options persist per tab. After every execute, also a failed one, the workbench reports whether the session is inside a transaction (Postgres: status of the last ReadyForQuery message; MariaDB: `@@in_transaction`; SQL Server: `XACT_STATE()`; DuckDB: whether two `txid_current()` calls return the same id). The tab then shows "Transaktion offen" with Commit/Rollback; closing the tab or switching its connection asks first, because closing the session rolls the transaction back. Introspection uses a separate metadata session per connection, so a long-running query never blocks the schema tree.
 
 **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas` and `supportsNetwork`. The UI uses them to show the cancel button, the schema level in the tree, and host/port/user fields versus a file path.
 
@@ -164,7 +164,7 @@ DuckDB uses `@duckdb/node-bindings` (LTS `1.4.5-r.1`) only as the source of `lib
 
 - **DuckDB** needs `registry.npmjs.org` once per version (proxies via `HTTPS_PROXY`). Without access, DuckDB connections cannot be used.
 - **MSSQL:** tedious returns `DECIMAL`/`NUMERIC`/`MONEY` as JS numbers, losing precision beyond ~15 significant digits; `datetime2` is truncated to milliseconds. The row limit of a batch without `;` also cancels its subsequent statements. `GO n` is not supported, and statements containing blank lines must be selected before running.
-- **MySQL:** the result grid shows protocol type names (`LONGLONG`, `NEWDECIMAL`, …). Cancelling after the row limit opens a short extra connection (`KILL QUERY`).
+- **MySQL:** the result grid shows protocol type names (`LONGLONG`, `NEWDECIMAL`, …). Cancelling after the row limit opens a short extra connection (`KILL QUERY`). Open transactions are only detected on MariaDB (MySQL has no `@@in_transaction`).
 - **Postgres/DuckDB scripts** commit each statement individually; a script without its own `BEGIN` is not atomic.
 - **Export:** read-only detection is a text heuristic (side-effecting functions such as `nextval()` are not detected). Postgres `numeric` without precision and binary data are written to Parquet as strings.
 - **Formatting:** SQL that sql-formatter cannot parse is left unchanged; lines are not wrapped.

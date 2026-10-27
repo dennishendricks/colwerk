@@ -62,12 +62,13 @@ function openModal(connection?: ConnectionSummary) {
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
-// Tab that waits for confirmation because it still contains a query.
+// Tab that waits for confirmation because it still contains a query or an open transaction.
 const closing = ref<string>()
+const closingTab = computed(() => tabs.value.find(t => t.id === closing.value))
 
 function requestClose(tab?: QueryTab) {
   if (!tab) return
-  if (tab.sql.trim()) closing.value = tab.id
+  if (tab.sql.trim() || tab.transaction) closing.value = tab.id
   else closeTab(tab.id)
 }
 
@@ -178,6 +179,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             @click="activeTabId = t.id"
           >
             <UIcon v-if="t.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+            <UIcon v-else-if="t.transaction" name="i-lucide-triangle-alert" :class="t.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5" :title="t.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'" />
             <span v-if="colorOf(t.connectionId)" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[colorOf(t.connectionId)!].bg" />
             <input
               v-if="renaming === t.id"
@@ -215,7 +217,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <UModal
       :open="!!closing"
       title="Tab schließen?"
-      description="Der Tab enthält eine Abfrage, die beim Schließen verloren geht."
+      :description="closingTab?.transaction
+        ? 'Die offene Transaktion des Tabs wird beim Schließen zurückgerollt.'
+        : 'Der Tab enthält eine Abfrage, die beim Schließen verloren geht.'"
       :close="false"
       @update:open="v => !v && (closing = undefined)"
     >
