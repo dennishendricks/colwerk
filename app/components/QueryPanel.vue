@@ -47,8 +47,8 @@ async function preloadColumns() {
 }
 
 function execute() {
-  const sql = editor.value?.runnableSql() ?? ''
-  run(props.tab, sql)
+  const { sql, from } = editor.value?.runnableSql() ?? { sql: '', from: 0 }
+  run(props.tab, sql, from)
 }
 
 const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
@@ -162,6 +162,7 @@ const status = computed(() => {
           :dialect="driver?.dialect"
           :schema="tab.connectionId ? completionSchema(tab.connectionId) : {}"
           :default-schema="tab.connectionId ? defaultSchema(tab.connectionId) : undefined"
+          :error-at="tab.errorAt"
           @run="execute"
         />
       </SplitterPanel>
