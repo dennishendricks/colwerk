@@ -164,7 +164,27 @@ const tabs: Ref<QueryTab[]> = ref([])
 const activeTabId = ref<string>()
 let tabCounter = 0
 
+// Editor content and settings of the open tabs are saved on the server (results are not).
+type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'sql' | 'rowLimit' | 'timeout'>
+interface SavedWorkspace { tabs: SavedTab[], activeTabId?: string }
+
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => JSON.stringify({
+  tabs: tabs.value.map(({ id, title, connectionId, sql, rowLimit, timeout }): SavedTab => ({ id, title, connectionId, sql, rowLimit, timeout })),
+  activeTabId: activeTabId.value,
+} satisfies SavedWorkspace), (body) => {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
+})
+
 export function useTabs() {
+  async function restoreTabs() {
+    const saved = await api<SavedWorkspace>('/api/workspace')
+    tabs.value = saved.tabs.map(t => ({ ...t, running: false, resultIndex: 0 }))
+    activeTabId.value = tabs.value.some(t => t.id === saved.activeTabId) ? saved.activeTabId : tabs.value[0]?.id
+    tabCounter = Math.max(0, ...tabs.value.map(t => Number(t.title.match(/^Abfrage (\d+)$/)?.[1] ?? 0)))
+  }
+
   function addTab(connectionId?: string) {
     const tab: QueryTab = { id: crypto.randomUUID(), title: `Abfrage ${++tabCounter}`, connectionId, sql: '', rowLimit: 200, timeout: 60, running: false, resultIndex: 0 }
     tabs.value.push(tab)
@@ -186,10 +206,11 @@ export function useTabs() {
     tab.running = true
     tab.error = undefined
     try {
-      tab.result = await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
+      // Raw: deep reactivity on up to 100k rows would wrap every row and cell in a proxy.
+      tab.result = markRaw(await api<QueryResult>(`/api/tabs/${tab.id}/execute`, {
         method: 'POST',
         body: { connectionId: tab.connectionId, sql, rowLimit: tab.rowLimit, timeout: tab.timeout },
-      })
+      }))
       // The last result set is usually the one a script is run for.
       tab.resultIndex = Math.max(0, tab.result.resultSets.length - 1)
       tab.source = { connectionId: tab.connectionId, sql }
@@ -232,5 +253,5 @@ export function useTabs() {
     }
   }
 
-  return { tabs, activeTabId, addTab, closeTab, run, cancel, exportResult }
+  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, cancel, exportResult }
 }
