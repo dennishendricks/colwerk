@@ -1,4 +1,4 @@
-// Workbench behaviour on top of the drivers: timeout, cancelling on tab close, DuckDB read-only.
+// Workbench behaviour on top of the drivers: timeout, cancelling on tab close, DuckDB read-only, introspection cache.
 import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1'
 import { join } from 'node:path'
 import type { ConnectionConfig } from '../core/types.ts'
@@ -69,4 +69,19 @@ Deno.test({ name: 'duckdb: read-only file', ...opts }, async () => {
   await assertRejects(() => wb.execute('tab', 'wb-ro', 'insert into t values (2)', 1, 10), Error, 'read-only')
   await wb.closeAll()
   await Deno.remove(dir, { recursive: true })
+})
+
+Deno.test({ name: 'refreshing a table drops its cached indexes; DDL is never cached', ...opts }, async () => {
+  const wb = workbench({ id: 'wb-cache', name: 'duck', dialect: 'duckdb', file: ':memory:' })
+  const indexes = async () => (await wb.introspect('wb-cache', { kind: 'indexes', schema: 'main', table: 't' })).map(i => i.name)
+  const ddl = () => wb.introspect('wb-cache', { kind: 'ddl', schema: 'main', name: 't', object: 'table' })
+  await wb.execute('tab', 'wb-cache', 'create table t (x int)', 1, 10)
+  assertEquals(await indexes(), [])
+  assert(!(await ddl()).includes('t_x'))
+  await wb.execute('tab', 'wb-cache', 'create index t_x on t (x)', 1, 10)
+  assertEquals(await indexes(), [])
+  assert((await ddl()).includes('t_x'))
+  await wb.introspect('wb-cache', { kind: 'columns', schema: 'main', table: 't' }, true)
+  assertEquals(await indexes(), ['t_x'])
+  await wb.closeAll()
 })

@@ -4,7 +4,8 @@ export default defineMcpTool({
   name: 'describe-table',
   title: 'Describe table',
   description: `Describes the structure of a table or view: columns with data type, nullability, primary key,
-foreign keys (target schema, table and column), indexes and comments, plus partitioning and clustering if present.
+foreign keys (target schema, table and column), indexes and comments; the table's indexes with key columns, uniqueness and primary flag;
+plus partitioning and clustering if present.
 
 WHEN TO USE: Before writing a query against a table, to get column names, types and join paths right.`,
   inputSchema: {
@@ -15,7 +16,10 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, schema, table }) {
     const info = await tableOf(connectionId, schema, table)
-    const columns = await dbCall(() => workbench.introspect(connectionId, { kind: 'columns', schema, table }))
+    const [columns, indexes] = await Promise.all([
+      dbCall(() => workbench.introspect(connectionId, { kind: 'columns', schema, table })),
+      dbCall(() => workbench.introspect(connectionId, { kind: 'indexes', schema, table })),
+    ])
     return {
       schema,
       table,
@@ -33,6 +37,7 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
         indexes: c.indexes,
         comment: c.comment,
       })),
+      indexes,
     }
   },
 })
