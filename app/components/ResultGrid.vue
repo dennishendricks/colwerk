@@ -118,10 +118,12 @@ function headerItems(column: Column): DropdownMenuItem[][] {
 
 // Decimals and big integers arrive as strings, so numeric strings compare as numbers.
 const NUMERIC = /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i
+// One instance: `localeCompare` with locale and options builds a collator on every call.
+const collator = new Intl.Collator('de', { numeric: true })
 function compareCells(a: CellValue, b: CellValue) {
   const isNum = (v: CellValue) => typeof v === 'number' || typeof v === 'boolean' || (typeof v === 'string' && NUMERIC.test(v))
   if (isNum(a) && isNum(b)) return Number(a) - Number(b)
-  return cellText(a).localeCompare(cellText(b), 'de', { numeric: true })
+  return collator.compare(cellText(a), cellText(b))
 }
 
 function cellText(value: CellValue) {

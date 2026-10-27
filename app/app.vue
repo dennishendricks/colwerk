@@ -4,7 +4,7 @@ import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 
 const { activeConnectionId, load } = useWorkspace()
-const { tabs, activeTabId, addTab, closeTab } = useTabs()
+const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -18,6 +18,7 @@ async function init() {
   loadError.value = undefined
   try {
     await load()
+    if (!tabs.value.length) await restoreTabs()
     if (!tabs.value.length) addTab(activeConnectionId.value)
     if (!listening) {
       listening = true
