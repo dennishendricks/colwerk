@@ -93,10 +93,24 @@ function commitRename(tab: QueryTab) {
   renaming.value = undefined
 }
 
+function duplicateTab(tab?: QueryTab) {
+  if (!tab) return
+  const copy = addTab(tab.connectionId)
+  Object.assign(copy, { title: `${tab.title} (Kopie)`, sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
+}
+
+// Wraps around at both ends.
+function cycleTab(step: number) {
+  const index = tabs.value.findIndex(t => t.id === activeTabId.value)
+  const tab = tabs.value[(index + step + tabs.value.length) % tabs.value.length]
+  if (tab) activeTabId.value = tab.id
+}
+
 // `?` has no usingInput, so it stays inactive while typing in the rename input.
 defineShortcuts({
   meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
+  meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, {
     usingInput: true,
     handler: () => {
@@ -106,6 +120,18 @@ defineShortcuts({
   }])),
   '?': () => (shortcutsOpen.value = !shortcutsOpen.value),
 })
+
+// ⇧⌘[ / ⇧⌘] by physical key, like macOS menus: with shift (and on other layouts) the characters differ,
+// which defineShortcuts matches on.
+const { macOS } = useKbd()
+function onKeydown(e: KeyboardEvent) {
+  const step = e.code === 'BracketLeft' ? -1 : e.code === 'BracketRight' ? 1 : 0
+  if (!step || !e.shiftKey || !(macOS.value ? e.metaKey : e.ctrlKey)) return
+  e.preventDefault()
+  cycleTab(step)
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
