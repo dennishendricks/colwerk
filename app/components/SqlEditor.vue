@@ -3,8 +3,8 @@ import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
 import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect } from '@codemirror/lang-sql'
-import { Compartment, EditorState } from '@codemirror/state'
-import { drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
+import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
+import { Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
 
@@ -12,6 +12,8 @@ const props = defineProps<{
   dialect?: Dialect
   schema: Record<string, Record<string, string[]>>
   defaultSchema?: string
+  /** Document offset of the last run's error. */
+  errorAt?: number
 }>()
 const emit = defineEmits<{ run: [] }>()
 const model = defineModel<string>({ required: true })
@@ -35,6 +37,8 @@ const theme = EditorView.theme({
   // `drawSelection` draws its own cursor, which is black by default and invisible in dark mode.
   '.cm-gutters': { backgroundColor: 'var(--ui-bg-muted)', color: 'var(--ui-text-muted)', border: 'none' },
   '.cm-activeLine': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 6%, transparent)' },
+  '.cm-errorLine': { backgroundColor: 'color-mix(in oklab, var(--ui-error) 10%, transparent)' },
+  '.cm-errorMark': { textDecoration: 'underline wavy var(--ui-error)', textDecorationSkipInk: 'none', textUnderlineOffset: '3px' },
   '.cm-content': { caretColor: 'var(--ui-text-highlighted)' },
   '.cm-cursor, .cm-dropCursor': { borderLeft: '2px solid var(--ui-text-highlighted)' },
   '.cm-placeholder': { color: 'var(--ui-text-muted)' },
@@ -42,6 +46,33 @@ const theme = EditorView.theme({
   '.cm-tooltip': { backgroundColor: 'var(--ui-bg-elevated)', border: '1px solid var(--ui-border)', color: 'var(--ui-text)' },
   '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'var(--ui-bg-accented)', color: 'var(--ui-text-highlighted)' },
 })
+
+// The error mark refers to the text that was run, so any edit removes it.
+const setError = StateEffect.define<number | undefined>()
+const errorField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(marks, tr) {
+    if (tr.docChanged) marks = Decoration.none
+    for (const e of tr.effects) {
+      if (e.is(setError)) marks = e.value === undefined ? Decoration.none : errorDecorations(tr.state, e.value)
+    }
+    return marks
+  },
+  provide: f => EditorView.decorations.from(f),
+})
+
+/** Underlines the word at `pos` (at least one character) and highlights its line. */
+function errorDecorations(state: EditorState, pos: number): DecorationSet {
+  const { length } = state.doc
+  if (!length) return Decoration.none
+  // A position at the end (e.g. "end of input") marks the last character.
+  const from = Math.max(0, Math.min(pos, length - 1))
+  const to = Math.max(state.wordAt(from)?.to ?? 0, from + 1)
+  return Decoration.set([
+    Decoration.line({ class: 'cm-errorLine' }).range(state.doc.lineAt(from).from),
+    Decoration.mark({ class: 'cm-errorMark' }).range(from, to),
+  ])
+}
 
 const host = ref<HTMLElement>()
 const language = new Compartment()
@@ -73,6 +104,7 @@ onMounted(() => {
         syntaxHighlighting(highlight),
         placeholder('SQL eingeben … (⌘/Strg + Enter führt aus)'),
         language.of(languageExtension()),
+        errorField,
         keymap.of([
           { key: 'Mod-Enter', run: () => (emit('run'), true) },
           ...closeBracketsKeymap,
@@ -111,18 +143,26 @@ watch(model, (value) => {
   }
 })
 
-/** The selection if there is one, otherwise the statement under the cursor. */
-function runnableSql(): string {
-  if (!view) return ''
+watch(() => props.errorAt, (pos) => {
+  if (!view) return
+  if (pos === undefined) return view.dispatch({ effects: setError.of(undefined) })
+  const at = Math.min(pos, view.state.doc.length)
+  view.dispatch({ effects: setError.of(at), selection: { anchor: at }, scrollIntoView: true })
+  view.focus()
+})
+
+/** The selection if there is one, otherwise the statement under the cursor; `from`: its document offset. */
+function runnableSql(): { sql: string, from: number } {
+  if (!view) return { sql: '', from: 0 }
   const { state } = view
   const sel = state.selection.main
-  if (!sel.empty) return state.sliceDoc(sel.from, sel.to)
+  if (!sel.empty) return { sql: state.sliceDoc(sel.from, sel.to), from: sel.from }
   const doc = state.doc.toString()
   const range = statementAt(doc, props.dialect ?? 'postgres', sel.head)
-  if (!range) return ''
+  if (!range) return { sql: '', from: 0 }
   // Select what is about to run, so it is visible which statement was executed.
   view.dispatch({ selection: { anchor: range.from, head: range.to } })
-  return doc.slice(range.from, range.to)
+  return { sql: doc.slice(range.from, range.to), from: range.from }
 }
 
 // Only while focused: otherwise copy acts on the page's selection, not the editor's.

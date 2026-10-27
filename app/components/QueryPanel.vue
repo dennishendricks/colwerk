@@ -49,16 +49,16 @@ async function preloadColumns() {
 }
 
 // SQL that waits for confirmation because the connection asks before writes.
-const pending = ref<string>()
+const pending = ref<{ sql: string, from: number }>()
 
 function execute() {
-  const sql = editor.value?.runnableSql() ?? ''
-  if (connection.value?.confirmWrites && mayWrite(sql, connection.value.dialect)) pending.value = sql
-  else run(props.tab, sql)
+  const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
+  if (connection.value?.confirmWrites && mayWrite(runnable.sql, connection.value.dialect)) pending.value = runnable
+  else run(props.tab, runnable.sql, runnable.from)
 }
 
 function confirmRun() {
-  if (pending.value) run(props.tab, pending.value)
+  if (pending.value) run(props.tab, pending.value.sql, pending.value.from)
   pending.value = undefined
 }
 
@@ -205,6 +205,7 @@ const status = computed(() => {
           :dialect="driver?.dialect"
           :schema="tab.connectionId ? completionSchema(tab.connectionId) : {}"
           :default-schema="tab.connectionId ? defaultSchema(tab.connectionId) : undefined"
+          :error-at="tab.errorAt"
           @run="execute"
         />
       </SplitterPanel>
@@ -271,7 +272,7 @@ const status = computed(() => {
       @update:open="v => !v && (pending = undefined)"
     >
       <template #body>
-        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending }}</pre>
+        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending?.sql }}</pre>
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-2">

@@ -44,10 +44,26 @@ function resultColumns(fields: FieldPacket[]): ResultColumn[] {
   return fields.map(f => ({ name: f.name, type: typeNames[f.columnType ?? -1] ?? String(f.columnType) }))
 }
 
-function wrap(e: unknown): DbError {
+/** `sql`: the text that was sent, to locate a syntax error in it. */
+function wrap(e: unknown, sql?: string): DbError {
   if (e instanceof DbError) return e
   const err = e as { message?: string, code?: string }
-  return new DbError(err.message ?? String(e), err.code)
+  const message = err.message ?? String(e)
+  return new DbError(message, err.code, sql === undefined ? undefined : syntaxErrorPosition(sql, message))
+}
+
+/**
+ * Syntax errors quote the rest of the script from the error on ("… near 'x;\nselect 2' at line 1"),
+ * without trailing whitespace and cut after 80 characters (MariaDB appends "..."). The line number
+ * counts from the failing statement only, so the quoted text is looked up instead.
+ */
+function syntaxErrorPosition(sql: string, message: string): number | undefined {
+  const near = /near '([\s\S]*)' at line \d+$/.exec(message)?.[1]
+  if (near === undefined) return undefined
+  const rest = sql.trimEnd()
+  if (rest.endsWith(near)) return rest.length - near.length
+  const at = sql.indexOf(near.replace(/\.\.\.$/, ''))
+  return at === -1 ? undefined : at
 }
 
 async function connect(config: ConnectionConfig): Promise<Connection> {
@@ -135,7 +151,7 @@ class MysqlSession implements Session {
       query.on('error', (err: { errno?: number }) => {
         if (err.errno === ER_QUERY_INTERRUPTED && this.stopReason === 'limit') return
         this.running = false
-        reject(err.errno === ER_QUERY_INTERRUPTED ? new DbError('Query was cancelled', 'ER_QUERY_INTERRUPTED') : wrap(err))
+        reject(err.errno === ER_QUERY_INTERRUPTED ? new DbError('Query was cancelled', 'ER_QUERY_INTERRUPTED') : wrap(err, sql))
       })
       query.on('end', async () => {
         if (!this.running) return

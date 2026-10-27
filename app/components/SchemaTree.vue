@@ -58,7 +58,7 @@ async function selectTable(schema: string, table: string) {
   if (!tab || tab.connectionId !== props.connectionId || tab.running || tab.exporting) tab = addTab(props.connectionId)
   const prev = tab.sql
   tab.sql = !prev.trim() ? sql : `${prev}${prev.trimEnd().endsWith(';') ? '' : ';'}\n\n${sql}`
-  run(tab, sql)
+  run(tab, sql, tab.sql.length - sql.length)
 }
 
 function refresh() {
