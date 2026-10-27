@@ -13,7 +13,7 @@ const props = defineProps<{
   schema: Record<string, Record<string, string[]>>
   defaultSchema?: string
 }>()
-const emit = defineEmits<{ run: [] }>()
+const emit = defineEmits<{ run: [], explain: [] }>()
 const model = defineModel<string>({ required: true })
 
 // DuckDB's grammar is close to PostgreSQL's.
@@ -75,6 +75,7 @@ onMounted(() => {
         language.of(languageExtension()),
         keymap.of([
           { key: 'Mod-Enter', run: () => (emit('run'), true) },
+          { key: 'Mod-e', run: () => (emit('explain'), true) },
           ...closeBracketsKeymap,
           ...completionKeymap,
           ...historyKeymap,
