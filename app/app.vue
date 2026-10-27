@@ -70,6 +70,30 @@ function confirmClose() {
   closing.value = undefined
 }
 
+// Inline rename on double-click; the input takes the width of the label it replaces.
+const renaming = ref<string>()
+const draft = ref('')
+const renameWidth = ref(0)
+const renameInput = useTemplateRef<HTMLInputElement[]>('rename-input')
+
+async function startRename(tab: QueryTab, e: MouseEvent) {
+  renaming.value = tab.id
+  draft.value = tab.title
+  renameWidth.value = (e.currentTarget as HTMLElement).offsetWidth
+  await nextTick()
+  renameInput.value?.[0]?.focus()
+  renameInput.value?.[0]?.select()
+}
+
+function commitRename(tab: QueryTab) {
+  // Removing the input after Enter or Escape can fire blur as well.
+  if (renaming.value !== tab.id) return
+  const title = draft.value.trim()
+  if (title) tab.title = title
+  renaming.value = undefined
+}
+
+// `?` has no usingInput, so it stays inactive while typing in the rename input.
 defineShortcuts({
   meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
@@ -122,7 +146,18 @@ defineShortcuts({
             @click="activeTabId = t.id"
           >
             <UIcon v-if="t.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-            <span class="whitespace-nowrap">{{ t.title }}</span>
+            <input
+              v-if="renaming === t.id"
+              ref="rename-input"
+              v-model="draft"
+              maxlength="60"
+              class="bg-transparent outline-none"
+              :style="{ width: `${renameWidth}px` }"
+              @keydown.enter="commitRename(t)"
+              @keydown.escape="renaming = undefined"
+              @blur="commitRename(t)"
+            >
+            <span v-else class="max-w-60 truncate" :title="t.title" @dblclick="startRename(t, $event)">{{ t.title }}</span>
             <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId)" />
