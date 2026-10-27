@@ -30,6 +30,8 @@ watch(open, (isOpen) => {
     sslInsecure: c?.sslInsecure ?? false,
     file: c?.file ?? '',
     readOnly: c?.readOnly ?? false,
+    color: c?.color,
+    confirmWrites: c?.confirmWrites ?? false,
   })
 }, { immediate: true })
 
@@ -139,6 +141,33 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             <USwitch v-model="form.readOnly" label="Schreibgeschützt öffnen" />
           </UFormField>
         </template>
+
+        <UFormField label="Farbe" help="Markiert die Verbindung in der Liste, in Tabs und in der Werkzeugleiste, z. B. Rot für Produktion." class="col-span-2">
+          <div class="flex items-center gap-2">
+            <UButton
+              size="xs"
+              color="neutral"
+              :variant="form.color ? 'ghost' : 'soft'"
+              label="Keine"
+              :aria-pressed="!form.color"
+              @click="form.color = undefined"
+            />
+            <button
+              v-for="(c, key) in connectionColorClasses"
+              :key="key"
+              type="button"
+              class="size-5 rounded-full ring-offset-2 ring-offset-(--ui-bg)"
+              :class="[c.bg, form.color === key ? 'ring-2 ring-(--ui-text)' : 'hover:ring-2 hover:ring-(--ui-border-accented)']"
+              :title="c.label"
+              :aria-label="c.label"
+              :aria-pressed="form.color === key"
+              @click="form.color = key"
+            />
+          </div>
+        </UFormField>
+        <UFormField class="col-span-2" help="Fragt vor dem Ausführen nach, wenn eine Anweisung Daten oder Strukturen ändern kann.">
+          <USwitch v-model="form.confirmWrites" label="Schreibende Anweisungen bestätigen" />
+        </UFormField>
 
         <button type="submit" class="hidden" />
       </form>
