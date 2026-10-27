@@ -116,7 +116,7 @@ All tools except `open-query` only read. `run-query` and `sample-rows` accept a 
 
 ## Connections and credentials
 
-Connections are stored in `connections.json` with passwords encrypted using AES-256-GCM. Default location: `~/Library/Application Support/colwerk` (macOS), `%APPDATA%\colwerk` (Windows), `$XDG_CONFIG_HOME/colwerk` (Linux); override with `DBM_DATA_DIR`.
+Connections are stored in `connections.json` with passwords encrypted using AES-256-GCM. Default location: `~/Library/Application Support/colwerk` (macOS), `%APPDATA%\colwerk` (Windows), `$XDG_CONFIG_HOME/colwerk` (Linux); override with `DBM_DATA_DIR`. The open editor tabs (SQL text, limit, timeout, no results) are kept in `workspace.json` in the same directory.
 
 The encryption key lives in the OS keychain (service `colwerk`, one entry per data directory): macOS Keychain, Linux Secret Service (`secret-tool`), Windows Credential Manager. Secrets are always passed via stdin, never as arguments. Without a usable keychain, or with `DBM_KEYCHAIN=off`, the key is stored in `secret.key` (mode 0600) next to the data. This only protects against accidental disclosure (backups, sync folders), not against someone with access to the user account. If the keychain denies access, Colwerk reports an error instead of silently falling back to the file.
 
