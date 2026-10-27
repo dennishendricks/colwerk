@@ -4,6 +4,8 @@ import type { CellValue, ResultSet } from '#core'
 import { csvField } from '~~/core/values.ts'
 
 const props = defineProps<{ result: ResultSet }>()
+// Text of the quick filter, whose input lives in the caller's status bar.
+const filter = defineModel<string>('filter', { default: '' })
 
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
@@ -17,16 +19,49 @@ const sorting = ref<{ id: string, desc: boolean }[]>([])
 const columnPinning = ref<{ left: string[], right: string[] }>({ left: [], right: [] })
 const columnVisibility = ref<Record<string, boolean>>({})
 const columnSizing = ref<Record<string, number>>({})
+const columnFilters = ref<{ id: string, value: unknown }[]>([])
+const globalFilter = ref(filter.value)
 // Column ids are positions, so state of the previous result must not carry over.
 watch(() => props.result, () => {
   sorting.value = []
   columnPinning.value = { left: [], right: [] }
   columnVisibility.value = {}
   columnSizing.value = {}
+  columnFilters.value = []
+  filter.value = ''
+  globalFilter.value = ''
+  filtering.value = undefined
 })
 
+// Filtering 100k rows on every keystroke would make typing lag.
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+watch(filter, (value) => {
+  clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => globalFilter.value = value, 200)
+})
+onBeforeUnmount(() => clearTimeout(filterTimer))
+
+// The filtered row model is memoized on the filter state, not on visibility: a new array makes the
+// quick filter run again over the columns visible now.
+watch(columnVisibility, () => {
+  if (globalFilter.value) columnFilters.value = [...columnFilters.value]
+})
+
+// Case-insensitive substring match on the displayed text; NULL (undefined here) matches nothing.
+function containsText(row: TableRow<Row>, id: string, query: string) {
+  const value = row.getValue<CellValue | undefined>(id)
+  return value !== undefined && cellText(value).toLowerCase().includes(query)
+}
+// Lower-cased once per filter run instead of once per cell.
+containsText.resolveFilterValue = (query: string) => query.toLowerCase()
+// The default only searches columns whose first value is a string or number.
+const globalFilterOptions = { globalFilterFn: containsText, getColumnCanGlobalFilter: (column: Column) => column.getIsVisible() }
+
+const filteredCount = computed(() => globalFilter.value || columnFilters.value.length ? table.value?.tableApi.getFilteredRowModel().rows.length : undefined)
+defineExpose({ filteredCount })
+
 // The table has a fixed layout of exactly the column sizes, which pinned offsets and resizing rely on.
-const table = useTemplateRef<{ tableApi: { getTotalSize(): number } }>('table')
+const table = useTemplateRef<{ $el: HTMLElement, tableApi: { getTotalSize(): number, getFilteredRowModel(): { rows: unknown[] } } }>('table')
 const tableWidth = computed(() => table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined)
 const sizeStyle = ({ column }: { column: Column }) => ({ width: `${column.getSize()}px` })
 // Pinned headers are sticky, which already positions the resize handle.
@@ -74,13 +109,16 @@ const columns = computed<TableColumn<Row>[]>(() => [
     accessorFn: row => row.cells[i] ?? undefined,
     sortingFn: (a, b, id) => compareCells(a.getValue(id), b.getValue(id)),
     sortUndefined: 'last',
+    filterFn: containsText,
     meta: { style: { th: sizeStyle }, class: { th: headerClass, td: pinnedClass } },
-    header: ({ column, header }) => [h(UDropdownMenu, { items: headerItems(column), content: { align: 'start' } }, () => h(UButton, {
+    header: ({ column, header }) => [h(UDropdownMenu, { items: headerItems(column), content: { align: 'start', onCloseAutoFocus: openColumnFilter } }, () => h(UButton, {
       color: 'neutral',
       variant: 'ghost',
       size: 'xs',
       class: '-mx-1.5 -my-1 font-semibold',
       title: col.type,
+      icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
+      'data-column': column.id,
       trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
     }, () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)])), h('div', {
       class: ['absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none hover:bg-primary', column.getIsResizing() && 'bg-primary'],
@@ -112,8 +150,25 @@ function headerItems(column: Column): DropdownMenuItem[][] {
       ...pinned !== 'right' ? [{ label: 'Rechts fixieren', icon: 'i-lucide-pin', onSelect: () => column.pin('right') }] : [],
       ...pinned ? [{ label: 'Fixierung lösen', icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : [],
     ],
+    [
+      { label: 'Filtern …', icon: 'i-lucide-filter', onSelect: () => pendingFilter = column },
+      ...column.getIsFiltered() ? [{ label: 'Filter entfernen', icon: 'i-lucide-filter-x', onSelect: () => column.setFilterValue(undefined) }] : [],
+    ],
     [{ label: 'Ausblenden', icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
   ]
+}
+
+// One popover for all column filters, anchored at the header button. It opens only once the menu
+// has closed, because the menu returning focus to its trigger would dismiss it right away.
+const filtering = shallowRef<{ column: Column, anchor: Element }>()
+let pendingFilter: Column | undefined
+function openColumnFilter(e: Event) {
+  const column = pendingFilter
+  pendingFilter = undefined
+  const anchor = column && table.value?.$el.querySelector(`[data-column="${column.id}"]`)
+  if (!column || !anchor) return
+  e.preventDefault()
+  filtering.value = { column, anchor }
 }
 
 // Decimals and big integers arrive as strings, so numeric strings compare as numbers.
@@ -165,6 +220,9 @@ function renderCell(value: CellValue) {
     v-model:column-pinning="columnPinning"
     v-model:column-visibility="columnVisibility"
     v-model:column-sizing="columnSizing"
+    v-model:column-filters="columnFilters"
+    v-model:global-filter="globalFilter"
+    :global-filter-options="globalFilterOptions"
     :column-sizing-options="{ columnResizeMode: 'onChange' }"
     :data="data"
     :columns="columns"
@@ -179,4 +237,18 @@ function renderCell(value: CellValue) {
       td: 'px-2 py-1 whitespace-nowrap truncate',
     }"
   />
+  <UPopover :open="!!filtering" :reference="filtering?.anchor" :content="{ align: 'start' }" @update:open="open => open || (filtering = undefined)">
+    <template #content>
+      <UInput
+        v-if="filtering"
+        :model-value="String(filtering.column.getFilterValue() ?? '')"
+        placeholder="Spalte enthält …"
+        icon="i-lucide-filter"
+        size="xs"
+        class="m-2 w-56"
+        @update:model-value="value => filtering?.column.setFilterValue(value)"
+        @keydown.enter="filtering = undefined"
+      />
+    </template>
+  </UPopover>
 </template>
