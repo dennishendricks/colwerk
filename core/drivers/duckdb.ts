@@ -1,9 +1,28 @@
-import { statementTexts } from '../sql-split.ts'
+import { lineStart, splitStatements } from '../sql-split.ts'
 import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type SchemaInfo, type Session, type TableInfo } from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
   return e instanceof DbError ? e : new DbError(e instanceof Error ? e.message : String(e))
+}
+
+/**
+ * Error position within `sql` from DuckDB's context lines ("LINE 2: <line>" and a caret below it;
+ * long lines are cut with "..."). The caret is off to the left on lines with non-ASCII characters,
+ * so a syntax error snaps to its token ("at or near "x"") at or after the caret.
+ */
+function errorPosition(sql: string, message: string): number | undefined {
+  const m = /^(LINE (\d+): )(.*)\n( *)\^/m.exec(message)
+  if (!m) return undefined
+  const [, prefix = '', line, shown = '', caret = ''] = m
+  const start = lineStart(sql, Number(line))
+  const end = sql.indexOf('\n', start)
+  const text = sql.slice(start, end === -1 ? undefined : end)
+  let col = caret.length - prefix.length
+  if (shown.startsWith('...')) col += text.indexOf(shown.slice(3).replace(/\.\.\.$/, '')) - 3
+  const token = /at or near "(.*)"/.exec(message)?.[1]
+  const snapped = token ? text.indexOf(token, col) : -1
+  return start + (snapped === -1 ? col : snapped)
 }
 
 const SQL = {
@@ -50,10 +69,11 @@ class DuckDBSession implements Session {
   execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
     return this.serial(async () => {
       const started = performance.now()
-      const statements = statementTexts(sql, 'duckdb')
+      const ranges = splitStatements(sql, 'duckdb')
       const resultSets: ResultSet[] = []
       let affectedRows: number | undefined
-      for (const [i, statement] of statements.entries()) {
+      for (const [i, { from, to }] of ranges.entries()) {
+        const statement = sql.slice(from, to)
         try {
           const result = await this.conn.query(statement)
           try {
@@ -68,7 +88,9 @@ class DuckDBSession implements Session {
           }
         } catch (e) {
           const err = wrap(e)
-          if (statements.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
+          const at = errorPosition(statement, err.message)
+          if (at !== undefined) err.position = from + at
+          if (ranges.length > 1) err.message = `Statement ${i + 1}: ${err.message}`
           throw err
         }
       }
