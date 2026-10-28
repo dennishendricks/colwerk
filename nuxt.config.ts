@@ -38,7 +38,22 @@ export default defineNuxtConfig({
     // Runs on Deno: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
     esbuild: { options: { target: 'esnext' } },
   },
-  vite: { plugins: [{ ...recordBundledPackages, apply: 'build' }] },
+  vite: {
+    plugins: [{ ...recordBundledPackages, apply: 'build' }],
+    // Dependencies of lazy components are otherwise only discovered on first use; the re-optimization
+    // that follows breaks the pending dynamic import in dev ("Failed to fetch dynamically imported module").
+    optimizeDeps: {
+      include: [
+        '@codemirror/autocomplete',
+        '@codemirror/commands',
+        '@codemirror/lang-sql',
+        '@codemirror/language',
+        '@codemirror/state',
+        '@codemirror/view',
+        '@lezer/highlight',
+      ],
+    },
+  },
   typescript: { strict: true },
   telemetry: false,
   eslint: { config: { stylistic: { braceStyle: '1tbs' } } },
