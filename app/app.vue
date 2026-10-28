@@ -216,8 +216,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId)" />
           <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
-          <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
-          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
+          <UButton icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
             size="xs"
@@ -226,6 +225,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             :title="colorMode.preference !== 'system' ? 'System-Design' : isDark ? 'Helles Design' : 'Dunkles Design'"
             @click="colorMode.preference = colorMode.preference !== 'system' ? 'system' : isDark ? 'light' : 'dark'"
           />
+          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
