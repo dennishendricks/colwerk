@@ -73,9 +73,12 @@ function showPlan(analyze = false) {
 }
 
 // SQL Server has no plan with runtime statistics without executing the statement as usual.
-const planItems = computed(() => driver.value?.dialect === 'mssql'
-  ? []
-  : [{ label: 'Mit ANALYZE (führt die Anweisung aus, nur für lesende Anweisungen)', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }])
+const planItems = computed(() => [
+  { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
+  ...driver.value?.dialect === 'mssql'
+    ? []
+    : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }],
+])
 
 async function copyPlan() {
   await navigator.clipboard.writeText(props.tab.plan?.text ?? '')
@@ -195,25 +198,16 @@ const status = computed(() => {
         class="w-56"
         @update:model-value="selectConnection"
       />
-      <UButton
-        icon="i-lucide-play"
-        size="sm"
-        label="Ausführen"
-        :loading="tab.running"
-        :disabled="!tab.connectionId || !!tab.exporting"
-        @click="execute"
-      />
       <UFieldGroup size="sm">
         <UButton
-          icon="i-lucide-list-tree"
-          color="neutral"
-          variant="soft"
-          label="Plan"
-          :disabled="!tab.connectionId || busy"
-          @click="showPlan()"
+          icon="i-lucide-play"
+          label="Ausführen"
+          :loading="tab.running"
+          :disabled="!tab.connectionId || !!tab.exporting"
+          @click="execute"
         />
-        <UDropdownMenu v-if="planItems.length" :items="planItems">
-          <UButton icon="i-lucide-chevron-down" color="neutral" variant="soft" aria-label="Weitere Plan-Optionen" :disabled="!tab.connectionId || busy" />
+        <UDropdownMenu :items="planItems">
+          <UButton icon="i-lucide-chevron-down" aria-label="Weitere Optionen" :disabled="!tab.connectionId || busy" />
         </UDropdownMenu>
       </UFieldGroup>
       <UButton
