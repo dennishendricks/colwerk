@@ -54,16 +54,24 @@ const COLUMN_TYPE = `
           then '(' + cast(c.precision as varchar) + ',' + cast(c.scale as varchar) + ')'
         else '' end`
 
-const SQL = {
-  databases: `
+// Ordered string aggregate of `expr` over `from` (from/where clause), as a scalar subquery. `string_agg ... within group`
+// exists from SQL Server 2017 on; older servers concatenate with `for xml path` and cut off the leading separator.
+const listAgg = (stringAgg: boolean, expr: string, sep: string, order: string, from: string) => stringAgg
+  ? `(select string_agg(${expr}, ${sep}) within group (order by ${order}) ${from})`
+  : `stuff((select ${sep} + ${expr} ${from} order by ${order} for xml path(''), type).value('.', 'nvarchar(max)'), 1, len(${sep} + '.') - 1, '')`
+
+const sqlFor = (stringAgg: boolean) => {
+  const agg = (expr: string, sep: string, order: string, from: string) => listAgg(stringAgg, expr, sep, order, from)
+  return {
+    databases: `
     select name from sys.databases
     where has_dbaccess(name) = 1 and state_desc = 'ONLINE'
     order by name`,
-  schemas: `
+    schemas: `
     select name from sys.schemas
     where name not in ('sys', 'INFORMATION_SCHEMA', 'guest') and schema_id < 16384
     order by name`,
-  tables: `
+    tables: `
     select o.name, case o.type when 'V' then 'view' else 'table' end as kind,
       (select sum(p.rows) from sys.partitions p
         where p.object_id = o.object_id and p.index_id in (0, 1) and o.type = 'U') as row_estimate,
@@ -77,7 +85,7 @@ const SQL = {
       (select i.name from sys.indexes i where i.object_id = o.object_id and i.type = 1) as clustering
     from sys.objects o where o.schema_id = schema_id(@schema) and o.type in ('U', 'V')
     order by o.name`,
-  columns: `
+    columns: `
     select c.name,
       ${COLUMN_TYPE} as type,
       c.is_nullable as nullable,
@@ -98,33 +106,32 @@ const SQL = {
       join sys.columns rc on rc.object_id = f.referenced_object_id and rc.column_id = f.referenced_column_id
       where f.parent_object_id = c.object_id and f.parent_column_id = c.column_id) fk
     outer apply (
-      select string_agg(i.name, char(10)) within group (order by i.name) as idx
+      select ${agg('i.name', 'char(10)', 'i.name', `
       from sys.index_columns ic
       join sys.indexes i on i.object_id = ic.object_id and i.index_id = ic.index_id
       where ic.object_id = c.object_id and ic.column_id = c.column_id
-        and i.is_primary_key = 0 and i.name is not null) ix
+        and i.is_primary_key = 0 and i.name is not null`)} as idx) ix
     where c.object_id = object_id(quotename(@schema) + '.' + quotename(@table))
     order by c.column_id`,
-  indexes: `
+    indexes: `
     select i.name, i.is_unique as [unique], i.is_primary_key as [primary],
-      (select string_agg(c.name, char(10)) within group (order by ic.key_ordinal)
+      ${agg('c.name', 'char(10)', 'ic.key_ordinal', `
          from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
-        where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0) as cols
+        where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`)} as cols
     from sys.indexes i
     where i.object_id = object_id(quotename(@schema) + '.' + quotename(@table)) and i.type > 0 and i.is_hypothetical = 0
     order by i.is_primary_key desc, i.name`,
-  routines: `
+    routines: `
     select name, case type when 'P' then 'procedure' else 'function' end as kind from sys.objects
     where schema_id = schema_id(@schema) and type in ('FN', 'IF', 'TF', 'P') and is_ms_shipped = 0
     order by name`,
-  definition: `select object_definition(object_id(quotename(@schema) + '.' + quotename(@name))) as ddl`,
-  // SQL Server has no built-in table DDL: columns, key/foreign key/check constraints, then the other indexes.
-  // Aggregates must not contain subqueries, so column lists are built in `cross apply` first.
-  tableDdl: `
+    definition: `select object_definition(object_id(quotename(@schema) + '.' + quotename(@name))) as ddl`,
+    // SQL Server has no built-in table DDL: columns, key/foreign key/check constraints, then the other indexes.
+    // Aggregates must not contain subqueries, so column lists are built in `cross apply` first.
+    tableDdl: `
     declare @id int = object_id(quotename(@schema) + '.' + quotename(@name), 'U');
     declare @table nvarchar(max) = quotename(@schema) + '.' + quotename(@name);
-    select 'create table ' + @table + ' (' + char(10) + (
-        select string_agg(cast('    ' + line as nvarchar(max)), ',' + char(10)) within group (order by grp, ord) from (
+    select 'create table ' + @table + ' (' + char(10) + ${agg(`cast('    ' + line as nvarchar(max))`, `',' + char(10)`, 'grp, ord', `from (
           select 0 as grp, c.column_id as ord, quotename(c.name) + ' ' + ${COLUMN_TYPE}
             + case when ic.object_id is not null
                 then ' identity(' + cast(ic.seed_value as varchar) + ', ' + cast(ic.increment_value as varchar) + ')' else '' end
@@ -138,43 +145,51 @@ const SQL = {
           select 1, case k.type when 'PK' then 0 else 1 end, 'constraint ' + quotename(k.name) + case k.type when 'PK' then ' primary key' else ' unique' end
             + ' (' + cols.list + ')'
           from sys.key_constraints k
-          cross apply (select string_agg(quotename(c.name), ', ') within group (order by ic.key_ordinal) as list
+          cross apply (select ${agg('quotename(c.name)', `', '`, 'ic.key_ordinal', `
             from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
-            where ic.object_id = k.parent_object_id and ic.index_id = k.unique_index_id) cols
+            where ic.object_id = k.parent_object_id and ic.index_id = k.unique_index_id`)} as list) cols
           where k.parent_object_id = @id
           union all
           select 2, 0, 'constraint ' + quotename(f.name) + ' foreign key (' + cols.list + ') references '
             + quotename(schema_name(r.schema_id)) + '.' + quotename(r.name) + ' (' + cols.refs + ')'
           from sys.foreign_keys f
           join sys.objects r on r.object_id = f.referenced_object_id
-          cross apply (select string_agg(quotename(c.name), ', ') within group (order by fc.constraint_column_id) as list,
-              string_agg(quotename(rc.name), ', ') within group (order by fc.constraint_column_id) as refs
+          cross apply (select ${agg('quotename(c.name)', `', '`, 'fc.constraint_column_id', `
             from sys.foreign_key_columns fc
             join sys.columns c on c.object_id = fc.parent_object_id and c.column_id = fc.parent_column_id
+            where fc.constraint_object_id = f.object_id`)} as list,
+              ${agg('quotename(rc.name)', `', '`, 'fc.constraint_column_id', `
+            from sys.foreign_key_columns fc
             join sys.columns rc on rc.object_id = fc.referenced_object_id and rc.column_id = fc.referenced_column_id
-            where fc.constraint_object_id = f.object_id) cols
+            where fc.constraint_object_id = f.object_id`)} as refs) cols
           where f.parent_object_id = @id
           union all
           select 3, 0, 'constraint ' + quotename(ch.name) + ' check ' + ch.definition
           from sys.check_constraints ch where ch.parent_object_id = @id
-        ) lines) + char(10) + ');'
-      + coalesce((select string_agg(cast(char(10) + char(10) + 'create ' + case when i.is_unique = 1 then 'unique ' else '' end
-            + 'index ' + quotename(i.name) + ' on ' + @table + ' (' + cols.list + ');' as nvarchar(max)), '')
-            within group (order by i.name)
+        ) lines`)} + char(10) + ');'
+      + coalesce(${agg(`cast(char(10) + char(10) + 'create ' + case when i.is_unique = 1 then 'unique ' else '' end
+            + 'index ' + quotename(i.name) + ' on ' + @table + ' (' + cols.list + ');' as nvarchar(max))`, `''`, 'i.name', `
           from sys.indexes i
-          cross apply (select string_agg(quotename(c.name), ', ') within group (order by ic.key_ordinal) as list
+          cross apply (select ${agg('quotename(c.name)', `', '`, 'ic.key_ordinal', `
             from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
-            where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0) cols
+            where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`)} as list) cols
           where i.object_id = @id and i.type > 0 and i.is_hypothetical = 0
-            and i.is_primary_key = 0 and i.is_unique_constraint = 0), '') as ddl
+            and i.is_primary_key = 0 and i.is_unique_constraint = 0`)}, '') as ddl
     where @id is not null`,
+  }
 }
+
+// Fails on servers before SQL Server 2017. Probed instead of comparing versions: Azure SQL Database reports 12.x.
+const STRING_AGG_PROBE = `select string_agg(x, ',') within group (order by x) as v from (values ('a')) t(x)`
 
 class MssqlSession implements Session {
   private current: sql.Request | null = null
   private stopReason: 'limit' | 'cancel' | null = null
+  private SQL: ReturnType<typeof sqlFor>
 
-  constructor(private pool: sql.ConnectionPool) {}
+  constructor(private pool: sql.ConnectionPool, stringAgg: boolean) {
+    this.SQL = sqlFor(stringAgg)
+  }
 
   // `GO` is a client-side separator: the batches are sent one after another (variables do not survive a `GO`).
   async execute(text: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
@@ -313,6 +328,7 @@ class MssqlSession implements Session {
   }
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
+    const SQL = this.SQL
     try {
       const request = this.pool.request()
       if (req.kind === 'databases') return [...(await request.query<DatabaseInfo>(SQL.databases)).recordset] as IntrospectResult<R>
@@ -390,7 +406,8 @@ export const mssqlDriver: Driver = {
     pool.on('error', () => {})
     try {
       await pool.connect()
-      return new MssqlSession(pool)
+      const stringAgg = await pool.request().query(STRING_AGG_PROBE).then(() => true, () => false)
+      return new MssqlSession(pool, stringAgg)
     } catch (e) {
       await pool.close().catch(() => {})
       throw wrap(e)
