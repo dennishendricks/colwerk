@@ -39,6 +39,8 @@ export interface DriverCapabilities {
   supportsSchemas: boolean
   /** Connections need host/port/user (false for embedded databases such as DuckDB). */
   supportsNetwork: boolean
+  /** The server holds several databases a connection can switch between (the configured one is the default). */
+  supportsDatabases: boolean
 }
 
 export interface DriverInfo {
@@ -94,6 +96,10 @@ export interface ExecuteOptions {
   rowLimit: number
 }
 
+export interface DatabaseInfo {
+  name: string
+}
+
 export interface SchemaInfo {
   name: string
 }
@@ -137,6 +143,8 @@ export interface RoutineInfo {
 }
 
 export type IntrospectRequest =
+  /** Databases the login has access to. */
+  | { kind: 'databases' }
   | { kind: 'schemas' }
   | { kind: 'tables', schema: string }
   | { kind: 'columns', schema: string, table: string }
@@ -146,12 +154,13 @@ export type IntrospectRequest =
   | { kind: 'ddl', schema: string, name: string, object: 'table' | 'view' | 'routine' }
 
 export type IntrospectResult<R extends IntrospectRequest> =
-  R extends { kind: 'schemas' } ? SchemaInfo[]
-    : R extends { kind: 'tables' } ? TableInfo[]
-      : R extends { kind: 'columns' } ? ColumnInfo[]
-        : R extends { kind: 'indexes' } ? IndexInfo[]
-          : R extends { kind: 'routines' } ? RoutineInfo[]
-            : string
+  R extends { kind: 'databases' } ? DatabaseInfo[]
+    : R extends { kind: 'schemas' } ? SchemaInfo[]
+      : R extends { kind: 'tables' } ? TableInfo[]
+        : R extends { kind: 'columns' } ? ColumnInfo[]
+          : R extends { kind: 'indexes' } ? IndexInfo[]
+            : R extends { kind: 'routines' } ? RoutineInfo[]
+              : string
 
 /** Receives a streamed result. `rows` is awaited (backpressure); if it rejects, the statement is aborted. */
 export interface RowSink {

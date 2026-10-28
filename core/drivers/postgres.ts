@@ -50,6 +50,10 @@ function wrap(e: unknown): DbError {
 }
 
 const SQL = {
+  databases: `
+    select datname as name from pg_database
+    where datallowconn and not datistemplate and has_database_privilege(datname, 'CONNECT')
+    order by datname`,
   schemas: `
     select nspname as name from pg_namespace
     where nspname not like 'pg\\_%' and nspname <> 'information_schema'
@@ -245,6 +249,7 @@ class PostgresSession implements Session {
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     try {
+      if (req.kind === 'databases') return (await this.client.query(SQL.databases)).rows as IntrospectResult<R>
       if (req.kind === 'schemas') {
         return (await this.client.query(SQL.schemas)).rows as IntrospectResult<R>
       }

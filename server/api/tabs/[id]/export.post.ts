@@ -6,7 +6,7 @@ import { type CellValue, isReadOnlyStatement, type ResultColumn } from '#core'
 // Answers once the file at `path` is complete.
 export default defineEventHandler(async (event) => {
   const tabId = getRouterParam(event, 'id')!
-  const body = await readBody<{ format: string, path?: string, connectionId?: string, sql?: string, columns?: ResultColumn[], rows?: CellValue[][] }>(event)
+  const body = await readBody<{ format: string, path?: string, connectionId?: string, database?: string, sql?: string, columns?: ResultColumn[], rows?: CellValue[][] }>(event)
   const format = parseFormat(body.format)
   const { path } = body
   if (typeof path !== 'string' || !isAbsolute(path)) throw createError({ statusCode: 400, message: 'path must be an absolute path' })
@@ -26,6 +26,7 @@ export default defineEventHandler(async (event) => {
   if (!isReadOnlyStatement(sql, (await store.get(connectionId)).dialect)) {
     throw createError({ statusCode: 400, message: 'The full result can only be exported for a single read-only statement' })
   }
-  await dbCall(() => writeExport(tabId, format, path, sink => workbench.stream(tabId, connectionId, sql, sink)))
+  const database = parseDatabase(body.database)
+  await dbCall(() => writeExport(tabId, format, path, sink => workbench.stream(tabId, connectionId, sql, sink, database)))
   return { ok: true }
 })

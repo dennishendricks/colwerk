@@ -107,6 +107,27 @@ for (const c of explainCases) {
   })
 }
 
+// A tab session is reopened when the tab runs in another database of the connection.
+const databaseCases: { config: ConnectionConfig, current: string, other: string }[] = [
+  { config: testConnections.postgres, current: 'select current_database()', other: 'postgres' },
+  { config: testConnections.mysql, current: 'select database()', other: 'information_schema' },
+  { config: testConnections.mssql, current: 'select db_name()', other: 'master' },
+]
+
+for (const c of databaseCases) {
+  Deno.test({ name: `${c.config.dialect}: switching the database`, ignore: !(await reachable(c.config)), ...opts }, async () => {
+    const wb = workbench(c.config)
+    const id = c.config.id
+    const current = async (database?: string) => (await wb.execute('tab', id, c.current, 1, 10, database)).resultSets[0]!.rows[0]![0]
+    assertEquals(await current(), c.config.database)
+    assertEquals(await current(c.other), c.other)
+    assertEquals(await current(), c.config.database)
+    const databases = (await wb.introspect(id, { kind: 'databases' })).map(d => d.name)
+    assert(databases.includes(c.config.database!), `databases: ${databases}`)
+    await wb.closeAll()
+  })
+}
+
 Deno.test({ name: 'refreshing a table drops its cached indexes; DDL is never cached', ...opts }, async () => {
   const wb = workbench({ id: 'wb-cache', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   const indexes = async () => (await wb.introspect('wb-cache', { kind: 'indexes', schema: 'main', table: 't' })).map(i => i.name)

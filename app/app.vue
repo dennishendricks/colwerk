@@ -3,7 +3,7 @@ import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 
-const { connections, activeConnectionId, load } = useWorkspace()
+const { connections, activeConnectionId, activeDatabase, load } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
 
 const loadError = ref<string>()
@@ -111,7 +111,7 @@ function commitRename(tab: QueryTab) {
 
 function duplicateTab(tab?: QueryTab) {
   if (!tab) return
-  const copy = addTab(tab.connectionId)
+  const copy = addTab(tab.connectionId, tab.database)
   Object.assign(copy, { title: `${tab.title} (Kopie)`, sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
 }
 
@@ -124,7 +124,7 @@ function cycleTab(step: number) {
 
 // `?` has no usingInput, so it stays inactive while typing in the rename input.
 defineShortcuts({
-  meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value) },
+  meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value, activeDatabase.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
   meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
   meta_b: { usingInput: true, handler: toggleSidebar },
@@ -167,11 +167,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <!-- Sizes are remembered per browser (localStorage) via auto-save-id. -->
     <SplitterGroup v-else direction="horizontal" auto-save-id="dbm-layout" class="h-full">
       <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible class="flex flex-col bg-muted/40">
-        <div class="p-2">
+        <div class="space-y-1 p-2">
           <ConnectionPicker @edit="openModal" />
+          <DatabasePicker />
         </div>
         <div class="min-h-0 flex-1 overflow-auto pb-4">
-          <SchemaTree v-if="activeConnectionId" :key="activeConnectionId" :connection-id="activeConnectionId" />
+          <SchemaTree
+            v-if="activeConnectionId"
+            :key="`${activeConnectionId}/${activeDatabase ?? ''}`"
+            :connection-id="activeConnectionId"
+            :database="activeDatabase"
+          />
         </div>
         <div class="border-t border-default px-3 py-1 text-xs text-muted">
           Colwerk {{ version }}
@@ -214,7 +220,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <span v-else class="max-w-60 truncate" :title="t.title" @dblclick="startRename(t, $event)">{{ t.title }}</span>
             <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
           </div>
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId)" />
+          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId, activeDatabase)" />
           <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
           <UButton icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
           <UButton
@@ -231,7 +237,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <!-- v-show keeps each tab's editor state alive while switching. -->
           <QueryPanel v-for="t in tabs" v-show="t.id === activeTabId" :key="t.id" :tab="t" />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
-            <UButton icon="i-lucide-plus" label="Neuer Tab" variant="soft" @click="addTab(activeConnectionId)" />
+            <UButton icon="i-lucide-plus" label="Neuer Tab" variant="soft" @click="addTab(activeConnectionId, activeDatabase)" />
           </div>
         </div>
       </SplitterPanel>

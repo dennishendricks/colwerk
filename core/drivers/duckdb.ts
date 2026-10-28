@@ -1,5 +1,5 @@
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
@@ -153,6 +153,8 @@ class DuckDBSession implements Session {
 
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     try {
+      // No switching between databases (supportsDatabases is false): only the opened one.
+      if (req.kind === 'databases') return await this.rows<DatabaseInfo>('select current_database() as name') as IntrospectResult<R>
       if (req.kind === 'schemas') return await this.rows<SchemaInfo>(SQL.schemas) as IntrospectResult<R>
       if (req.kind === 'tables') {
         const tables = await this.rows<{ name: string, kind: TableInfo['kind'], row_estimate: string | null, comment: string | null }>(SQL.tables, [req.schema])

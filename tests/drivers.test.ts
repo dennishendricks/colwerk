@@ -273,6 +273,8 @@ for (const c of cases) {
     const s = await session()
     const schemas = (await s.introspect({ kind: 'schemas' })).map(x => x.name)
     assert(schemas.includes(c.schema), `schemas: ${schemas}`)
+    const databases = (await s.introspect({ kind: 'databases' })).map(x => x.name)
+    assert(databases.includes(c.config.database ?? 'memory'), `databases: ${databases}`)
     for (const stmt of c.annotate) await s.execute(stmt, { rowLimit: 1 })
     const tables = await s.introspect({ kind: 'tables', schema: c.schema })
     const orders = tables.find(t => t.name === 'orders')!
