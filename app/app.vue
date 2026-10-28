@@ -63,6 +63,11 @@ function openModal(connection?: ConnectionSummary) {
 const sidebar = useTemplateRef<InstanceType<typeof SplitterPanel>>('sidebar')
 const toggleSidebar = () => sidebar.value?.isCollapsed ? sidebar.value.expand() : sidebar.value?.collapse()
 
+// Toggles between the system setting and its opposite; the opposite is stored as a fixed mode (localStorage),
+// so it no longer differs from the system once the system setting changes.
+const colorMode = useColorMode()
+const isDark = computed(() => colorMode.value === 'dark')
+
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
@@ -213,6 +218,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
           <UButton icon="i-lucide-plug" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
           <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
+          <UButton
+            :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :title="colorMode.preference !== 'system' ? 'System-Design' : isDark ? 'Helles Design' : 'Dunkles Design'"
+            @click="colorMode.preference = colorMode.preference !== 'system' ? 'system' : isDark ? 'light' : 'dark'"
+          />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
