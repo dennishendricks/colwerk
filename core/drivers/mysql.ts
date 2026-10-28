@@ -79,6 +79,11 @@ async function connect(config: ConnectionConfig): Promise<Connection> {
 }
 
 const SQL = {
+  // information_schema only lists the databases the login has privileges on.
+  databases: `
+    select schema_name as name from information_schema.schemata
+    where schema_name not in ('information_schema', 'mysql', 'performance_schema', 'sys')
+    order by schema_name`,
   schemas: `
     select schema_name as name from information_schema.schemata
     where (database() is null or schema_name = database())
@@ -253,6 +258,7 @@ class MysqlSession implements Session {
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     const db = this.conn.promise()
     try {
+      if (req.kind === 'databases') return (await db.query(SQL.databases))[0] as IntrospectResult<R>
       if (req.kind === 'schemas') return (await db.query(SQL.schemas))[0] as IntrospectResult<R>
       if (req.kind === 'tables') {
         const [rows] = await db.query(SQL.tables, [req.schema])

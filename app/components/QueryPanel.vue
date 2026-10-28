@@ -14,13 +14,14 @@ const editor = useTemplateRef('editor')
 const driver = computed(() => driverOf(props.tab.connectionId))
 const connectionItems = computed(() => connections.value.map(c => ({ label: c.name, value: c.id })))
 const connection = computed(() => connections.value.find(c => c.id === props.tab.connectionId))
+const schemaTarget = computed(() => props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined)
 
 // Autocomplete needs at least the tables of the default schema.
-watch(() => props.tab.connectionId, async (id) => {
-  if (!id) return
-  if (!state(id).schemas) await loadSchemas(id)
-  const schema = defaultSchema(id)
-  if (schema && !state(id).tables[schema]) await loadTables(id, schema)
+watch(schemaTarget, async (t) => {
+  if (!t) return
+  if (!state(t).schemas) await loadSchemas(t)
+  const schema = defaultSchema(t)
+  if (schema && !state(t).tables[schema]) await loadTables(t, schema)
   preloadColumns()
 }, { immediate: true })
 
@@ -33,18 +34,18 @@ watch(() => props.tab.sql, () => {
 onBeforeUnmount(() => clearTimeout(preloadTimer))
 
 async function preloadColumns() {
-  const id = props.tab.connectionId
+  const target = schemaTarget.value
   const dialect = driver.value?.dialect
-  if (!id || !dialect) return
-  const s = state(id)
+  if (!target || !dialect) return
+  const s = state(target)
   for (const ref of referencedTables(props.tab.sql, dialect).slice(0, 20)) {
-    const schema = ref.schema ?? defaultSchema(id)
+    const schema = ref.schema ?? defaultSchema(target)
     if (!schema || !s.schemas?.some(x => x.name === schema)) continue
-    if (!s.tables[schema]) await loadTables(id, schema)
+    if (!s.tables[schema]) await loadTables(target, schema)
     // Unquoted names may differ in case from the catalog.
     const tables = s.tables[schema] ?? []
     const table = tables.find(t => t.name === ref.name) ?? tables.find(t => t.name.toLowerCase() === ref.name.toLowerCase())
-    if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(id, schema, table.name)
+    if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(target, schema, table.name)
   }
 }
 
@@ -161,12 +162,11 @@ const pendingConnection = ref<string>()
 
 function selectConnection(id: string) {
   if (props.tab.transaction) pendingConnection.value = id
-  else props.tab.connectionId = id
+  else Object.assign(props.tab, { connectionId: id, database: undefined })
 }
 
 async function confirmConnection() {
-  props.tab.connectionId = pendingConnection.value
-  props.tab.transaction = undefined
+  Object.assign(props.tab, { connectionId: pendingConnection.value, database: undefined, transaction: undefined })
   pendingConnection.value = undefined
   await api(`/api/tabs/${props.tab.id}`, { method: 'DELETE' }).catch(() => {})
 }
@@ -267,8 +267,8 @@ const status = computed(() => {
           ref="editor"
           v-model="tab.sql"
           :dialect="driver?.dialect"
-          :schema="tab.connectionId ? completionSchema(tab.connectionId) : {}"
-          :default-schema="tab.connectionId ? defaultSchema(tab.connectionId) : undefined"
+          :schema="schemaTarget ? completionSchema(schemaTarget) : {}"
+          :default-schema="schemaTarget ? defaultSchema(schemaTarget) : undefined"
           :error-at="tab.errorAt"
           @run="execute"
           @explain="showPlan()"

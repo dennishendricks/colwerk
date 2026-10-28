@@ -13,6 +13,13 @@ export async function dbCall<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Database other than the connection's default; undefined (or empty) is the default. */
+export function parseDatabase(database: unknown): string | undefined {
+  if (database === undefined || database === null || database === '') return undefined
+  if (typeof database !== 'string') throw createError({ statusCode: 400, message: 'Invalid database' })
+  return database
+}
+
 export function parseConnection(body: unknown): ConnectionInput {
   const b = (body ?? {}) as Record<string, unknown>
   const str = (k: string) => typeof b[k] === 'string' && b[k] !== '' ? b[k] as string : undefined

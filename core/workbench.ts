@@ -9,6 +9,7 @@ const PLAN_ROW_LIMIT = 10_000
 
 interface TabSession {
   connectionId: string
+  database?: string
   session: Promise<Session>
   busy: boolean
 }
@@ -16,12 +17,15 @@ interface TabSession {
 /**
  * Owns all open database sessions:
  * - one dedicated session per editor tab (so transactions and session state stay per tab)
- * - one metadata session per connection, used serially for introspection
+ * - one metadata session per connection and database, used serially for introspection
  * - an introspection cache, filled lazily
+ *
+ * `database` switches to another database of the server; undefined is the one configured in the connection.
  */
 export class Workbench {
   private tabs = new Map<string, TabSession>()
-  private meta = new Map<string, { session: Promise<Session>, queue: Promise<unknown> }>()
+  // Keyed by connection and database (metaKey).
+  private meta = new Map<string, { connectionId: string, session: Promise<Session>, queue: Promise<unknown> }>()
   private cache = new Map<string, Promise<unknown>>()
 
   constructor(private resolveConfig: (connectionId: string) => Promise<ConnectionConfig>) {}
@@ -35,8 +39,8 @@ export class Workbench {
    * Cancels the statement when it has not finished after `timeoutSeconds` (connecting does not count).
    * Result and error carry the session's transaction state: a failed statement can leave a transaction open.
    */
-  execute(tabId: string, connectionId: string, sql: string, rowLimit: number, timeoutSeconds: number): Promise<QueryResult> {
-    return this.runTab(tabId, connectionId, async (s) => {
+  execute(tabId: string, connectionId: string, sql: string, rowLimit: number, timeoutSeconds: number, database?: string): Promise<QueryResult> {
+    return this.runTab(tabId, connectionId, database, async (s) => {
       const transaction = () => s.transactionState().catch(() => undefined)
       try {
         return { ...await withTimeout(s, timeoutSeconds, () => s.execute(sql, { rowLimit })), transaction: await transaction() }
@@ -51,7 +55,7 @@ export class Workbench {
    * The execution plan of exactly one statement as text, in the tab's session (same session state as `execute`).
    * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server.
    */
-  async explain(tabId: string, connectionId: string, sql: string, analyze: boolean, timeoutSeconds: number): Promise<{ plan: string, durationMs: number }> {
+  async explain(tabId: string, connectionId: string, sql: string, analyze: boolean, timeoutSeconds: number, database?: string): Promise<{ plan: string, durationMs: number }> {
     const { dialect } = await this.resolveConfig(connectionId)
     // Checked here, not only in the UI: Postgres and DuckDB would run a second statement as such.
     const ranges = splitStatements(sql, dialect)
@@ -60,7 +64,7 @@ export class Workbench {
     if (analyze && (dialect === 'mssql' || !isReadOnlyStatement(statement, dialect))) {
       throw new DbError('ANALYZE executes the statement and is only available for read-only statements.')
     }
-    return this.runTab(tabId, connectionId, async (s) => {
+    return this.runTab(tabId, connectionId, database, async (s) => {
       const started = performance.now()
       const run = (text: string) => withTimeout(s, timeoutSeconds, () => s.execute(text, { rowLimit: PLAN_ROW_LIMIT }))
       let result: QueryResult
@@ -88,18 +92,18 @@ export class Workbench {
   }
 
   /** Streams the full result through the tab's session (same session state as `execute`). */
-  stream(tabId: string, connectionId: string, sql: string, sink: RowSink): Promise<void> {
-    return this.runTab(tabId, connectionId, s => s.stream(sql, sink))
+  stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
+    return this.runTab(tabId, connectionId, database, s => s.stream(sql, sink))
   }
 
-  private async runTab<T>(tabId: string, connectionId: string, fn: (s: Session) => Promise<T>): Promise<T> {
+  private async runTab<T>(tabId: string, connectionId: string, database: string | undefined, fn: (s: Session) => Promise<T>): Promise<T> {
     let tab = this.tabs.get(tabId)
-    if (tab && tab.connectionId !== connectionId) {
+    if (tab && (tab.connectionId !== connectionId || tab.database !== database)) {
       await this.closeTab(tabId)
       tab = undefined
     }
     if (!tab) {
-      tab = { connectionId, session: this.open(connectionId), busy: false }
+      tab = { connectionId, database, session: this.open(connectionId, database), busy: false }
       tab.session.catch(() => this.tabs.delete(tabId))
       this.tabs.set(tabId, tab)
     }
@@ -127,14 +131,14 @@ export class Workbench {
     await tab.session.then(s => s.close(), () => {})
   }
 
-  introspect<R extends IntrospectRequest>(connectionId: string, request: R, refresh = false): Promise<IntrospectResult<R>> {
+  introspect<R extends IntrospectRequest>(connectionId: string, request: R, refresh = false, database?: string): Promise<IntrospectResult<R>> {
     // DDL is fetched on demand and must reflect the current definition.
-    if (request.kind === 'ddl') return this.runMeta(connectionId, s => s.introspect(request))
-    const key = JSON.stringify([connectionId, request.kind, 'schema' in request ? request.schema : '', 'table' in request ? request.table : ''])
-    if (refresh) this.invalidate(connectionId, request)
+    if (request.kind === 'ddl') return this.runMeta(connectionId, database, s => s.introspect(request))
+    const key = JSON.stringify([connectionId, database ?? null, request.kind, 'schema' in request ? request.schema : '', 'table' in request ? request.table : ''])
+    if (refresh) this.invalidate(connectionId, request, database)
     let result = this.cache.get(key) as Promise<IntrospectResult<R>> | undefined
     if (!result) {
-      result = this.runMeta(connectionId, s => s.introspect(request))
+      result = this.runMeta(connectionId, database, s => s.introspect(request))
       result.catch(() => this.cache.delete(key))
       this.cache.set(key, result)
     }
@@ -144,9 +148,12 @@ export class Workbench {
   /** Closes every session of a connection and drops its cache (after edit/delete). */
   async closeConnection(connectionId: string): Promise<void> {
     this.invalidate(connectionId)
-    const meta = this.meta.get(connectionId)
-    this.meta.delete(connectionId)
-    const closing = [meta?.session.then(s => s.close(), () => {})]
+    const closing: Promise<void>[] = []
+    for (const [key, meta] of this.meta) {
+      if (meta.connectionId !== connectionId) continue
+      this.meta.delete(key)
+      closing.push(meta.session.then(s => s.close(), () => {}))
+    }
     for (const [tabId, tab] of this.tabs) {
       if (tab.connectionId === connectionId) closing.push(this.closeTab(tabId))
     }
@@ -154,17 +161,19 @@ export class Workbench {
   }
 
   async closeAll(): Promise<void> {
-    await Promise.all([...new Set([...this.meta.keys(), ...[...this.tabs.values()].map(t => t.connectionId)])].map(id => this.closeConnection(id)))
+    await Promise.all([...new Set([...this.meta.values(), ...this.tabs.values()].map(s => s.connectionId))].map(id => this.closeConnection(id)))
   }
 
-  /** Drops cached entries of a connection; with a request only that entry and everything below it. */
-  private invalidate(connectionId: string, request?: IntrospectRequest) {
+  /** Drops cached entries of a connection; with a request only that entry and everything below it, in the request's database. */
+  private invalidate(connectionId: string, request?: IntrospectRequest, database?: string) {
     const prefix = JSON.stringify([connectionId]).slice(0, -1)
     for (const key of this.cache.keys()) {
       if (!key.startsWith(prefix)) continue
-      const [, kind, schema, table] = JSON.parse(key) as string[]
+      const [, db, kind, schema, table] = JSON.parse(key) as [string, string | null, string, string, string]
+      if (request && db !== (database ?? null)) continue
       const below = !request
         || request.kind === 'schemas'
+        || (request.kind === 'databases' && kind === 'databases')
         || (request.kind === 'tables' && schema === request.schema)
         // Refreshing a table (its columns) also drops its indexes.
         || (request.kind === 'columns' && (kind === 'columns' || kind === 'indexes') && schema === request.schema && table === request.table)
@@ -174,26 +183,27 @@ export class Workbench {
     }
   }
 
-  private async open(connectionId: string): Promise<Session> {
+  private async open(connectionId: string, database?: string): Promise<Session> {
     const config = await this.resolveConfig(connectionId)
-    return (await loadDriver(config.dialect)).connect(config)
+    return (await loadDriver(config.dialect)).connect({ ...config, database: database ?? config.database })
   }
 
-  private runMeta<T>(connectionId: string, fn: (s: Session) => Promise<T>): Promise<T> {
-    let meta = this.meta.get(connectionId)
+  private runMeta<T>(connectionId: string, database: string | undefined, fn: (s: Session) => Promise<T>): Promise<T> {
+    const key = JSON.stringify([connectionId, database ?? null])
+    let meta = this.meta.get(key)
     if (!meta) {
-      const session = this.open(connectionId)
-      meta = { session, queue: Promise.resolve() }
-      session.catch(() => this.meta.delete(connectionId))
-      this.meta.set(connectionId, meta)
+      const session = this.open(connectionId, database)
+      meta = { connectionId, session, queue: Promise.resolve() }
+      session.catch(() => this.meta.delete(key))
+      this.meta.set(key, meta)
     }
     const { session } = meta
     const run = meta.queue.then(async () => {
       try {
         return await fn(await session)
       } catch (e) {
-        if (CONNECTION_LOST.has((e as DbError).code ?? '') && this.meta.get(connectionId)?.session === session) {
-          this.meta.delete(connectionId)
+        if (CONNECTION_LOST.has((e as DbError).code ?? '') && this.meta.get(key)?.session === session) {
+          this.meta.delete(key)
           session.then(s => s.close(), () => {})
         }
         throw e

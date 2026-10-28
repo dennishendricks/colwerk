@@ -2,14 +2,15 @@
 import type { ContextMenuItem } from '@nuxt/ui'
 import type { ColumnInfo, Dialect, RoutineInfo, TableInfo } from '#core'
 
-const props = defineProps<{ connectionId: string }>()
+const props = defineProps<{ connectionId: string, database?: string }>()
 
 const { driverOf } = useWorkspace()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
 const { tabs, activeTabId, addTab, run } = useTabs()
 const toast = useToast()
 
-const s = computed(() => state(props.connectionId))
+const schemaTarget = computed(() => ({ connectionId: props.connectionId, database: props.database }))
+const s = computed(() => state(schemaTarget.value))
 const driver = computed(() => driverOf(props.connectionId))
 const expanded = reactive(new Set<string>())
 
@@ -19,8 +20,8 @@ const flatSchema = computed(() => {
   return !driver.value?.capabilities.supportsSchemas && schemas.length === 1 ? schemas[0]!.name : undefined
 })
 
-watch(() => props.connectionId, (id) => {
-  if (!state(id).schemas) loadSchemas(id)
+watch(schemaTarget, (t) => {
+  if (!state(t).schemas) loadSchemas(t)
 }, { immediate: true })
 
 watch(flatSchema, (schema) => {
@@ -34,8 +35,8 @@ function toggle(key: string, load: () => void) {
 }
 
 function loadSchema(schema: string) {
-  if (!s.value.tables[schema]) loadTables(props.connectionId, schema)
-  if (!s.value.routines[schema]) loadRoutines(props.connectionId, schema)
+  if (!s.value.tables[schema]) loadTables(schemaTarget.value, schema)
+  if (!s.value.routines[schema]) loadRoutines(schemaTarget.value, schema)
 }
 
 function toggleSchema(schema: string) {
@@ -44,8 +45,8 @@ function toggleSchema(schema: string) {
 
 function toggleTable(schema: string, table: string) {
   toggle(keyOf(schema, table), () => {
-    if (!s.value.columns[keyOf(schema, table)]) loadColumns(props.connectionId, schema, table)
-    if (!s.value.indexes[keyOf(schema, table)]) loadIndexes(props.connectionId, schema, table)
+    if (!s.value.columns[keyOf(schema, table)]) loadColumns(schemaTarget.value, schema, table)
+    if (!s.value.indexes[keyOf(schema, table)]) loadIndexes(schemaTarget.value, schema, table)
   })
 }
 
@@ -55,8 +56,8 @@ function toggleGroup(key: string) {
 }
 
 function refreshTable(schema: string, table: string) {
-  loadColumns(props.connectionId, schema, table, true)
-  loadIndexes(props.connectionId, schema, table, true)
+  loadColumns(schemaTarget.value, schema, table, true)
+  loadIndexes(schemaTarget.value, schema, table, true)
 }
 
 function quoteIdent(dialect: Dialect, name: string) {
@@ -69,7 +70,7 @@ const q = (name: string) => quoteIdent(driver.value!.dialect, name)
 
 async function columnsOf(schema: string, table: string) {
   const key = keyOf(schema, table)
-  if (!s.value.columns[key]) await loadColumns(props.connectionId, schema, table)
+  if (!s.value.columns[key]) await loadColumns(schemaTarget.value, schema, table)
   return s.value.columns[key]
 }
 
@@ -80,7 +81,7 @@ async function format(sql: string) {
 
 /** Opens `sql` in a new tab of this connection and runs it if `execute` is set. */
 function openTab(title: string, sql: string, execute = false) {
-  const tab = addTab(props.connectionId)
+  const tab = addTab(props.connectionId, props.database)
   tab.sql = sql
   tab.title = title
   if (execute) run(tab, sql)
@@ -96,7 +97,7 @@ async function selectTable(schema: string, table: string, newTab = false) {
   const sql = await format(`select ${cols.map(c => q(c.name)).join(', ')} from ${q(schema)}.${q(table)};`)
   if (newTab) return openTab(table, sql, true)
   let tab = tabs.value.find(t => t.id === activeTabId.value)
-  if (!tab || tab.connectionId !== props.connectionId || tab.running || tab.exporting) tab = addTab(props.connectionId)
+  if (!tab || tab.connectionId !== props.connectionId || tab.database !== props.database || tab.running || tab.exporting) tab = addTab(props.connectionId, props.database)
   const prev = tab.sql
   tab.sql = !prev.trim() ? sql : `${prev}${prev.trimEnd().endsWith(';') ? '' : ';'}\n\n${sql}`
   run(tab, sql, tab.sql.length - sql.length)
@@ -136,7 +137,7 @@ async function generateSql(schema: string, table: string, statement: Statement) 
 
 async function showDdl(schema: string, name: string, object: 'table' | 'view' | 'routine') {
   try {
-    openTab(`${name} (DDL)`, await loadDdl(props.connectionId, schema, name, object))
+    openTab(`${name} (DDL)`, await loadDdl(schemaTarget.value, schema, name, object))
   } catch (e) {
     toast.add({ title: 'DDL nicht verfügbar', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   }
@@ -185,7 +186,7 @@ function onContextmenu(e: MouseEvent) {
 
 function refresh() {
   expanded.clear()
-  loadSchemas(props.connectionId, true)
+  loadSchemas(schemaTarget.value, true)
 }
 
 const rowCount = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })

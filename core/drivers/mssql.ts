@@ -1,6 +1,6 @@
 import sql from 'mssql'
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -55,6 +55,10 @@ const COLUMN_TYPE = `
         else '' end`
 
 const SQL = {
+  databases: `
+    select name from sys.databases
+    where has_dbaccess(name) = 1 and state_desc = 'ONLINE'
+    order by name`,
   schemas: `
     select name from sys.schemas
     where name not in ('sys', 'INFORMATION_SCHEMA', 'guest') and schema_id < 16384
@@ -311,6 +315,7 @@ class MssqlSession implements Session {
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     try {
       const request = this.pool.request()
+      if (req.kind === 'databases') return [...(await request.query<DatabaseInfo>(SQL.databases)).recordset] as IntrospectResult<R>
       if (req.kind === 'schemas') return [...(await request.query<SchemaInfo>(SQL.schemas)).recordset] as IntrospectResult<R>
       request.input('schema', sql.NVarChar, req.schema)
       if (req.kind === 'tables') {
