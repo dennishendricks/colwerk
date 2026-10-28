@@ -59,6 +59,10 @@ function openModal(connection?: ConnectionSummary) {
   modalOpen.value = true
 }
 
+// Collapsed state is persisted with the panel sizes (auto-save-id).
+const sidebar = useTemplateRef<InstanceType<typeof SplitterPanel>>('sidebar')
+const toggleSidebar = () => sidebar.value?.isCollapsed ? sidebar.value.expand() : sidebar.value?.collapse()
+
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
@@ -118,6 +122,7 @@ defineShortcuts({
   meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
   meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
+  meta_b: { usingInput: true, handler: toggleSidebar },
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, {
     usingInput: true,
     handler: () => {
@@ -156,7 +161,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <!-- Sizes are remembered per browser (localStorage) via auto-save-id. -->
     <SplitterGroup v-else direction="horizontal" auto-save-id="dbm-layout" class="h-full">
-      <SplitterPanel as="aside" :default-size="20" :min-size="12" :max-size="45" class="flex flex-col bg-muted/40">
+      <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible class="flex flex-col bg-muted/40">
         <div class="p-2">
           <ConnectionPicker @edit="openModal" />
         </div>
@@ -171,6 +176,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
       <SplitterPanel as="main" class="flex min-w-0 flex-col">
         <div class="flex items-center gap-1 overflow-x-auto border-b border-default px-2 pt-1">
+          <UButton
+            :icon="sidebar?.isCollapsed ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close'"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            class="shrink-0"
+            :title="sidebar?.isCollapsed ? 'Seitenleiste einblenden (⌘B)' : 'Seitenleiste ausblenden (⌘B)'"
+            @click="toggleSidebar"
+          />
           <div
             v-for="t in tabs"
             :key="t.id"

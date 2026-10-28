@@ -184,9 +184,11 @@ const status = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <!-- Container queries: the panel width depends on the sidebar, not only on the viewport. -->
+  <div class="@container flex h-full flex-col">
+    <!-- Below @4xl the buttons show icons only; scrolling remains as fallback. -->
     <div
-      class="flex items-center gap-2 border-b border-default px-3 py-2"
+      class="flex items-center gap-2 overflow-x-auto border-b border-default px-3 py-2"
       :class="connection?.color && ['border-l-4', connectionColorClasses[connection.color].borderLeft]"
     >
       <USelect
@@ -195,13 +197,15 @@ const status = computed(() => {
         placeholder="Verbindung wählen"
         icon="i-lucide-database"
         size="sm"
-        class="w-56"
+        class="min-w-32 max-w-56 flex-1"
         @update:model-value="selectConnection"
       />
-      <UFieldGroup size="sm">
+      <UFieldGroup size="sm" class="shrink-0">
         <UButton
           icon="i-lucide-play"
           label="Ausführen"
+          title="Ausführen"
+          :ui="{ label: '@max-4xl:hidden' }"
           :loading="tab.running"
           :disabled="!tab.connectionId || !!tab.exporting"
           @click="execute"
@@ -217,6 +221,9 @@ const status = computed(() => {
         :color="busy ? 'error' : 'neutral'"
         variant="soft"
         label="Abbrechen"
+        title="Abbrechen"
+        class="shrink-0"
+        :ui="{ label: '@max-4xl:hidden' }"
         :disabled="!busy || tab.exporting === 'cancelled'"
         @click="cancel(tab)"
       />
@@ -226,6 +233,9 @@ const status = computed(() => {
         color="neutral"
         variant="ghost"
         label="Formatieren"
+        title="Formatieren"
+        class="shrink-0"
+        :ui="{ label: '@max-4xl:hidden' }"
         :disabled="!tab.sql.trim()"
         @click="format"
       />
@@ -235,12 +245,15 @@ const status = computed(() => {
           :color="tab.transaction === 'failed' ? 'error' : 'warning'"
           variant="subtle"
           icon="i-lucide-triangle-alert"
+          :title="tab.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'"
+          class="shrink-0"
+          :ui="{ label: '@max-4xl:hidden' }"
         />
         <!-- A failed transaction can only be rolled back (Postgres turns COMMIT into ROLLBACK). -->
-        <UButton v-if="tab.transaction === 'open'" size="sm" color="neutral" variant="soft" label="Commit" :disabled="busy" @click="run(tab, 'COMMIT')" />
-        <UButton size="sm" color="neutral" variant="soft" label="Rollback" :disabled="busy" @click="run(tab, 'ROLLBACK')" />
+        <UButton v-if="tab.transaction === 'open'" size="sm" color="neutral" variant="soft" label="Commit" class="shrink-0" :disabled="busy" @click="run(tab, 'COMMIT')" />
+        <UButton size="sm" color="neutral" variant="soft" label="Rollback" class="shrink-0" :disabled="busy" @click="run(tab, 'ROLLBACK')" />
       </template>
-      <div class="ml-auto flex items-center gap-2 text-sm text-muted">
+      <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted">
         <span>Limit</span>
         <UInputNumber v-model="tab.rowLimit" :min="1" :max="100000" :step="100" :step-snapping="false" size="sm" class="w-32" />
         <span>Timeout (s)</span>
@@ -269,7 +282,7 @@ const status = computed(() => {
           <span v-if="tab.running">Läuft …</span>
           <span v-else-if="tab.exporting">Export läuft …</span>
           <span v-else-if="tab.error" class="text-error">Fehler</span>
-          <span v-else>{{ status || 'Noch nicht ausgeführt' }}</span>
+          <span v-else class="truncate" :title="status">{{ status || 'Noch nicht ausgeführt' }}</span>
           <span v-if="!busy && !tab.error && resultItems.length > 1" class="ml-auto flex gap-1">
             <UButton
               v-for="item in resultItems"
@@ -288,7 +301,7 @@ const status = computed(() => {
             placeholder="Ergebnis filtern …"
             icon="i-lucide-search"
             size="xs"
-            class="-my-1 w-56"
+            class="-my-1 w-56 min-w-32"
             :class="!busy && resultItems.length > 1 ? '' : 'ml-auto'"
           >
             <template v-if="filter" #trailing>
