@@ -1,30 +1,32 @@
 <script setup lang="ts">
 const open = defineModel<boolean>('open', { default: false })
 
-const shortcuts = [
-  { keys: ['meta', 'T'], label: 'Neuer Tab' },
-  { keys: ['meta', 'W'], label: 'Aktuellen Tab schließen' },
-  { keys: ['meta', '1–9'], label: 'Zu Tab 1–9 wechseln' },
-  { keys: ['meta', 'shift', 'D'], label: 'Aktuellen Tab duplizieren' },
-  { keys: ['meta', 'O'], label: 'Abfrage aus Datei öffnen' },
-  { keys: ['meta', 'S'], label: 'Abfrage speichern' },
-  { keys: ['meta', 'shift', 'S'], label: 'Abfrage speichern unter' },
-  { keys: ['meta', 'B'], label: 'Seitenleiste ein-/ausblenden' },
-  { keys: ['meta', 'shift', '['], label: 'Zum vorherigen Tab wechseln' },
-  { keys: ['meta', 'shift', ']'], label: 'Zum nächsten Tab wechseln' },
-  { keys: ['meta', 'enter'], label: 'Abfrage ausführen (im Editor)' },
-  { keys: ['meta', 'shift', 'F'], label: 'SQL formatieren' },
-  { keys: ['meta', 'F'], label: 'Suchen (in Editor, Ergebnis oder Schema)' },
-  { keys: ['ctrl', 'C'], label: 'Laufende Abfrage abbrechen' },
-  { keys: ['meta', 'E'], label: 'Ausführungsplan anzeigen (im Editor)' },
-  { keys: ['meta', 'alt', '↑/↓'], label: 'Cursor darüber/darunter hinzufügen (im Editor)' },
-  { keys: ['alt', 'Ziehen'], label: 'Blockauswahl über mehrere Zeilen (im Editor)' },
-  { keys: ['?'], label: 'Shortcut-Übersicht anzeigen' },
-]
+const { t } = useI18n()
+
+const shortcuts = computed(() => [
+  { keys: ['meta', 'T'], label: t('shortcuts.newTab') },
+  { keys: ['meta', 'W'], label: t('shortcuts.closeTab') },
+  { keys: ['meta', '1–9'], label: t('shortcuts.selectTab') },
+  { keys: ['meta', 'shift', 'D'], label: t('shortcuts.duplicateTab') },
+  { keys: ['meta', 'O'], label: t('shortcuts.open') },
+  { keys: ['meta', 'S'], label: t('shortcuts.save') },
+  { keys: ['meta', 'shift', 'S'], label: t('shortcuts.saveAs') },
+  { keys: ['meta', 'B'], label: t('shortcuts.sidebar') },
+  { keys: ['meta', 'shift', '['], label: t('shortcuts.previousTab') },
+  { keys: ['meta', 'shift', ']'], label: t('shortcuts.nextTab') },
+  { keys: ['meta', 'enter'], label: t('shortcuts.run') },
+  { keys: ['meta', 'shift', 'F'], label: t('shortcuts.format') },
+  { keys: ['meta', 'F'], label: t('shortcuts.search') },
+  { keys: ['ctrl', 'C'], label: t('shortcuts.cancel') },
+  { keys: ['meta', 'E'], label: t('shortcuts.explain') },
+  { keys: ['meta', 'alt', '↑/↓'], label: t('shortcuts.addCursor') },
+  { keys: ['alt', t('shortcuts.drag')], label: t('shortcuts.blockSelection') },
+  { keys: ['?'], label: t('shortcuts.overview') },
+])
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Tastenkürzel">
+  <UModal v-model:open="open" :title="t('shortcuts.title')">
     <template #body>
       <ul class="space-y-2 text-sm">
         <li v-for="s in shortcuts" :key="s.label" class="flex items-center justify-between gap-4">

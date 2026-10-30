@@ -12,12 +12,14 @@ const toml = computed(() => bridge.value && `[mcp_servers.colwerk]\ncommand = ${
 </script>
 
 <template>
-  <UModal v-model:open="open" title="MCP einrichten" description="KI-Assistenten lesen über MCP Strukturen und führen SELECT-Abfragen auf deinen Verbindungen aus. Colwerk muss dafür laufen.">
+  <UModal v-model:open="open" :title="$t('mcp.title')" :description="$t('mcp.description')">
     <template #body>
       <div v-if="bridge" class="space-y-4 text-sm">
         <section class="space-y-1">
           <h3 class="font-medium">Claude Desktop</h3>
-          <p class="text-muted">Einstellungen → Entwickler → Konfiguration bearbeiten, in <code>claude_desktop_config.json</code> eintragen und Claude neu starten:</p>
+          <i18n-t keypath="mcp.claudeDesktop" tag="p" class="text-muted">
+            <template #file><code>claude_desktop_config.json</code></template>
+          </i18n-t>
           <pre class="overflow-x-auto rounded bg-elevated p-2 text-xs select-all">{{ json }}</pre>
         </section>
         <section class="space-y-1">
@@ -26,11 +28,13 @@ const toml = computed(() => bridge.value && `[mcp_servers.colwerk]\ncommand = ${
         </section>
         <section class="space-y-1">
           <h3 class="font-medium">ChatGPT / Codex</h3>
-          <p class="text-muted">ChatGPT bindet nur MCP-Server über HTTPS aus dem Internet ein, nicht lokale Programme wie Colwerk. Codex (CLI und App) unterstützt sie, per Befehl oder in <code>~/.codex/config.toml</code>:</p>
+          <i18n-t keypath="mcp.codex" tag="p" class="text-muted">
+            <template #file><code>~/.codex/config.toml</code></template>
+          </i18n-t>
           <pre class="overflow-x-auto rounded bg-elevated p-2 text-xs select-all">codex mcp add colwerk -- {{ cli }}</pre>
           <pre class="overflow-x-auto rounded bg-elevated p-2 text-xs select-all">{{ toml }}</pre>
         </section>
-        <p class="text-muted">Andere Clients (z. B. Cursor, VS Code) nehmen denselben Befehl als stdio-Server auf.</p>
+        <p class="text-muted">{{ $t('mcp.others') }}</p>
       </div>
     </template>
   </UModal>

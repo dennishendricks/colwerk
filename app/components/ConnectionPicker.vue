@@ -4,6 +4,7 @@ import type { ConnectionSummary } from '#core'
 const emit = defineEmits<{ edit: [connection?: ConnectionSummary] }>()
 
 const { connections, activeConnectionId, driverOf } = useWorkspace()
+const { t } = useI18n()
 
 const open = ref(false)
 const collapsed = reactive(new Set<string>())
@@ -50,7 +51,7 @@ const dialectIcon = (id: string) => driverOf(id)?.capabilities.supportsNetwork ?
       :ui="{ trailingIcon: 'ml-auto' }"
     >
       <span class="truncate">
-        <span v-if="active?.folder" class="text-muted">{{ active.folder }} / </span>{{ active?.name ?? 'Verbindung wählen' }}
+        <span v-if="active?.folder" class="text-muted">{{ active.folder }} / </span>{{ active?.name ?? t('common.selectConnection') }}
       </span>
       <span v-if="active?.color" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[active.color].bg" />
     </UButton>
@@ -58,8 +59,8 @@ const dialectIcon = (id: string) => driverOf(id)?.capabilities.supportsNetwork ?
     <template #content>
       <div class="flex max-h-[70vh] w-80 flex-col text-sm">
         <div class="flex items-center justify-between border-b border-default px-3 py-2">
-          <span class="text-xs font-medium uppercase text-muted">Verbindungen</span>
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" label="Neu" @click="edit()" />
+          <span class="text-xs font-medium uppercase text-muted">{{ t('connection.connections') }}</span>
+          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" :label="t('connection.newShort')" @click="edit()" />
         </div>
         <div class="min-h-0 overflow-auto p-1">
           <template v-for="g in groups" :key="g.folder ?? ''">
@@ -83,20 +84,20 @@ const dialectIcon = (id: string) => driverOf(id)?.capabilities.supportsNetwork ?
               >
                 <UIcon :name="dialectIcon(c.id)" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ c.name }}</span>
-                <span v-if="c.color" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[c.color].bg" :title="connectionColorClasses[c.color].label" />
+                <span v-if="c.color" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[c.color].bg" :title="t(`colors.${c.color}`)" />
                 <UButton
                   icon="i-lucide-pencil"
                   size="xs"
                   variant="ghost"
                   color="neutral"
                   class="ml-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                  title="Bearbeiten"
+                  :title="t('connection.editShort')"
                   @click.stop="edit(c)"
                 />
               </div>
             </template>
           </template>
-          <p v-if="!connections.length" class="px-2 py-1 text-muted">Noch keine Verbindung angelegt.</p>
+          <p v-if="!connections.length" class="px-2 py-1 text-muted">{{ t('connection.none') }}</p>
         </div>
       </div>
     </template>

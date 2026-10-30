@@ -30,7 +30,7 @@ const selected = computed({
     v-model="selected"
     :items="items"
     :loading="s?.loading.databases"
-    placeholder="Standard-Datenbank"
+    :placeholder="$t('connection.defaultDatabase')"
     icon="i-lucide-database"
     class="w-full"
     @update:open="open => open && loadDatabases(connection!.id, true)"
