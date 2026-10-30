@@ -44,15 +44,20 @@ async function serverPackageDirs(): Promise<string[]> {
   const installed = [...Deno.readDirSync(DENO_NPM)].map(entry => entry.name)
   const dirs: string[] = []
   const root = '.output/server/node_modules'
-  for (const entry of Deno.readDirSync(root)) {
-    const names = entry.name.startsWith('@') ? [...Deno.readDirSync(join(root, entry.name))].map(e => `${entry.name}/${e.name}`) : [entry.name]
-    for (const name of names) {
-      const { version } = JSON.parse(await Deno.readTextFile(join(root, name, 'package.json')))
-      const key = `${name.replace('/', '+')}@${version}`
-      const match = installed.find(n => n === key || n.startsWith(`${key}_`))
-      if (!match) throw new Error(`${name}@${version} not found in ${DENO_NPM}`)
-      dirs.push(join(DENO_NPM, match, 'node_modules', name))
-    }
+  // With several versions of a package, Nitro puts each into `.nitro/<name>@<version>` and links one of them.
+  const nitro = join(root, '.nitro')
+  const packageDirs = (dir: string) => [...Deno.readDirSync(dir)].flatMap((entry) => {
+    if (entry.name.startsWith('.')) return []
+    if (entry.name.startsWith('@')) return [...Deno.readDirSync(join(dir, entry.name))].map(e => join(dir, entry.name, e.name))
+    return [join(dir, entry.name)]
+  })
+  const nitroDirs = await Deno.stat(nitro).then(() => packageDirs(nitro), () => [])
+  for (const pkgDir of [...packageDirs(root), ...nitroDirs]) {
+    const { name, version } = JSON.parse(await Deno.readTextFile(join(pkgDir, 'package.json')))
+    const key = `${name.replace('/', '+')}@${version}`
+    const match = installed.find(n => n === key || n.startsWith(`${key}_`))
+    if (!match) throw new Error(`${name}@${version} not found in ${DENO_NPM}`)
+    dirs.push(join(DENO_NPM, match, 'node_modules', name))
   }
   return dirs
 }
