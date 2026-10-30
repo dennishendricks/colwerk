@@ -55,25 +55,28 @@ const theme = EditorView.theme({
   '.cm-searchMatch-selected': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 45%, transparent)' },
 })
 
-const phrases = EditorState.phrases.of({
-  Find: 'Suchen',
-  Replace: 'Ersetzen',
-  next: 'Weiter',
-  previous: 'Zurück',
-  all: 'Alle',
-  'match case': 'Groß-/Kleinschreibung',
-  regexp: 'Regulärer Ausdruck',
-  'by word': 'Ganzes Wort',
-  replace: 'Ersetzen',
-  'replace all': 'Alle ersetzen',
-  close: 'Schließen',
-  'current match': 'Aktueller Treffer',
-  'on line': 'in Zeile',
-  'replaced $ matches': '$ Treffer ersetzt',
-  'replaced match on line $': 'Treffer in Zeile $ ersetzt',
-  'Go to line': 'Gehe zu Zeile',
-  go: 'OK',
-})
+// CodeMirror's own texts are English; other languages translate them.
+const PHRASES: Partial<Record<string, Record<string, string>>> = {
+  de: {
+    Find: 'Suchen',
+    Replace: 'Ersetzen',
+    next: 'Weiter',
+    previous: 'Zurück',
+    all: 'Alle',
+    'match case': 'Groß-/Kleinschreibung',
+    regexp: 'Regulärer Ausdruck',
+    'by word': 'Ganzes Wort',
+    replace: 'Ersetzen',
+    'replace all': 'Alle ersetzen',
+    close: 'Schließen',
+    'current match': 'Aktueller Treffer',
+    'on line': 'in Zeile',
+    'replaced $ matches': '$ Treffer ersetzt',
+    'replaced match on line $': 'Treffer in Zeile $ ersetzt',
+    'Go to line': 'Gehe zu Zeile',
+    go: 'OK',
+  },
+}
 
 // The error mark refers to the text that was run, so any edit removes it.
 const setError = StateEffect.define<number | undefined>()
@@ -104,6 +107,8 @@ function errorDecorations(state: EditorState, pos: number): DecorationSet {
 
 const host = ref<HTMLElement>()
 const language = new Compartment()
+const localization = new Compartment()
+const { t, locale } = useI18n()
 let view: EditorView | undefined
 
 function languageExtension() {
@@ -113,6 +118,10 @@ function languageExtension() {
     defaultSchema: props.defaultSchema,
     upperCaseKeywords: false,
   })
+}
+
+function localizationExtension() {
+  return [EditorState.phrases.of(PHRASES[locale.value] ?? {}), placeholder(t('editor.placeholder'))]
 }
 
 onMounted(() => {
@@ -137,9 +146,8 @@ onMounted(() => {
         // Outside the editor so the completion list is not clipped by the panel and can flip upwards.
         tooltips({ parent: document.body }),
         search({ top: true }),
-        phrases,
         syntaxHighlighting(highlight),
-        placeholder('SQL eingeben … (⌘/Strg + Enter führt aus)'),
+        localization.of(localizationExtension()),
         language.of(languageExtension()),
         errorField,
         keymap.of([
@@ -168,6 +176,10 @@ onBeforeUnmount(() => view?.destroy())
 watch(() => [props.dialect, props.schema, props.defaultSchema], () => {
   view?.dispatch({ effects: language.reconfigure(languageExtension()) })
 }, { deep: true })
+
+watch(locale, () => {
+  view?.dispatch({ effects: localization.reconfigure(localizationExtension()) })
+})
 
 watch(model, (value) => {
   if (!view) return

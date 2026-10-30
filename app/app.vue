@@ -3,9 +3,12 @@ import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
+import * as uiLocales from '@nuxt/ui/locale'
 
 const { connections, activeConnectionId, activeDatabase, load, driverOf, setConnected } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab, openFile, saveFile } = useTabs()
+const { t, locale, locales, setLocale } = useI18n()
+const chosenLocale = useChosenLocale()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -145,7 +148,7 @@ function commitRename(tab: QueryTab) {
 function duplicateTab(tab?: QueryTab) {
   if (!tab) return
   const copy = addTab(tab.connectionId, tab.database)
-  Object.assign(copy, { title: `${tab.title} (Kopie)`, sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
+  Object.assign(copy, { title: t('app.copySuffix', { title: tab.title }), sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
 }
 
 const toast = useToast()
@@ -154,7 +157,7 @@ async function openQueryFile() {
   try {
     await openFile(activeConnectionId.value, activeDatabase.value)
   } catch (e) {
-    toast.add({ title: 'Öffnen fehlgeschlagen', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({ title: t('app.openFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   }
 }
 
@@ -162,9 +165,9 @@ async function save(tab?: QueryTab, saveAs = false) {
   if (!tab) return
   try {
     const path = await saveFile(tab, saveAs)
-    if (path) toast.add({ title: 'Gespeichert', description: path, color: 'success', icon: 'i-lucide-check' })
+    if (path) toast.add({ title: t('common.saved'), description: path, color: 'success', icon: 'i-lucide-check' })
   } catch (e) {
-    toast.add({ title: 'Speichern fehlgeschlagen', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({ title: t('app.saveFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   }
 }
 
@@ -218,27 +221,27 @@ watchEffect(() => {
   const role = (role: string): ApplicationMenuItem => ({ role: { role } })
   setApplicationMenu([
     // macOS replaces the label of the first menu with the app name.
-    submenu('Colwerk', [item('MCP einrichten …', 'mcp'), item('Nach Updates suchen …', 'update'), 'separator', role('quit')]),
-    submenu('Ablage', [
-      item('Neuer Tab', 'new-tab', true, 'CmdOrCtrl+T'),
-      item('Tab duplizieren', 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
+    submenu('Colwerk', [item(t('menu.setupMcp'), 'mcp'), item(t('menu.checkUpdates'), 'update'), 'separator', role('quit')]),
+    submenu(t('menu.file'), [
+      item(t('menu.newTab'), 'new-tab', true, 'CmdOrCtrl+T'),
+      item(t('menu.duplicateTab'), 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
       'separator',
-      item('Öffnen …', 'open', true, 'CmdOrCtrl+O'),
-      item('Speichern', 'save', !!tab, 'CmdOrCtrl+S'),
-      item('Speichern unter …', 'save-as', !!tab, 'CmdOrCtrl+Shift+S'),
+      item(t('menu.open'), 'open', true, 'CmdOrCtrl+O'),
+      item(t('menu.save'), 'save', !!tab, 'CmdOrCtrl+S'),
+      item(t('menu.saveAs'), 'save-as', !!tab, 'CmdOrCtrl+Shift+S'),
       'separator',
-      item('Neue Verbindung …', 'new-connection'),
+      item(t('menu.newConnection'), 'new-connection'),
       item(
-        activeConnection.value?.disconnected ? 'Verbindung herstellen' : 'Verbindung trennen',
+        activeConnection.value?.disconnected ? t('menu.connect') : t('menu.disconnect'),
         'toggle-connection',
         !!activeConnection.value && locksDatabase.value && !togglingConnection.value,
       ),
       'separator',
-      item('Ergebnis speichern unter …', 'export', !!tab && !tab.error && !!shown?.columns.length && !busy),
+      item(t('menu.exportResult'), 'export', !!tab && !tab.error && !!shown?.columns.length && !busy),
       'separator',
-      item('Tab schließen', 'close-tab', !!tab, 'CmdOrCtrl+W'),
+      item(t('menu.closeTab'), 'close-tab', !!tab, 'CmdOrCtrl+W'),
     ]),
-    submenu('Bearbeiten', [
+    submenu(t('menu.edit'), [
       role('undo'),
       role('redo'),
       'separator',
@@ -247,36 +250,39 @@ watchEffect(() => {
       role('paste'),
       role('selectAll'),
       'separator',
-      item('SQL formatieren', 'format', !!tab?.sql.trim(), 'CmdOrCtrl+Shift+F'),
+      item(t('menu.format'), 'format', !!tab?.sql.trim(), 'CmdOrCtrl+Shift+F'),
     ]),
-    submenu('Abfrage', [
-      item('Ausführen', 'run', !!tab?.connectionId && !tab.exporting),
-      item('Ausführungsplan', 'explain', !!tab?.connectionId && !busy, 'CmdOrCtrl+E'),
-      item('Abbrechen', 'cancel', busy && tab?.exporting !== 'cancelled' && !!driverOf(tab?.connectionId)?.capabilities.supportsCancel),
+    submenu(t('menu.query'), [
+      item(t('menu.run'), 'run', !!tab?.connectionId && !tab.exporting),
+      item(t('menu.explain'), 'explain', !!tab?.connectionId && !busy, 'CmdOrCtrl+E'),
+      item(t('menu.cancel'), 'cancel', busy && tab?.exporting !== 'cancelled' && !!driverOf(tab?.connectionId)?.capabilities.supportsCancel),
       'separator',
       // A failed transaction can only be rolled back.
       item('Commit', 'commit', tab?.transaction === 'open' && !busy),
       item('Rollback', 'rollback', !!tab?.transaction && !busy),
       'separator',
-      item('Verlauf …', 'history'),
+      item(t('menu.history'), 'history'),
     ]),
-    submenu('Darstellung', [
-      item('Seitenleiste ein-/ausblenden', 'sidebar', true, 'CmdOrCtrl+B'),
+    submenu(t('menu.view'), [
+      item(t('menu.sidebar'), 'sidebar', true, 'CmdOrCtrl+B'),
       'separator',
-      // No checkmarks in Deno's menus: the active design is disabled instead.
-      item('Design wie System', 'design-system', colorMode.preference !== 'system'),
-      item('Helles Design', 'design-light', colorMode.preference !== 'light'),
-      item('Dunkles Design', 'design-dark', colorMode.preference !== 'dark'),
+      // No checkmarks in Deno's menus: the active design and language are disabled instead.
+      item(t('menu.designSystem'), 'design-system', colorMode.preference !== 'system'),
+      item(t('menu.designLight'), 'design-light', colorMode.preference !== 'light'),
+      item(t('menu.designDark'), 'design-dark', colorMode.preference !== 'dark'),
+      'separator',
+      // Each language under its own name, so it can be found in a language one cannot read.
+      ...locales.value.map(l => item(l.name!, `locale-${l.code}`, l.code !== locale.value)),
     ]),
-    submenu('Fenster', [
+    submenu(t('menu.window'), [
       role('minimize'),
       'separator',
-      item('Vorheriger Tab', 'previous-tab', tabs.value.length > 1),
-      item('Nächster Tab', 'next-tab', tabs.value.length > 1),
+      item(t('menu.previousTab'), 'previous-tab', tabs.value.length > 1),
+      item(t('menu.nextTab'), 'next-tab', tabs.value.length > 1),
       'separator',
       ...tabs.value.slice(0, 9).map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
     ]),
-    submenu('Hilfe', [item('Tastenkürzel', 'shortcuts')]),
+    submenu(t('menu.help'), [item(t('menu.shortcuts'), 'shortcuts')]),
   ])
 })
 
@@ -296,6 +302,10 @@ defineMenuHandlers({
   'design-system': () => (colorMode.preference = 'system'),
   'design-light': () => (colorMode.preference = 'light'),
   'design-dark': () => (colorMode.preference = 'dark'),
+  ...Object.fromEntries(locales.value.map(l => [`locale-${l.code}`, () => {
+    chosenLocale.value = l.code
+    return setLocale(l.code)
+  }])),
   'previous-tab': () => cycleTab(-1),
   'next-tab': () => cycleTab(1),
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
@@ -304,14 +314,14 @@ defineMenuHandlers({
 </script>
 
 <template>
-  <UApp>
+  <UApp :locale="uiLocales[locale]">
     <div v-if="loadError" class="flex h-full items-center justify-center p-8">
       <UAlert
         color="error"
         variant="subtle"
         icon="i-lucide-lock"
-        title="Keine Verbindung zum lokalen Server"
-        :description="`${loadError} – Bitte die App über den Launcher bzw. die von „deno task dev“ ausgegebene URL öffnen.`"
+        :title="t('app.noServer')"
+        :description="t('app.noServerHint', { error: loadError })"
         class="max-w-lg"
       />
     </div>
@@ -330,7 +340,7 @@ defineMenuHandlers({
               color="neutral"
               variant="outline"
               :loading="togglingConnection"
-              :title="activeConnection.disconnected ? 'Verbindung herstellen' : 'Verbindung trennen (gibt die Datenbankdatei für andere Programme frei)'"
+              :title="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               @click="toggleConnection()"
             />
           </div>
@@ -338,7 +348,7 @@ defineMenuHandlers({
         </div>
         <div class="min-h-0 flex-1 overflow-auto pb-4">
           <p v-if="activeConnection?.disconnected" class="px-3 py-2 text-sm text-muted">
-            Verbindung getrennt. Die Datenbankdatei ist für andere Programme freigegeben.
+            {{ t('app.disconnected') }}
           </p>
           <SchemaTree
             v-else-if="activeConnectionId"
@@ -361,52 +371,52 @@ defineMenuHandlers({
             variant="ghost"
             color="neutral"
             class="shrink-0"
-            :title="sidebar?.isCollapsed ? 'Seitenleiste einblenden (⌘B)' : 'Seitenleiste ausblenden (⌘B)'"
+            :title="sidebar?.isCollapsed ? t('app.showSidebar') : t('app.hideSidebar')"
             @click="toggleSidebar"
           />
           <div
-            v-for="t in tabs"
-            :key="t.id"
+            v-for="tab in tabs"
+            :key="tab.id"
             class="flex cursor-pointer items-center gap-1 rounded-t border border-b-0 px-3 py-1 text-sm"
-            :class="t.id === activeTabId ? 'border-default bg-default' : 'border-transparent text-muted hover:text-default'"
-            @click="activeTabId = t.id"
+            :class="tab.id === activeTabId ? 'border-default bg-default' : 'border-transparent text-muted hover:text-default'"
+            @click="activeTabId = tab.id"
           >
-            <UIcon v-if="t.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-            <UIcon v-else-if="t.transaction" name="i-lucide-triangle-alert" :class="t.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5" :title="t.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'" />
-            <span v-if="colorOf(t.connectionId)" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[colorOf(t.connectionId)!].bg" />
+            <UIcon v-if="tab.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+            <UIcon v-else-if="tab.transaction" name="i-lucide-triangle-alert" :class="tab.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5" :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')" />
+            <span v-if="colorOf(tab.connectionId)" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[colorOf(tab.connectionId)!].bg" />
             <input
-              v-if="renaming === t.id"
+              v-if="renaming === tab.id"
               ref="rename-input"
               v-model="draft"
               maxlength="60"
               class="bg-transparent outline-none"
               :style="{ width: `${renameWidth}px` }"
-              @keydown.enter="commitRename(t)"
+              @keydown.enter="commitRename(tab)"
               @keydown.escape="renaming = undefined"
-              @blur="commitRename(t)"
+              @blur="commitRename(tab)"
             >
-            <span v-else class="max-w-60 truncate" :title="t.path ?? t.title" @dblclick="startRename(t, $event)">{{ t.title }}</span>
-            <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
+            <span v-else class="max-w-60 truncate" :title="tab.path ?? tab.title" @dblclick="startRename(tab, $event)">{{ tab.title }}</span>
+            <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" :title="t('app.closeTab')" @click.stop="requestClose(tab)" />
           </div>
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId, activeDatabase)" />
-          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
+          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" :title="t('app.newTab')" @click="addTab(activeConnectionId, activeDatabase)" />
+          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" :title="t('app.history')" @click="historyOpen = true" />
           <!-- In the desktop app it is in the application menu. -->
-          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
+          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" :title="t('app.setupMcp')" @click="mcpOpen = true" />
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
             size="xs"
             variant="ghost"
             color="neutral"
-            :title="colorMode.preference !== 'system' ? 'System-Design' : isDark ? 'Helles Design' : 'Dunkles Design'"
+            :title="colorMode.preference !== 'system' ? t('app.systemDesign') : isDark ? t('app.lightDesign') : t('app.darkDesign')"
             @click="colorMode.preference = colorMode.preference !== 'system' ? 'system' : isDark ? 'light' : 'dark'"
           />
-          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" title="Tastenkürzel (?)" @click="shortcutsOpen = true" />
+          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" :title="t('app.shortcuts')" @click="shortcutsOpen = true" />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
-          <QueryPanel v-for="t in tabs" v-show="t.id === activeTabId" :key="t.id" :tab="t" />
+          <QueryPanel v-for="tab in tabs" v-show="tab.id === activeTabId" :key="tab.id" :tab="tab" />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
-            <UButton icon="i-lucide-plus" label="Neuer Tab" variant="soft" @click="addTab(activeConnectionId, activeDatabase)" />
+            <UButton icon="i-lucide-plus" :label="t('app.newTab')" variant="soft" @click="addTab(activeConnectionId, activeDatabase)" />
           </div>
         </div>
       </SplitterPanel>
@@ -418,30 +428,28 @@ defineMenuHandlers({
     <LazyHistoryModal v-model:open="historyOpen" :connection-id="activeTab?.connectionId ?? activeConnectionId" @select="e => openInNewTab(e.connectionId, e.sql)" />
     <UModal
       :open="!!closing"
-      title="Tab schließen?"
-      :description="closingTab?.transaction
-        ? 'Die offene Transaktion des Tabs wird beim Schließen zurückgerollt.'
-        : 'Der Tab enthält eine Abfrage, die beim Schließen verloren geht.'"
+      :title="t('app.closeTabTitle')"
+      :description="closingTab?.transaction ? t('app.closeTabTransaction') : t('app.closeTabQuery')"
       :close="false"
       @update:open="v => !v && (closing = undefined)"
     >
       <template #footer>
         <div class="flex w-full justify-end gap-2">
-          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="closing = undefined" />
-          <UButton label="Schließen" color="error" @click="confirmClose" />
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="closing = undefined" />
+          <UButton :label="t('common.close')" color="error" @click="confirmClose" />
         </div>
       </template>
     </UModal>
     <UModal
       v-model:open="confirmingDisconnect"
-      title="Verbindung trennen?"
-      description="Offene Transaktionen in Tabs dieser Verbindung werden beim Trennen zurückgerollt."
+      :title="t('app.disconnectTitle')"
+      :description="t('app.disconnectDescription')"
       :close="false"
     >
       <template #footer>
         <div class="flex w-full justify-end gap-2">
-          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="confirmingDisconnect = false" />
-          <UButton label="Trennen" color="error" @click="toggleConnection(true)" />
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="confirmingDisconnect = false" />
+          <UButton :label="t('app.disconnectConfirm')" color="error" @click="toggleConnection(true)" />
         </div>
       </template>
     </UModal>

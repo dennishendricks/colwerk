@@ -26,8 +26,12 @@ export function api<T = unknown>(url: string, options?: { method?: 'GET' | 'POST
   return fetcher(url, options) as Promise<T>
 }
 
+/** The error's text; errors of Colwerk itself (`key` from the server, see server/utils/dbm.ts) in the UI's language. */
 export function errorMessage(e: unknown): string {
-  const err = e as { data?: { message?: string }, message?: string }
+  const err = e as { data?: { message?: string, data?: { key?: string, params?: Record<string, unknown> } }, message?: string }
+  const { key, params } = err.data?.data ?? {}
+  const { t, te } = useNuxtApp().$i18n
+  if (key && te(`errors.${key}`)) return t(`errors.${key}`, params ?? {})
   return err.data?.message ?? err.message ?? String(e)
 }
 

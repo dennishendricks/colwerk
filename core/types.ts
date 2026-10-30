@@ -197,3 +197,16 @@ export class DbError extends Error {
     this.name = 'DbError'
   }
 }
+
+/**
+ * A DbError raised by Colwerk itself rather than the database. `key` names its text in the UI's locale files
+ * (`errors.<key>`, filled with `params`); `message` stays English for logs, the history and MCP clients.
+ */
+export class AppError extends DbError {
+  readonly params?: Record<string, string | number>
+
+  constructor(readonly key: string, message: string, options: { code?: string, params?: Record<string, string | number> } = {}) {
+    super(message, options.code)
+    this.params = options.params
+  }
+}

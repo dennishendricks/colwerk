@@ -18,7 +18,7 @@ const recordBundledPackages = {
 }
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/mcp-toolkit'],
+  modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/i18n', '@nuxtjs/mcp-toolkit'],
   ssr: false,
   devtools: { enabled: false },
   app: { head: { title: 'Colwerk', link: [{ rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' }] } },
@@ -57,6 +57,17 @@ export default defineNuxtConfig({
   typescript: { strict: true },
   telemetry: false,
   eslint: { config: { stylistic: { braceStyle: '1tbs' } } },
+  // No routes per language. The system language applies on every start, unless one was chosen in the
+  // application menu (app/plugins/locale.ts); the module's cookie would pin the first detected language.
+  i18n: {
+    strategy: 'no_prefix',
+    defaultLocale: 'en',
+    locales: [
+      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+    ],
+    detectBrowserLanguage: { useCookie: false, fallbackLocale: 'en' },
+  },
   // The app must work offline: bundle used icons into the client instead of fetching them.
   icon: { provider: 'none', clientBundle: { scan: true } },
   // MCP server at /mcp (tools in server/mcp/tools); requires the session token like /api.

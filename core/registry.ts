@@ -1,4 +1,4 @@
-import { DbError, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
+import { AppError, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
 
 interface RegistryEntry extends DriverInfo {
   // Driver modules are imported on first use so that e.g. DuckDB's native library is only loaded when needed.
@@ -50,7 +50,7 @@ const duckdbHook = () => (globalThis as { dbmDuckdb?: DuckdbHook }).dbmDuckdb
 /** Fails unless DuckDB's native library is in place. Call before importing the driver. */
 async function prepareDuckdb(): Promise<void> {
   if (await duckdbHook()?.installed() === false) {
-    throw new DbError('The DuckDB driver is not installed. Open the connection in Colwerk and choose "Datenbanktreiber laden".', 'ENODRIVER')
+    throw new AppError('driverMissing', 'The DuckDB driver is not installed. Open the connection in Colwerk and choose "Load database driver".', { code: 'ENODRIVER' })
   }
 }
 
@@ -85,7 +85,7 @@ export function installDriver(dialect: Dialect): Promise<void> {
     const state: { progress?: number } = {}
     const done = hook.install(fraction => (state.progress = fraction))
       .catch((e) => {
-        throw new DbError(`Download of the DuckDB driver failed: ${(e as Error).message}`)
+        throw new AppError('driverDownloadFailed', `Download of the DuckDB driver failed: ${(e as Error).message}`, { params: { detail: (e as Error).message } })
       })
       .finally(() => (installing = undefined))
     installing = Object.assign(state, { done })
