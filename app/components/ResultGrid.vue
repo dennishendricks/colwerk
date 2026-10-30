@@ -16,7 +16,8 @@ type Column = ReturnType<TableRow<Row>['getVisibleCells']>[number]['column']
 const data = computed<Row[]>(() => props.result.rows.map((cells, index) => ({ index, cells })))
 
 const sorting = ref<{ id: string, desc: boolean }[]>([])
-const columnPinning = ref<{ left: string[], right: string[] }>({ left: [], right: [] })
+// The `#` column always stays at the left edge; columns pinned later are appended after it.
+const columnPinning = ref<{ left: string[], right: string[] }>({ left: ['#'], right: [] })
 const columnVisibility = ref<Record<string, boolean>>({})
 const columnSizing = ref<Record<string, number>>({})
 const columnFilters = ref<{ id: string, value: unknown }[]>([])
@@ -24,7 +25,7 @@ const globalFilter = ref(filter.value)
 // Column ids are positions, so state of the previous result must not carry over.
 watch(() => props.result, () => {
   sorting.value = []
-  columnPinning.value = { left: [], right: [] }
+  columnPinning.value = { left: ['#'], right: [] }
   columnVisibility.value = {}
   columnSizing.value = {}
   columnFilters.value = []
@@ -87,7 +88,7 @@ const columns = computed<TableColumn<Row>[]>(() => [
     enablePinning: false,
     enableResizing: false,
     size: Math.max(44, Math.round(String(props.result.rows.length).length * CHAR_WIDTH + 16)),
-    meta: { style: { th: sizeStyle } },
+    meta: { style: { th: sizeStyle }, class: { td: pinnedClass } },
     header: ({ table }) => h(UDropdownMenu, {
       items: table.getAllLeafColumns().filter(c => c.getCanHide()).map((c): DropdownMenuItem => ({
         label: props.result.columns[Number(c.id)]?.name,
@@ -275,6 +276,9 @@ function renderCell(value: CellValue) {
     :style="{ '--grid-width': tableWidth }"
     :ui="{
       base: 'font-mono text-xs table-fixed min-w-0 w-(--grid-width)',
+      // On the cells, not the row: pinned cells have an opaque background of their own. Mixed with the
+      // page background so it stays opaque, too.
+      tbody: '[&>tr:hover>td]:bg-[color-mix(in_oklab,var(--ui-primary)_12%,var(--ui-bg))]',
       th: 'px-2 py-1.5 whitespace-nowrap overflow-hidden bg-elevated',
       td: 'px-2 py-1 whitespace-nowrap truncate',
     }"

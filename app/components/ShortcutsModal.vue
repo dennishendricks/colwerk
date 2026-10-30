@@ -11,6 +11,7 @@ const shortcuts = [
   { keys: ['meta', 'shift', ']'], label: 'Zum nächsten Tab wechseln' },
   { keys: ['meta', 'enter'], label: 'Abfrage ausführen (im Editor)' },
   { keys: ['meta', 'shift', 'F'], label: 'SQL formatieren' },
+  { keys: ['meta', 'F'], label: 'Suchen (in Editor, Ergebnis oder Schema)' },
   { keys: ['ctrl', 'C'], label: 'Laufende Abfrage abbrechen' },
   { keys: ['meta', 'E'], label: 'Ausführungsplan anzeigen (im Editor)' },
   { keys: ['?'], label: 'Shortcut-Übersicht anzeigen' },
