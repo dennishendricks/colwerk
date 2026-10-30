@@ -2,6 +2,7 @@
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
+import type { ApplicationMenuItem } from '~/utils/application-menu'
 
 const { connections, activeConnectionId, activeDatabase, load, driverOf, setConnected } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
@@ -137,6 +138,11 @@ function duplicateTab(tab?: QueryTab) {
   Object.assign(copy, { title: `${tab.title} (Kopie)`, sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
 }
 
+function selectTab(index: number) {
+  const tab = tabs.value[index]
+  if (tab) activeTabId.value = tab.id
+}
+
 // Wraps around at both ends.
 function cycleTab(step: number) {
   const index = tabs.value.findIndex(t => t.id === activeTabId.value)
@@ -150,13 +156,7 @@ defineShortcuts({
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
   meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
   meta_b: { usingInput: true, handler: toggleSidebar },
-  ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, {
-    usingInput: true,
-    handler: () => {
-      const tab = tabs.value[i]
-      if (tab) activeTabId.value = tab.id
-    },
-  }])),
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, { usingInput: true, handler: () => selectTab(i) }])),
   '?': () => (shortcutsOpen.value = !shortcutsOpen.value),
 })
 
@@ -171,6 +171,96 @@ function onKeydown(e: KeyboardEvent) {
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
+// Native application menu (desktop app). The page sees each key first: a shortcut it handles calls
+// preventDefault, which keeps the menu item with the same accelerator from firing as well. Deno 2.9.8 only
+// supports single-character accelerators, so ⌘↵ and ⇧⌘[ / ⇧⌘] are not shown in the menu.
+watchEffect(() => {
+  if (!hasApplicationMenu) return
+  const tab = activeTab.value
+  const busy = !!tab && (tab.running || !!tab.exporting)
+  const shown = tab?.result?.resultSets[tab.resultIndex]
+  const item = (label: string, id: string, enabled = true, accelerator?: string): ApplicationMenuItem => ({ item: { label, id, enabled, accelerator } })
+  const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ submenu: { label, items } })
+  const role = (role: string): ApplicationMenuItem => ({ role: { role } })
+  setApplicationMenu([
+    // macOS replaces the label of the first menu with the app name.
+    submenu('Colwerk', [item('MCP einrichten …', 'mcp'), item('Nach Updates suchen …', 'update'), 'separator', role('quit')]),
+    submenu('Ablage', [
+      item('Neuer Tab', 'new-tab', true, 'CmdOrCtrl+T'),
+      item('Tab duplizieren', 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
+      'separator',
+      item('Neue Verbindung …', 'new-connection'),
+      item(
+        activeConnection.value?.disconnected ? 'Verbindung herstellen' : 'Verbindung trennen',
+        'toggle-connection',
+        !!activeConnection.value && locksDatabase.value && !togglingConnection.value,
+      ),
+      'separator',
+      item('Ergebnis speichern unter …', 'export', !!tab && !tab.error && !!shown?.columns.length && !busy),
+      'separator',
+      item('Tab schließen', 'close-tab', !!tab, 'CmdOrCtrl+W'),
+    ]),
+    submenu('Bearbeiten', [
+      role('undo'),
+      role('redo'),
+      'separator',
+      role('cut'),
+      role('copy'),
+      role('paste'),
+      role('selectAll'),
+      'separator',
+      item('SQL formatieren', 'format', !!tab?.sql.trim(), 'CmdOrCtrl+Shift+F'),
+    ]),
+    submenu('Abfrage', [
+      item('Ausführen', 'run', !!tab?.connectionId && !tab.exporting),
+      item('Ausführungsplan', 'explain', !!tab?.connectionId && !busy, 'CmdOrCtrl+E'),
+      item('Abbrechen', 'cancel', busy && tab?.exporting !== 'cancelled' && !!driverOf(tab?.connectionId)?.capabilities.supportsCancel),
+      'separator',
+      // A failed transaction can only be rolled back.
+      item('Commit', 'commit', tab?.transaction === 'open' && !busy),
+      item('Rollback', 'rollback', !!tab?.transaction && !busy),
+      'separator',
+      item('Verlauf …', 'history'),
+    ]),
+    submenu('Darstellung', [
+      item('Seitenleiste ein-/ausblenden', 'sidebar', true, 'CmdOrCtrl+B'),
+      'separator',
+      // No checkmarks in Deno's menus: the active design is disabled instead.
+      item('Design wie System', 'design-system', colorMode.preference !== 'system'),
+      item('Helles Design', 'design-light', colorMode.preference !== 'light'),
+      item('Dunkles Design', 'design-dark', colorMode.preference !== 'dark'),
+    ]),
+    submenu('Fenster', [
+      role('minimize'),
+      'separator',
+      item('Vorheriger Tab', 'previous-tab', tabs.value.length > 1),
+      item('Nächster Tab', 'next-tab', tabs.value.length > 1),
+      'separator',
+      ...tabs.value.slice(0, 9).map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
+    ]),
+    submenu('Hilfe', [item('Tastenkürzel', 'shortcuts')]),
+  ])
+})
+
+defineMenuHandlers({
+  mcp: () => (mcpOpen.value = true),
+  update: () => checkForUpdate(true),
+  'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
+  'duplicate-tab': () => duplicateTab(activeTab.value),
+  'new-connection': () => openModal(),
+  'toggle-connection': () => toggleConnection(),
+  'close-tab': () => requestClose(activeTab.value),
+  history: () => (historyOpen.value = true),
+  sidebar: toggleSidebar,
+  'design-system': () => (colorMode.preference = 'system'),
+  'design-light': () => (colorMode.preference = 'light'),
+  'design-dark': () => (colorMode.preference = 'dark'),
+  'previous-tab': () => cycleTab(-1),
+  'next-tab': () => cycleTab(1),
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
+  shortcuts: () => (shortcutsOpen.value = true),
+})
 </script>
 
 <template>
@@ -260,7 +350,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId, activeDatabase)" />
           <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" title="Verlauf" @click="historyOpen = true" />
-          <UButton icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
+          <!-- In the desktop app it is in the application menu. -->
+          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" title="MCP einrichten" @click="mcpOpen = true" />
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
             size="xs"
