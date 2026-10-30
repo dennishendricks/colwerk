@@ -81,6 +81,25 @@ Deno.test({ name: 'duckdb: read-only file', ...opts }, async () => {
   await Deno.remove(dir, { recursive: true })
 })
 
+// DuckDB refuses a second configuration of a file it has open, so the read-only open shows the file was released.
+Deno.test({ name: 'duckdb: disconnect releases the file until connect', ...opts }, async () => {
+  const dir = await Deno.makeTempDir()
+  const file = join(dir, 'disconnect.duckdb')
+  const wb = workbench({ id: 'wb-disc', name: 'duck', dialect: 'duckdb', file })
+  await wb.execute('tab', 'wb-disc', 'create table t as select 1 as x', 1, 10)
+  await wb.introspect('wb-disc', { kind: 'schemas' })
+  await wb.disconnect('wb-disc')
+  const other = workbench({ id: 'wb-disc-other', name: 'duck', dialect: 'duckdb', file, readOnly: true })
+  assertEquals((await other.execute('tab', 'wb-disc-other', 'select x from t', 10, 10)).resultSets[0]!.rows, [[1]])
+  await other.closeAll()
+  const err = await assertRejects(() => wb.introspect('wb-disc', { kind: 'tables', schema: 'main' }), DbError)
+  assertEquals(err.code, 'EDISCONNECTED')
+  wb.connect('wb-disc')
+  assertEquals((await wb.execute('tab', 'wb-disc', 'select x from t', 10, 10)).resultSets[0]!.rows, [[1]])
+  await wb.closeAll()
+  await Deno.remove(dir, { recursive: true })
+})
+
 // The plan is taken in the tab's session, so it sees the session's temp table.
 const explainCases: { config: ConnectionConfig, create: string, table: string, analyze: boolean }[] = [
   { config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' }, create: 'create temp table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },

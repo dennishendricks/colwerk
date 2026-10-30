@@ -41,6 +41,18 @@ export function useWorkspace() {
     if (activeConnectionId.value === id) activeConnectionId.value = connections.value[0]?.id
   }
 
+  /** Disconnecting closes all sessions of the connection on the server; open transactions are rolled back. */
+  async function setConnected(id: string, connected: boolean) {
+    await api(`/api/connections/${id}/${connected ? 'connect' : 'disconnect'}`, { method: 'POST' })
+    const connection = connections.value.find(c => c.id === id)
+    if (connection) connection.disconnected = !connected
+    if (connected) return
+    forgetSchemas(id)
+    for (const tab of tabs.value) {
+      if (tab.connectionId === id) tab.transaction = undefined
+    }
+  }
+
   function testConnection(input: Partial<ConnectionInput>) {
     return api('/api/connections/test', { method: 'POST', body: input })
   }
@@ -61,7 +73,7 @@ export function useWorkspace() {
     }
   }
 
-  return { drivers, connections, activeConnectionId, activeDatabase, load, driverOf, saveConnection, removeConnection, testConnection, installDriver }
+  return { drivers, connections, activeConnectionId, activeDatabase, load, driverOf, saveConnection, removeConnection, setConnected, testConnection, installDriver }
 }
 
 // ---------------------------------------------------------------------------------------------

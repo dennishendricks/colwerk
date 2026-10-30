@@ -27,6 +27,8 @@ export class Workbench {
   // Keyed by connection and database (metaKey).
   private meta = new Map<string, { connectionId: string, session: Promise<Session>, queue: Promise<unknown> }>()
   private cache = new Map<string, Promise<unknown>>()
+  // Connections the user disconnected: no sessions are opened until `connect` (frees DuckDB's file lock for other tools).
+  private disconnected = new Set<string>()
 
   constructor(private resolveConfig: (connectionId: string) => Promise<ConnectionConfig>) {}
 
@@ -160,6 +162,20 @@ export class Workbench {
     await Promise.all(closing)
   }
 
+  /** Closes every session of a connection and keeps it closed until `connect`. */
+  async disconnect(connectionId: string): Promise<void> {
+    this.disconnected.add(connectionId)
+    await this.closeConnection(connectionId)
+  }
+
+  connect(connectionId: string): void {
+    this.disconnected.delete(connectionId)
+  }
+
+  isDisconnected(connectionId: string): boolean {
+    return this.disconnected.has(connectionId)
+  }
+
   async closeAll(): Promise<void> {
     await Promise.all([...new Set([...this.meta.values(), ...this.tabs.values()].map(s => s.connectionId))].map(id => this.closeConnection(id)))
   }
@@ -184,6 +200,7 @@ export class Workbench {
   }
 
   private async open(connectionId: string, database?: string): Promise<Session> {
+    if (this.disconnected.has(connectionId)) throw new DbError('The connection is disconnected.', 'EDISCONNECTED')
     const config = await this.resolveConfig(connectionId)
     return (await loadDriver(config.dialect)).connect({ ...config, database: database ?? config.database })
   }

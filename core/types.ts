@@ -41,6 +41,8 @@ export interface DriverCapabilities {
   supportsNetwork: boolean
   /** The server holds several databases a connection can switch between (the configured one is the default). */
   supportsDatabases: boolean
+  /** An open session locks the database for other processes (embedded databases such as DuckDB); the UI offers to disconnect. */
+  locksDatabase: boolean
 }
 
 export interface DriverInfo {
