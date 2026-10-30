@@ -5,7 +5,7 @@ import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } fr
 import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect } from '@codemirror/lang-sql'
 import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
-import { Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder, tooltips } from '@codemirror/view'
+import { crosshairCursor, Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder, rectangularSelection, tooltips } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
 
@@ -123,7 +123,12 @@ onMounted(() => {
       extensions: [
         lineNumbers(),
         history(),
+        // Multiple cursors (⌘⌥↑/↓ from the default keymap, ⌘D); `drawSelection` renders them.
+        EditorState.allowMultipleSelections.of(true),
         drawSelection(),
+        // ⌥-drag selects a block across lines.
+        rectangularSelection(),
+        crosshairCursor(),
         highlightActiveLine(),
         indentOnInput(),
         bracketMatching(),
