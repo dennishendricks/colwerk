@@ -244,5 +244,28 @@
   },
   "editor": {
     "placeholder": "SQL eingeben … (⌘/Strg + Enter führt aus)"
+  },
+  "dialog": {
+    "open": "Datei auswählen",
+    "save": "Speichern unter"
+  },
+  "errors": {
+    "cancelled": "Die Abfrage wurde abgebrochen.",
+    "timeout": "Die Abfrage wurde nicht innerhalb von {seconds} s beendet und abgebrochen.",
+    "disconnected": "Die Verbindung ist getrennt.",
+    "busy": "In diesem Tab läuft bereits eine Anweisung.",
+    "explainSingle": "Ein Ausführungsplan ist nur für eine einzelne Anweisung möglich.",
+    "analyzeReadOnly": "ANALYZE führt die Anweisung aus und ist nur für lesende Anweisungen verfügbar.",
+    "noResultSet": "Die Anweisung hat keine Ergebnismenge geliefert.",
+    "exportCancelled": "Der Export wurde abgebrochen.",
+    "driverMissing": "Der DuckDB-Treiber ist nicht installiert. Die Verbindung in Colwerk öffnen und „Datenbanktreiber laden“ wählen.",
+    "driverDownloadFailed": "Download des DuckDB-Treibers fehlgeschlagen: {detail}",
+    "caUnreadable": "CA-Zertifikat nicht lesbar: {detail}",
+    "objectNotFound": "{name} nicht gefunden.",
+    "definitionUnavailable": "Definition von {name} nicht verfügbar.",
+    "noFileDialog": "Kein Dateidialog verfügbar: zenity oder kdialog installieren.",
+    "fileDialogFailed": "Dateidialog: {detail}",
+    "nameRequired": "Bitte einen Namen angeben.",
+    "invalidPort": "Ungültiger Port."
   }
 }

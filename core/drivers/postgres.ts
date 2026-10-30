@@ -1,7 +1,7 @@
 import pg from 'pg'
 import Cursor from 'pg-cursor'
 import { splitStatements } from '../sql-split.ts'
-import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -271,7 +271,7 @@ class PostgresSession implements Session {
       if (req.kind === 'routines') return (await this.client.query(SQL.routines, [req.schema])).rows as IntrospectResult<R>
       if (req.kind === 'ddl') {
         const { rows } = await this.client.query<{ ddl: string }>(DDL[req.object], [req.schema, req.name])
-        if (!rows.length) throw new DbError(`${req.schema}.${req.name} not found`)
+        if (!rows.length) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
         // pg_get_functiondef ends without a semicolon; overloads come one after another.
         return rows.map(r => r.ddl.trimEnd().replace(/;?$/, ';')).join('\n\n') as IntrospectResult<R>
       }

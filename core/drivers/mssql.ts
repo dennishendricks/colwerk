@@ -1,6 +1,6 @@
 import sql from 'mssql'
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -214,7 +214,7 @@ class MssqlSession implements Session {
 
   /** Runs one batch, appends its result sets and resolves with the affected rows. */
   private runBatch(text: string, rowLimit: number, resultSets: ResultSet[]): Promise<number | undefined> {
-    if (this.stopReason === 'cancel') return Promise.reject(new DbError('Query was cancelled', 'ECANCEL'))
+    if (this.stopReason === 'cancel') return Promise.reject(new AppError('cancelled', 'Query was cancelled', { code: 'ECANCEL' }))
     const request = new sql.Request(this.pool)
     request.stream = true
     request.arrayRowMode = true
@@ -245,7 +245,7 @@ class MssqlSession implements Session {
       request.on('rowsaffected', (n: number) => (affectedRows = (affectedRows ?? 0) + n))
       request.on('error', (e: { code?: string }) => {
         if (e.code === 'ECANCEL' && this.stopReason === 'limit') return
-        error ??= e.code === 'ECANCEL' ? new DbError('Query was cancelled', 'ECANCEL') : e
+        error ??= e.code === 'ECANCEL' ? new AppError('cancelled', 'Query was cancelled', { code: 'ECANCEL' }) : e
       })
       request.on('done', () => {
         this.current = null
@@ -301,7 +301,7 @@ class MssqlSession implements Session {
         if (batch.length >= STREAM_BATCH) flush()
       })
       request.on('error', (e: { code?: string }) => {
-        error ??= e.code === 'ECANCEL' ? new DbError('Query was cancelled', 'ECANCEL') : e
+        error ??= e.code === 'ECANCEL' ? new AppError('cancelled', 'Query was cancelled', { code: 'ECANCEL' }) : e
       })
       request.on('done', async () => {
         flush()
@@ -349,7 +349,7 @@ class MssqlSession implements Session {
         const { recordset } = await request.query<{ ddl: string | null }>(req.object === 'table' ? SQL.tableDdl : SQL.definition)
         // Null for missing objects and for definitions created `with encryption`.
         const ddl = recordset[0]?.ddl
-        if (!ddl) throw new DbError(`Definition of ${req.schema}.${req.name} not available`)
+        if (!ddl) throw new AppError('definitionUnavailable', `Definition of ${req.schema}.${req.name} not available`, { params: { name: `${req.schema}.${req.name}` } })
         return ddl.trim() as IntrospectResult<R>
       }
       request.input('table', sql.NVarChar, req.table)

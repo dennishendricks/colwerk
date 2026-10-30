@@ -1,7 +1,7 @@
 import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
 import { splitStatements } from '../sql-split.ts'
-import { type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { tlsOptions } from './tls.ts'
 
@@ -169,7 +169,7 @@ class MysqlSession implements Session {
       query.on('error', (err: { errno?: number }) => {
         if (err.errno === ER_QUERY_INTERRUPTED && this.stopReason === 'limit') return
         this.running = false
-        reject(err.errno === ER_QUERY_INTERRUPTED ? new DbError('Query was cancelled', 'ER_QUERY_INTERRUPTED') : wrap(err, sql))
+        reject(err.errno === ER_QUERY_INTERRUPTED ? new AppError('cancelled', 'Query was cancelled', { code: 'ER_QUERY_INTERRUPTED' }) : wrap(err, sql))
       })
       query.on('end', async () => {
         if (!this.running) return
@@ -221,7 +221,7 @@ class MysqlSession implements Session {
       })
       query.on('error', (err: { errno?: number }) => {
         this.running = false
-        reject(failed ?? (err.errno === ER_QUERY_INTERRUPTED ? new DbError('Query was cancelled', 'ER_QUERY_INTERRUPTED') : wrap(err)))
+        reject(failed ?? (err.errno === ER_QUERY_INTERRUPTED ? new AppError('cancelled', 'Query was cancelled', { code: 'ER_QUERY_INTERRUPTED' }) : wrap(err)))
       })
       query.on('end', async () => {
         if (!this.running) return
@@ -285,7 +285,7 @@ class MysqlSession implements Session {
         const types = req.object === 'routine'
           ? ((await db.query(SQL.routineTypes, [req.schema, req.name]))[0] as { type: string }[]).map(r => r.type)
           : [req.object.toUpperCase()]
-        if (!types.length) throw new DbError(`${req.schema}.${req.name} not found`)
+        if (!types.length) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
         const ddl: string[] = []
         for (const type of types) {
           // The statement's text is in the column `Create Table`, `Create View`, `Create Function` or `Create Procedure`.

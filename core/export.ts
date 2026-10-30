@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { ByteWriter, ParquetWriter } from 'hyparquet-writer'
 import { cellText, csvField } from './values.ts'
-import { type CellValue, DbError, type ResultColumn, type RowSink } from './types.ts'
+import { AppError, type CellValue, type ResultColumn, type RowSink } from './types.ts'
 
 export type ExportFormat = 'csv' | 'parquet'
 
@@ -233,7 +233,7 @@ function parquetExporter(write: Write): Exporter {
       await file.write(rows.map(row => `${JSON.stringify(row)}\n`).join(''))
     },
     finish: async () => {
-      if (!columns) throw new DbError('The statement returned no result set.')
+      if (!columns) throw new AppError('noResultSet', 'The statement returned no result set.')
       const { dir, file } = await stage()
       await file.close()
       const names = uniqueNames(columns)
