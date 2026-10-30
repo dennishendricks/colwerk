@@ -17,6 +17,8 @@ const shortcuts = [
   { keys: ['meta', 'F'], label: 'Suchen (in Editor, Ergebnis oder Schema)' },
   { keys: ['ctrl', 'C'], label: 'Laufende Abfrage abbrechen' },
   { keys: ['meta', 'E'], label: 'Ausführungsplan anzeigen (im Editor)' },
+  { keys: ['meta', 'alt', '↑/↓'], label: 'Cursor darüber/darunter hinzufügen (im Editor)' },
+  { keys: ['alt', 'Ziehen'], label: 'Blockauswahl über mehrere Zeilen (im Editor)' },
   { keys: ['?'], label: 'Shortcut-Übersicht anzeigen' },
 ]
 </script>
