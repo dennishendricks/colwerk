@@ -3,7 +3,7 @@ import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
-import * as uiLocales from '@nuxt/ui/locale'
+import { de, en } from '@nuxt/ui/locale'
 
 const { connections, activeConnectionId, activeDatabase, load, driverOf, setConnected } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab, openFile, saveFile } = useTabs()
@@ -314,7 +314,7 @@ defineMenuHandlers({
 </script>
 
 <template>
-  <UApp :locale="uiLocales[locale]">
+  <UApp :locale="locale === 'de' ? de : en">
     <div v-if="loadError" class="flex h-full items-center justify-center p-8">
       <UAlert
         color="error"

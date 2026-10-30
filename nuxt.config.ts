@@ -67,6 +67,8 @@ export default defineNuxtConfig({
       { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
     ],
     detectBrowserLanguage: { useCookie: false, fallbackLocale: 'en' },
+    // The locale files are precompiled at build time; the client needs no message compiler.
+    bundle: { dropMessageCompiler: true },
   },
   // The app must work offline: bundle used icons into the client instead of fetching them.
   icon: { provider: 'none', clientBundle: { scan: true } },
