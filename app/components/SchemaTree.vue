@@ -8,6 +8,7 @@ const { driverOf } = useWorkspace()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
 const { tabs, activeTabId, addTab, run } = useTabs()
 const toast = useToast()
+const { t, locale } = useI18n()
 
 const schemaTarget = computed(() => ({ connectionId: props.connectionId, database: props.database }))
 const s = computed(() => state(schemaTarget.value))
@@ -139,7 +140,7 @@ async function showDdl(schema: string, name: string, object: 'table' | 'view' | 
   try {
     openTab(`${name} (DDL)`, await loadDdl(schemaTarget.value, schema, name, object))
   } catch (e) {
-    toast.add({ title: 'DDL nicht verfügbar', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({ title: t('schema.ddlUnavailable'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   }
 }
 
@@ -155,27 +156,27 @@ const menuItems = computed((): ContextMenuItem[][] => {
   if ('routine' in target) {
     const { name } = target.routine
     return [[
-      { label: 'DDL anzeigen', icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, 'routine') },
-      { label: 'Name kopieren', icon: 'i-lucide-copy', onSelect: () => copy(name) },
+      { label: t('schema.showDdl'), icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, 'routine') },
+      { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
     ]]
   }
   const { name, kind } = target.table
   const statements: Statement[] = kind === 'view' ? ['select'] : ['select', 'insert', 'update', 'delete']
   return [
     [
-      { label: 'Abfragen', icon: 'i-lucide-play', onSelect: () => selectTable(schema, name) },
-      { label: 'In neuem Tab abfragen', icon: 'i-lucide-square-plus', onSelect: () => selectTable(schema, name, true) },
-      { label: 'Zeilen zählen', icon: 'i-lucide-hash', onSelect: () => countRows(schema, name) },
+      { label: t('schema.query'), icon: 'i-lucide-play', onSelect: () => selectTable(schema, name) },
+      { label: t('schema.queryNewTab'), icon: 'i-lucide-square-plus', onSelect: () => selectTable(schema, name, true) },
+      { label: t('schema.countRows'), icon: 'i-lucide-hash', onSelect: () => countRows(schema, name) },
     ],
     [
-      { label: 'SQL erzeugen', icon: 'i-lucide-code', children: statements.map(st => ({ label: st.toUpperCase(), onSelect: () => generateSql(schema, name, st) })) },
-      { label: 'DDL anzeigen', icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, kind) },
+      { label: t('schema.generateSql'), icon: 'i-lucide-code', children: statements.map(st => ({ label: st.toUpperCase(), onSelect: () => generateSql(schema, name, st) })) },
+      { label: t('schema.showDdl'), icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, kind) },
     ],
     [
-      { label: 'Name kopieren', icon: 'i-lucide-copy', onSelect: () => copy(name) },
-      { label: 'Qualifizierten Namen kopieren', icon: 'i-lucide-copy', onSelect: () => copy(`${schema}.${name}`) },
+      { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
+      { label: t('schema.copyQualifiedName'), icon: 'i-lucide-copy', onSelect: () => copy(`${schema}.${name}`) },
     ],
-    [{ label: 'Neu laden', icon: 'i-lucide-refresh-cw', onSelect: () => refreshTable(schema, name) }],
+    [{ label: t('common.reload'), icon: 'i-lucide-refresh-cw', onSelect: () => refreshTable(schema, name) }],
   ]
 })
 
@@ -221,15 +222,15 @@ const schemaOpen = (schema: string) => expanded.has(keyOf(schema)) || (!!query.v
 const tableOpen = (schema: string, table: string) => expanded.has(keyOf(schema, table)) || (!!query.value && !!columnHits(schema, table).length)
 const routinesOpen = (schema: string) => expanded.has(keyOf(schema, undefined, 'routines')) || (!!query.value && !!routineHits(schema).length)
 
-const rowCount = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })
+const rowCount = computed(() => new Intl.NumberFormat(locale.value, { notation: 'compact', maximumFractionDigits: 1 }))
 
-function tableTitle(t: TableInfo) {
+function tableTitle(table: TableInfo) {
   return [
-    t.comment,
-    t.rowEstimate !== null && `ca. ${t.rowEstimate.toLocaleString('de-DE')} Zeilen (Statistik)`,
-    t.partitioning && `Partitionierung: ${t.partitioning}`,
-    t.clustering && `Clustering: ${t.clustering}`,
-    'Doppelklick: alle Spalten abfragen',
+    table.comment,
+    table.rowEstimate !== null && t('schema.rowEstimate', { n: table.rowEstimate.toLocaleString(locale.value) }),
+    table.partitioning && t('schema.partitioning', { value: table.partitioning }),
+    table.clustering && t('schema.clustering', { value: table.clustering }),
+    t('schema.doubleClick'),
   ].filter(Boolean).join('\n')
 }
 
@@ -242,21 +243,21 @@ function fkTitle(c: ColumnInfo) {
   <!-- Focusable so that a click into the tree moves the focus here and ⌘F reaches the handler. -->
   <div class="text-sm outline-none" tabindex="-1" @keydown="onKeydown">
     <div class="flex items-center justify-between px-3 py-1">
-      <span class="text-xs font-medium uppercase text-muted">Schema</span>
-      <UButton icon="i-lucide-refresh-cw" size="xs" variant="ghost" color="neutral" :loading="s.loading.schemas" title="Neu laden" @click="refresh" />
+      <span class="text-xs font-medium uppercase text-muted">{{ t('schema.title') }}</span>
+      <UButton icon="i-lucide-refresh-cw" size="xs" variant="ghost" color="neutral" :loading="s.loading.schemas" :title="t('common.reload')" @click="refresh" />
     </div>
     <UInput
       v-if="search !== undefined"
       ref="searchInput"
       v-model="search"
-      placeholder="Geladene Objekte durchsuchen …"
+      :placeholder="t('schema.search')"
       icon="i-lucide-search"
       size="xs"
       class="w-full px-2 pb-1"
       @keydown.escape="search = undefined"
     >
       <template #trailing>
-        <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" title="Suche schließen" @click="search = undefined" />
+        <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" :title="t('schema.closeSearch')" @click="search = undefined" />
       </template>
     </UInput>
     <p v-if="s.errors.schemas" class="px-3 py-1 text-xs text-error">{{ s.errors.schemas }}</p>
@@ -309,7 +310,7 @@ function fkTitle(c: ColumnInfo) {
                   <span class="min-w-0 truncate text-dimmed" :title="col.type">{{ col.type }}{{ col.nullable ? '' : ' not null' }}</span>
                   <span class="ml-auto flex shrink-0 gap-1">
                     <UBadge v-if="col.primaryKey" label="PK" size="sm" color="warning" variant="subtle" />
-                    <UBadge v-if="col.references" size="sm" color="info" variant="subtle" :title="`Fremdschlüssel → ${fkTitle(col)}`">
+                    <UBadge v-if="col.references" size="sm" color="info" variant="subtle" :title="t('schema.foreignKey', { target: fkTitle(col) })">
                       FK → {{ col.references.table }}
                     </UBadge>
                     <UBadge v-if="col.indexes.length" label="IDX" size="sm" color="neutral" variant="subtle" :title="col.indexes.join(', ')" />
@@ -319,7 +320,7 @@ function fkTitle(c: ColumnInfo) {
                 <template v-if="s.indexes[keyOf(schema.name, table.name)]?.length">
                   <button class="flex w-full items-center gap-1.5 py-0.5 text-left text-xs text-muted hover:bg-elevated" @click="toggleGroup(keyOf(schema.name, table.name, 'indexes'))">
                     <UIcon :name="expanded.has(keyOf(schema.name, table.name, 'indexes')) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
-                    Indizes ({{ s.indexes[keyOf(schema.name, table.name)]!.length }})
+                    {{ t('schema.indexes', { n: s.indexes[keyOf(schema.name, table.name)]!.length }) }}
                   </button>
                   <div v-if="expanded.has(keyOf(schema.name, table.name, 'indexes'))" class="pl-5">
                     <div
@@ -345,14 +346,14 @@ function fkTitle(c: ColumnInfo) {
               <button class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated" @click="toggleGroup(keyOf(schema.name, undefined, 'routines'))">
                 <UIcon :name="routinesOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
                 <UIcon name="i-lucide-square-function" class="size-4 shrink-0 text-muted" />
-                <span class="truncate">Funktionen ({{ shownRoutines(schema.name)!.length }})</span>
+                <span class="truncate">{{ t('schema.functions', { n: shownRoutines(schema.name)!.length }) }}</span>
               </button>
               <div v-if="routinesOpen(schema.name)" class="pl-4">
                 <div
                   v-for="routine in shownRoutines(schema.name)"
                   :key="`${routine.kind}:${routine.name}`"
                   class="flex items-center gap-1 px-2 py-0.5 hover:bg-elevated"
-                  :title="routine.kind === 'procedure' ? 'Prozedur' : 'Funktion'"
+                  :title="routine.kind === 'procedure' ? t('schema.procedure') : t('schema.function')"
                   @contextmenu="menuTarget = { schema: schema.name, routine }"
                 >
                   <span class="size-3.5 shrink-0" />

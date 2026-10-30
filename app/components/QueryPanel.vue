@@ -9,6 +9,7 @@ const props = defineProps<{ tab: QueryTab }>()
 const { connections, driverOf } = useWorkspace()
 const { activeTabId, run, explain, cancel, exportResult } = useTabs()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
+const { t, locale } = useI18n()
 
 const editor = useTemplateRef('editor')
 const driver = computed(() => driverOf(props.tab.connectionId))
@@ -83,11 +84,11 @@ const planItems = computed(() => [
 
 async function copyPlan() {
   await navigator.clipboard.writeText(props.tab.plan?.text ?? '')
-  toast.add({ title: 'Ausführungsplan kopiert', color: 'success', icon: 'i-lucide-check' })
+  toast.add({ title: t('query.planCopied'), color: 'success', icon: 'i-lucide-check' })
 }
 
 const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
-const resultItems = computed(() => props.tab.result?.resultSets.map((_, i) => ({ label: `Ergebnis ${i + 1}`, value: i })) ?? [])
+const resultItems = computed(() => props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? [])
 
 const toast = useToast()
 const exportFormat = ref<'csv' | 'parquet'>('csv')
@@ -99,10 +100,10 @@ const canExportFull = computed(() => {
   return !!source && isReadOnlyStatement(source.sql, driverOf(source.connectionId)?.dialect ?? 'postgres')
 })
 const scopeItems = computed(() => [
-  { label: `Angezeigte Zeilen (${shown.value?.rows.length.toLocaleString('de-DE')})`, value: 'shown' },
+  { label: t('query.shownRows', { n: shown.value?.rows.length.toLocaleString(locale.value) }), value: 'shown' },
   canExportFull.value
-    ? { label: 'Gesamtes Ergebnis (ohne Limit)', value: 'full' }
-    : { label: 'Gesamtes Ergebnis (nur bei einzelnem SELECT)', value: 'full', disabled: true },
+    ? { label: t('query.fullResult'), value: 'full' }
+    : { label: t('query.fullResultSelectOnly'), value: 'full', disabled: true },
 ])
 watch(canExportFull, (ok) => {
   if (!ok) exportScope.value = 'shown'
@@ -112,10 +113,10 @@ watch(canExportFull, (ok) => {
 async function download() {
   try {
     const path = await exportResult(props.tab, exportFormat.value, exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated)
-    if (path) toast.add({ title: 'Export gespeichert', description: path, color: 'success', icon: 'i-lucide-check' })
-    else toast.add({ title: 'Export abgebrochen', color: 'neutral', icon: 'i-lucide-square' })
+    if (path) toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
+    else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
   } catch (e) {
-    toast.add({ title: 'Export fehlgeschlagen', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({ title: t('query.exportFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   }
 }
 
@@ -127,7 +128,7 @@ async function format() {
     props.tab.sql = formatSql(props.tab.sql, driver.value?.dialect ?? 'postgres')
     editor.value?.focus()
   } catch (e) {
-    toast.add({ title: 'Formatieren fehlgeschlagen', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({ title: t('query.formatFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
   }
 }
 
@@ -196,14 +197,16 @@ async function confirmConnection() {
 }
 
 const status = computed(() => {
-  if (props.tab.plan) return `Ausführungsplan · ${formatTime(props.tab.plan.durationMs)}`
+  if (props.tab.plan) return `${t('query.plan')} · ${formatTime(props.tab.plan.durationMs)}`
   const r = props.tab.result
   if (!r) return ''
   const time = formatTime(r.durationMs)
   const set = shown.value
-  if (!set) return `${r.affectedRows ?? 0} Zeile(n) betroffen · ${time}`
+  if (!set) return `${t('common.rowsAffected', { n: (r.affectedRows ?? 0).toLocaleString(locale.value) }, r.affectedRows ?? 0)} · ${time}`
   const filtered = grid.value?.filteredCount
-  return `${filtered === undefined ? '' : `${filtered.toLocaleString('de-DE')} von `}${set.rows.length.toLocaleString('de-DE')} Zeile(n)${set.truncated ? ` – auf Limit ${props.tab.rowLimit.toLocaleString('de-DE')} gekürzt` : ''} · ${time}`
+  const n = (value: number) => value.toLocaleString(locale.value)
+  const rows = filtered === undefined ? n(set.rows.length) : t('query.filteredOf', { filtered: n(filtered), rows: n(set.rows.length) })
+  return `${t('common.rows', { n: rows }, set.rows.length)}${set.truncated ? ` – ${t('query.truncated', { limit: n(props.tab.rowLimit) })}` : ''} · ${time}`
 })
 </script>
 
@@ -218,7 +221,7 @@ const status = computed(() => {
       <USelect
         :model-value="tab.connectionId"
         :items="connectionItems"
-        placeholder="Verbindung wählen"
+        :placeholder="t('common.selectConnection')"
         icon="i-lucide-database"
         size="sm"
         class="min-w-32 max-w-56 flex-1"
@@ -227,15 +230,15 @@ const status = computed(() => {
       <UFieldGroup size="sm" class="shrink-0">
         <UButton
           icon="i-lucide-play"
-          label="Ausführen"
-          title="Ausführen"
+          :label="t('common.run')"
+          :title="t('common.run')"
           :ui="{ label: '@max-4xl:hidden' }"
           :loading="tab.running"
           :disabled="!tab.connectionId || !!tab.exporting"
           @click="execute"
         />
         <UDropdownMenu :items="planItems">
-          <UButton icon="i-lucide-chevron-down" aria-label="Weitere Optionen" :disabled="!tab.connectionId || busy" />
+          <UButton icon="i-lucide-chevron-down" :aria-label="t('query.moreOptions')" :disabled="!tab.connectionId || busy" />
         </UDropdownMenu>
       </UFieldGroup>
       <UButton
@@ -244,8 +247,8 @@ const status = computed(() => {
         size="sm"
         :color="busy ? 'error' : 'neutral'"
         variant="soft"
-        label="Abbrechen"
-        title="Abbrechen"
+        :label="t('common.cancel')"
+        :title="t('common.cancel')"
         class="shrink-0"
         :ui="{ label: '@max-4xl:hidden' }"
         :disabled="!busy || tab.exporting === 'cancelled'"
@@ -256,8 +259,8 @@ const status = computed(() => {
         size="sm"
         color="neutral"
         variant="ghost"
-        label="Formatieren"
-        title="Formatieren"
+        :label="t('query.format')"
+        :title="t('query.format')"
         class="shrink-0"
         :ui="{ label: '@max-4xl:hidden' }"
         :disabled="!tab.sql.trim()"
@@ -265,11 +268,11 @@ const status = computed(() => {
       />
       <template v-if="tab.transaction">
         <UBadge
-          :label="tab.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'"
+          :label="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
           :color="tab.transaction === 'failed' ? 'error' : 'warning'"
           variant="subtle"
           icon="i-lucide-triangle-alert"
-          :title="tab.transaction === 'failed' ? 'Transaktion fehlgeschlagen' : 'Transaktion offen'"
+          :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
           class="shrink-0"
           :ui="{ label: '@max-4xl:hidden' }"
         />
@@ -278,9 +281,9 @@ const status = computed(() => {
         <UButton size="sm" color="neutral" variant="soft" label="Rollback" class="shrink-0" :disabled="busy" @click="run(tab, 'ROLLBACK')" />
       </template>
       <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted">
-        <span>Limit</span>
+        <span>{{ t('query.limit') }}</span>
         <UInputNumber v-model="tab.rowLimit" :min="1" :max="100000" :step="100" :step-snapping="false" size="sm" class="w-32" />
-        <span>Timeout (s)</span>
+        <span>{{ t('query.timeout') }}</span>
         <UInputNumber v-model="tab.timeout" :min="1" :max="86400" :step="10" :step-snapping="false" size="sm" class="w-28" />
       </div>
     </div>
@@ -303,10 +306,10 @@ const status = computed(() => {
       <SplitterPanel :min-size="15" class="flex flex-col">
         <div class="flex items-center gap-2 border-b border-default px-3 py-1.5 text-xs text-muted">
           <UIcon v-if="busy" name="i-lucide-loader-circle" class="animate-spin" />
-          <span v-if="tab.running">Läuft …</span>
-          <span v-else-if="tab.exporting">Export läuft …</span>
-          <span v-else-if="tab.error" class="text-error">Fehler</span>
-          <span v-else class="truncate" :title="status">{{ status || 'Noch nicht ausgeführt' }}</span>
+          <span v-if="tab.running">{{ t('query.running') }}</span>
+          <span v-else-if="tab.exporting">{{ t('query.exporting') }}</span>
+          <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
+          <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
           <span v-if="!busy && !tab.error && resultItems.length > 1" class="ml-auto flex gap-1">
             <UButton
               v-for="item in resultItems"
@@ -323,14 +326,14 @@ const status = computed(() => {
             v-if="!tab.error && shown?.columns.length"
             ref="filterInput"
             v-model="filter"
-            placeholder="Ergebnis filtern …"
+            :placeholder="t('query.filter')"
             icon="i-lucide-search"
             size="xs"
             class="-my-1 w-56 min-w-32"
             :class="!busy && resultItems.length > 1 ? '' : 'ml-auto'"
           >
             <template v-if="filter" #trailing>
-              <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" title="Filter leeren" @click="filter = ''" />
+              <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" :title="t('query.clearFilter')" @click="filter = ''" />
             </template>
           </UInput>
           <UButton
@@ -339,7 +342,7 @@ const status = computed(() => {
             size="xs"
             color="neutral"
             variant="ghost"
-            label="Kopieren"
+            :label="t('common.copy')"
             class="ml-auto"
             @click="copyPlan"
           />
@@ -358,18 +361,18 @@ const status = computed(() => {
           <LazyResultGrid v-else-if="shown?.columns.length" ref="grid" :key="tab.resultIndex" v-model:filter="filter" :result="shown" />
         </div>
         <div v-if="!tab.error && shown?.columns.length" class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
-          <span>Export</span>
+          <span>{{ t('query.export') }}</span>
           <USelect v-model="exportFormat" :items="formatItems" size="xs" class="w-28" />
           <USelect v-if="shown.truncated" v-model="exportScope" :items="scopeItems" size="xs" class="w-72" />
-          <UButton icon="i-lucide-download" size="xs" variant="soft" label="Speichern unter …" :loading="!!tab.exporting" :disabled="tab.running" @click="download" />
+          <UButton icon="i-lucide-download" size="xs" variant="soft" :label="t('query.saveAs')" :loading="!!tab.exporting" :disabled="tab.running" @click="download" />
         </div>
       </SplitterPanel>
     </SplitterGroup>
 
     <UModal
       :open="pending !== undefined"
-      title="Schreibende Anweisung ausführen?"
-      :description="`Die Abfrage kann Daten oder Strukturen in „${connection?.name}“ ändern.`"
+      :title="t('query.confirmWriteTitle')"
+      :description="t('query.confirmWriteDescription', { connection: connection?.name })"
       :close="false"
       @update:open="v => !v && (pending = undefined)"
     >
@@ -378,23 +381,23 @@ const status = computed(() => {
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-2">
-          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="pending = undefined" />
-          <UButton label="Ausführen" color="error" @click="confirmRun" />
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
+          <UButton :label="t('common.run')" color="error" @click="confirmRun" />
         </div>
       </template>
     </UModal>
 
     <UModal
       :open="!!pendingConnection"
-      title="Verbindung wechseln?"
-      description="Die offene Transaktion dieses Tabs wird dabei zurückgerollt."
+      :title="t('query.switchConnectionTitle')"
+      :description="t('query.switchConnectionDescription')"
       :close="false"
       @update:open="v => !v && (pendingConnection = undefined)"
     >
       <template #footer>
         <div class="flex w-full justify-end gap-2">
-          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="pendingConnection = undefined" />
-          <UButton label="Wechseln" color="error" @click="confirmConnection" />
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pendingConnection = undefined" />
+          <UButton :label="t('query.switchConnection')" color="error" @click="confirmConnection" />
         </div>
       </template>
     </UModal>

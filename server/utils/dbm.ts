@@ -1,14 +1,17 @@
-import { type ConnectionColor, connectionColors, ConnectionStore, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
+import { AppError, type ConnectionColor, connectionColors, ConnectionStore, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
 
 export const store = new ConnectionStore()
 export const workbench = new Workbench(id => store.get(id))
 
-/** Maps database errors to 400 with the driver message; everything else stays a 500. */
+/**
+ * Maps database errors to 400 with the driver message; everything else stays a 500. Errors of Colwerk
+ * itself carry their `key` and `params`, so the UI can show them in its language.
+ */
 export async function dbCall<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (e) {
-    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code, position: e.position, transaction: e.transaction } })
+    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code, position: e.position, transaction: e.transaction, ...e instanceof AppError && { key: e.key, params: e.params } } })
     throw e
   }
 }
@@ -25,10 +28,10 @@ export function parseConnection(body: unknown): ConnectionInput {
   const str = (k: string) => typeof b[k] === 'string' && b[k] !== '' ? b[k] as string : undefined
   const dialect = b.dialect as Dialect
   if (!drivers.some(d => d.dialect === dialect)) throw createError({ statusCode: 400, message: 'Unknown dialect' })
-  if (!str('name')) throw createError({ statusCode: 400, message: 'Name is required' })
+  if (!str('name')) throw createError({ statusCode: 400, message: 'Name is required', data: { key: 'nameRequired' } })
   const port = b.port === undefined || b.port === null || b.port === '' ? undefined : Number(b.port)
   if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) {
-    throw createError({ statusCode: 400, message: 'Invalid port' })
+    throw createError({ statusCode: 400, message: 'Invalid port', data: { key: 'invalidPort' } })
   }
   const color = str('color') as ConnectionColor | undefined
   if (color !== undefined && !connectionColors.includes(color)) throw createError({ statusCode: 400, message: 'Invalid color' })

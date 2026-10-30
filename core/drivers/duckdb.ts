@@ -1,5 +1,5 @@
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
@@ -216,7 +216,7 @@ class DuckDBSession implements Session {
     } else {
       ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map(r => r.sql)
     }
-    if (!ddl.length) throw new DbError(`${req.schema}.${req.name} not found`)
+    if (!ddl.length) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
     return ddl.join('\n\n')
   }
 

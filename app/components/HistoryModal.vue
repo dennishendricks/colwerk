@@ -6,6 +6,7 @@ const props = defineProps<{ connectionId?: string }>()
 const emit = defineEmits<{ select: [entry: HistoryEntry] }>()
 
 const { connections } = useWorkspace()
+const { t, locale } = useI18n()
 const entries = ref<HistoryEntry[]>([])
 const error = ref<string>()
 const search = ref('')
@@ -29,10 +30,10 @@ const shown = computed(() => {
 const connectionName = (id: string) => connections.value.find(c => c.id === id)?.name
 
 function details(e: HistoryEntry): string {
-  const parts = [new Date(e.executedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'medium' })]
+  const parts = [new Date(e.executedAt).toLocaleString(locale.value, { dateStyle: 'short', timeStyle: 'medium' })]
   if (e.durationMs !== undefined) parts.push(e.durationMs < 1000 ? `${Math.round(e.durationMs)} ms` : `${(e.durationMs / 1000).toFixed(2)} s`)
-  if (e.rowCount !== undefined) parts.push(`${e.rowCount.toLocaleString('de-DE')} Zeile(n)`)
-  else if (e.affectedRows !== undefined) parts.push(`${e.affectedRows.toLocaleString('de-DE')} Zeile(n) betroffen`)
+  if (e.rowCount !== undefined) parts.push(t('common.rows', { n: e.rowCount.toLocaleString(locale.value) }, e.rowCount))
+  else if (e.affectedRows !== undefined) parts.push(t('common.rowsAffected', { n: e.affectedRows.toLocaleString(locale.value) }, e.affectedRows))
   return parts.join(' · ')
 }
 
@@ -52,16 +53,16 @@ async function clear() {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Verlauf" description="Die letzten 50 ausgeführten Abfragen. Ein Klick öffnet die Abfrage in einem neuen Tab." :ui="{ content: 'max-w-2xl' }">
+  <UModal v-model:open="open" :title="t('history.title')" :description="t('history.description')" :ui="{ content: 'max-w-2xl' }">
     <template #body>
       <div class="space-y-3">
         <div class="flex items-center gap-3">
-          <UInput v-model="search" icon="i-lucide-search" placeholder="SQL durchsuchen" class="flex-1" autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
-          <USwitch v-model="currentOnly" label="Nur aktuelle Verbindung" />
+          <UInput v-model="search" icon="i-lucide-search" :placeholder="t('history.search')" class="flex-1" autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
+          <USwitch v-model="currentOnly" :label="t('history.currentOnly')" />
         </div>
         <UAlert v-if="error" color="error" variant="subtle" :description="error" />
         <p v-else-if="!shown.length" class="py-6 text-center text-sm text-muted">
-          Keine Abfragen gefunden.
+          {{ t('history.empty') }}
         </p>
         <ul class="space-y-1">
           <li v-for="e in shown" :key="e.id">
@@ -74,7 +75,7 @@ async function clear() {
             >
               <div class="flex items-center gap-2 text-xs text-muted">
                 <UIcon v-if="e.error" name="i-lucide-circle-alert" class="size-3.5 shrink-0 text-error" />
-                <span class="font-medium text-default">{{ connectionName(e.connectionId) ?? 'Gelöschte Verbindung' }}</span>
+                <span class="font-medium text-default">{{ connectionName(e.connectionId) ?? t('history.deletedConnection') }}</span>
                 <span>{{ details(e) }}</span>
               </div>
               <pre class="mt-1 line-clamp-3 font-mono text-xs break-all whitespace-pre-wrap">{{ e.sql }}</pre>
@@ -86,7 +87,7 @@ async function clear() {
     </template>
     <template #footer>
       <div class="flex w-full justify-end">
-        <UButton label="Verlauf leeren" icon="i-lucide-trash-2" color="neutral" variant="ghost" :disabled="!entries.length" @click="clear" />
+        <UButton :label="t('history.clear')" icon="i-lucide-trash-2" color="neutral" variant="ghost" :disabled="!entries.length" @click="clear" />
       </div>
     </template>
   </UModal>
