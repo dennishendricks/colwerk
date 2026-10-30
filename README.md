@@ -84,7 +84,7 @@ scripts/   dev server, packaging
 
 **Introspection.** Dialect-specific catalog queries, loaded lazily per level (schemas → tables and routines → columns and indexes) and cached on the server. DDL of tables, views and routines is read on demand and not cached; Postgres and SQL Server have no built-in table DDL, so it is assembled from columns, constraints and indexes.
 
-**Formatting.** [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) with 4-space indentation, plus post-processing for leading commas, `!=` instead of `<>`, and `on` on its own line below the join.
+**Formatting.** [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) with 4-space indentation, plus post-processing for leading commas, `!=` instead of `<>`, `on` on its own line below the join, CTEs starting on the `with` line, and blank lines after each CTE and around `union`/`intersect`/`except`.
 
 ## Security
 

@@ -59,3 +59,63 @@ from
 from
     t`)
 })
+
+Deno.test('ctes start on the with line, separated by blank lines', () => {
+  const sql = `with recursive a as (select id from t where x = 1), b as (with c as (select 1 as id) select id from c) select a.id from a join b on a.id = b.id`
+  assertEquals(formatSql(sql, 'postgres'), `with recursive a as (
+    select
+        id
+    from
+        t
+    where
+        x = 1
+)
+
+,b as (
+    with c as (
+        select
+            1 as id
+    )
+
+    select
+        id
+    from
+        c
+)
+
+select
+    a.id
+from
+    a
+    join b
+        on a.id = b.id`)
+})
+
+Deno.test('blank lines around set operators', () => {
+  const sql = `select a from t union all select b from u where b in (select c from v except select d from w)`
+  assertEquals(formatSql(sql, 'postgres'), `select
+    a
+from
+    t
+
+union all
+
+select
+    b
+from
+    u
+where
+    b in (
+        select
+            c
+        from
+            v
+
+        except
+
+        select
+            d
+        from
+            w
+    )`)
+})
