@@ -9,13 +9,18 @@ import { appUrl, createToken, freePort, onExit, openInBrowser, readWindowBounds,
 import { duckdbGlobals } from './native.ts'
 
 // Only available inside `deno desktop` binaries; not part of the default type libraries.
-type MenuItem = { item: { label: string, id?: string, enabled: boolean } } | 'separator'
+type MenuItem =
+  | { item: { label: string, id?: string, accelerator?: string, enabled: boolean } }
+  | { submenu: { label: string, items: MenuItem[] } }
+  | { role: { role: string } }
+  | 'separator'
 type BrowserWindowCtor = new (options: { title?: string, width?: number, height?: number, x?: number, y?: number }) => {
   bind(name: string, handler: (...args: never[]) => unknown): void
   showContextMenu(x: number, y: number, menu: MenuItem[]): void
+  setApplicationMenu(menu: MenuItem[]): void
   getSize(): [number, number]
   getPosition(): [number, number]
-  addEventListener(type: 'contextmenuclick', listener: (e: CustomEvent<{ id: string }>) => void): void
+  addEventListener(type: 'contextmenuclick' | 'menuclick', listener: (e: CustomEvent<{ id: string }>) => void): void
   addEventListener(type: 'resize' | 'move', listener: () => void): void
 }
 const BrowserWindow = (Deno as unknown as { BrowserWindow?: BrowserWindowCtor }).BrowserWindow
@@ -56,6 +61,12 @@ if (BrowserWindow) {
     win.showContextMenu(x, y, menu)
     return new Promise<string | null>(resolve => (choose = resolve))
   })
+  // Application menu (app/utils/application-menu.ts): the page defines it, including the enabled state of
+  // its items, and waits for clicks through `menuClick`, which resolves with the id of the next chosen item.
+  let clicked: ((id: string) => void) | undefined
+  win.addEventListener('menuclick', e => clicked?.(e.detail.id))
+  win.bind('applicationMenu', (menu: MenuItem[]) => win.setApplicationMenu(menu))
+  win.bind('menuClick', () => new Promise<string>(resolve => (clicked = resolve)))
   // Release pages from the update check (app/utils/update.ts). Restricted to GitHub URLs without shell
   // metacharacters, since the page could pass anything.
   win.bind('openUrl', (url: string) => {

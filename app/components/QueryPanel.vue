@@ -136,6 +136,18 @@ const busy = computed(() => props.tab.running || !!props.tab.exporting)
 // Every open tab keeps its panel mounted, so the shortcuts only apply to the visible one.
 const active = computed(() => props.tab.id === activeTabId.value)
 defineShortcuts(computed(() => active.value ? { meta_shift_f: { usingInput: true, handler: format } } : {}))
+// Application menu (desktop app); app.vue builds the menu and enables the items.
+defineMenuHandlers(() => active.value
+  ? {
+      run: execute,
+      explain: () => showPlan(),
+      cancel: () => cancel(props.tab),
+      format: format,
+      commit: () => run(props.tab, 'COMMIT'),
+      rollback: () => run(props.tab, 'ROLLBACK'),
+      export: download,
+    }
+  : {})
 
 // Ctrl+C cancels like in a terminal. On macOS the key has no other use; elsewhere it is copy, so it
 // only cancels when nothing is selected that it would copy.
