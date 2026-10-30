@@ -6,6 +6,7 @@ import { csvField } from '~~/core/values.ts'
 const props = defineProps<{ result: ResultSet }>()
 // Text of the quick filter, whose input lives in the caller's status bar.
 const filter = defineModel<string>('filter', { default: '' })
+const { t } = useI18n()
 
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
@@ -99,7 +100,7 @@ const columns = computed<TableColumn<Row>[]>(() => [
       })),
       content: { align: 'start' },
       ui: { content: 'max-h-96' },
-    }, () => h(UButton, { icon: 'i-lucide-columns-3', color: 'neutral', variant: 'ghost', size: 'xs', class: '-my-1', title: 'Spalten ein-/ausblenden' })),
+    }, () => h(UButton, { icon: 'i-lucide-columns-3', color: 'neutral', variant: 'ghost', size: 'xs', class: '-my-1', title: t('grid.toggleColumns') })),
     cell: ({ row }) => h('span', { class: 'text-dimmed' }, row.original.index + 1),
   },
   ...props.result.columns.map((col, i): TableColumn<Row> => ({
@@ -123,7 +124,7 @@ const columns = computed<TableColumn<Row>[]>(() => [
       trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
     }, () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)])), h('div', {
       class: ['absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none hover:bg-primary', column.getIsResizing() && 'bg-primary'],
-      title: 'Breite ziehen, Doppelklick setzt zurück',
+      title: t('grid.resize'),
       onMousedown: header.getResizeHandler(),
       onTouchstart: header.getResizeHandler(),
       onDblclick: () => column.resetSize(),
@@ -142,20 +143,20 @@ function headerItems(column: Column): DropdownMenuItem[][] {
   const pinned = column.getIsPinned()
   return [
     [
-      { label: 'Aufsteigend sortieren', icon: 'i-lucide-arrow-up-narrow-wide', onSelect: () => column.toggleSorting(false) },
-      { label: 'Absteigend sortieren', icon: 'i-lucide-arrow-down-wide-narrow', onSelect: () => column.toggleSorting(true) },
-      ...sorted ? [{ label: 'Sortierung aufheben', icon: 'i-lucide-x', onSelect: () => column.clearSorting() }] : [],
+      { label: t('grid.sortAsc'), icon: 'i-lucide-arrow-up-narrow-wide', onSelect: () => column.toggleSorting(false) },
+      { label: t('grid.sortDesc'), icon: 'i-lucide-arrow-down-wide-narrow', onSelect: () => column.toggleSorting(true) },
+      ...sorted ? [{ label: t('grid.clearSort'), icon: 'i-lucide-x', onSelect: () => column.clearSorting() }] : [],
     ],
     [
-      ...pinned !== 'left' ? [{ label: 'Links fixieren', icon: 'i-lucide-pin', onSelect: () => column.pin('left') }] : [],
-      ...pinned !== 'right' ? [{ label: 'Rechts fixieren', icon: 'i-lucide-pin', onSelect: () => column.pin('right') }] : [],
-      ...pinned ? [{ label: 'Fixierung lösen', icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : [],
+      ...pinned !== 'left' ? [{ label: t('grid.pinLeft'), icon: 'i-lucide-pin', onSelect: () => column.pin('left') }] : [],
+      ...pinned !== 'right' ? [{ label: t('grid.pinRight'), icon: 'i-lucide-pin', onSelect: () => column.pin('right') }] : [],
+      ...pinned ? [{ label: t('grid.unpin'), icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : [],
     ],
     [
-      { label: 'Filtern …', icon: 'i-lucide-filter', onSelect: () => pendingFilter = column },
-      ...column.getIsFiltered() ? [{ label: 'Filter entfernen', icon: 'i-lucide-filter-x', onSelect: () => column.setFilterValue(undefined) }] : [],
+      { label: t('grid.filter'), icon: 'i-lucide-filter', onSelect: () => pendingFilter = column },
+      ...column.getIsFiltered() ? [{ label: t('grid.removeFilter'), icon: 'i-lucide-filter-x', onSelect: () => column.setFilterValue(undefined) }] : [],
     ],
-    [{ label: 'Ausblenden', icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
+    [{ label: t('grid.hide'), icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
   ]
 }
 
@@ -196,11 +197,11 @@ async function onRowContextmenu(e: Event, row: TableRow<Row>) {
   const { clientX, clientY } = e as MouseEvent
   const col = cellColumn(e, row)
   const id = await contextMenu!(clientX, clientY, [
-    { item: { label: 'Wert kopieren', id: 'copy', enabled: col !== undefined } },
-    { item: { label: 'Wert anzeigen …', id: 'show', enabled: col !== undefined } },
+    { item: { label: t('grid.copyValue'), id: 'copy', enabled: col !== undefined } },
+    { item: { label: t('grid.showValue'), id: 'show', enabled: col !== undefined } },
     'separator',
-    { item: { label: 'Datensatz als JSON kopieren', id: 'json', enabled: true } },
-    { item: { label: 'Datensatz als CSV kopieren', id: 'csv', enabled: true } },
+    { item: { label: t('grid.copyJson'), id: 'json', enabled: true } },
+    { item: { label: t('grid.copyCsv'), id: 'csv', enabled: true } },
   ])
   const { columns } = props.result
   const { cells } = row.original
@@ -246,7 +247,7 @@ const toast = useToast()
 // NULL is copied as an empty string; the text "NULL" would be indistinguishable from a real value.
 async function copyValue(value: CellValue) {
   await navigator.clipboard.writeText(value === null ? '' : detailText(value))
-  toast.add({ title: 'Wert kopiert', color: 'success', icon: 'i-lucide-check' })
+  toast.add({ title: t('grid.valueCopied'), color: 'success', icon: 'i-lucide-check' })
 }
 
 function renderCell(value: CellValue) {
@@ -290,7 +291,7 @@ function renderCell(value: CellValue) {
       <pre v-else-if="detail" class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{ detailText(detail.value) }}</pre>
     </template>
     <template #footer>
-      <UButton label="Kopieren" icon="i-lucide-copy" color="neutral" variant="outline" @click="copyValue(detail!.value)" />
+      <UButton :label="t('common.copy')" icon="i-lucide-copy" color="neutral" variant="outline" @click="copyValue(detail!.value)" />
     </template>
   </UModal>
   <UPopover :open="!!filtering" :reference="filtering?.anchor" :content="{ align: 'start' }" @update:open="open => open || (filtering = undefined)">
@@ -298,7 +299,7 @@ function renderCell(value: CellValue) {
       <UInput
         v-if="filtering"
         :model-value="String(filtering.column.getFilterValue() ?? '')"
-        placeholder="Spalte enthält …"
+        :placeholder="t('grid.columnContains')"
         icon="i-lucide-filter"
         size="xs"
         class="m-2 w-56"

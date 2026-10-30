@@ -247,15 +247,19 @@ const openTransaction = (state?: TransactionState) => state === 'idle' ? undefin
 const fileTitle = (path: string) => path.split(/[\\/]/).pop()!.replace(/\.sql$/i, '')
 
 export function useTabs() {
+  const { t } = useNuxtApp().$i18n
+
   async function restoreTabs() {
     const saved = await api<SavedWorkspace>('/api/workspace')
     tabs.value = saved.tabs.map(t => ({ ...t, running: false, resultIndex: 0 }))
     activeTabId.value = tabs.value.some(t => t.id === saved.activeTabId) ? saved.activeTabId : tabs.value[0]?.id
-    tabCounter = Math.max(0, ...tabs.value.map(t => Number(t.title.match(/^Abfrage (\d+)$/)?.[1] ?? 0)))
+    // Only titles in the current language count; those of another language may repeat a number.
+    const untitled = new RegExp(`^${t('tabs.untitled', { n: '(\\d+)' })}$`)
+    tabCounter = Math.max(0, ...tabs.value.map(tab => Number(tab.title.match(untitled)?.[1] ?? 0)))
   }
 
   function addTab(connectionId?: string, database?: string) {
-    const tab: QueryTab = { id: crypto.randomUUID(), title: `Abfrage ${++tabCounter}`, connectionId, database, sql: '', rowLimit: 200, timeout: 60, running: false, resultIndex: 0 }
+    const tab: QueryTab = { id: crypto.randomUUID(), title: t('tabs.untitled', { n: ++tabCounter }), connectionId, database, sql: '', rowLimit: 200, timeout: 60, running: false, resultIndex: 0 }
     tabs.value.push(tab)
     activeTabId.value = tab.id
     // The reactive proxy, not `tab`: changes made through the raw object would not update the UI.
