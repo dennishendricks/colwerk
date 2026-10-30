@@ -189,6 +189,38 @@ function refresh() {
   loadSchemas(schemaTarget.value, true)
 }
 
+// ⌘F with focus in the tree opens the search. It only covers what is loaded: the tables of opened
+// schemas and the columns of opened tables. Nodes with hits below them show open while searching.
+const search = ref<string>()
+const searchInput = useTemplateRef<{ inputRef?: HTMLInputElement }>('searchInput')
+const query = computed(() => search.value?.trim().toLowerCase() ?? '')
+const hit = (name: string) => name.toLowerCase().includes(query.value)
+
+const { macOS } = useKbd()
+async function onKeydown(e: KeyboardEvent) {
+  if (e.key.toLowerCase() !== 'f' || !(macOS.value ? e.metaKey : e.ctrlKey) || e.shiftKey || e.altKey) return
+  e.preventDefault()
+  search.value ??= ''
+  await nextTick()
+  searchInput.value?.inputRef?.focus()
+  searchInput.value?.inputRef?.select()
+}
+
+const columnHits = (schema: string, table: string) => s.value.columns[keyOf(schema, table)]?.filter(c => hit(c.name)) ?? []
+const tableHits = (schema: string) => s.value.tables[schema]?.filter(t => hit(t.name) || columnHits(schema, t.name).length) ?? []
+const routineHits = (schema: string) => s.value.routines[schema]?.filter(r => hit(r.name)) ?? []
+
+// A hit on a node itself shows all of its children.
+const shownColumns = (schema: string, table: string) => query.value && !hit(schema) && !hit(table) ? columnHits(schema, table) : s.value.columns[keyOf(schema, table)]
+const shownTables = (schema: string) => query.value && !hit(schema) ? tableHits(schema) : s.value.tables[schema]
+const shownRoutines = (schema: string) => query.value && !hit(schema) ? routineHits(schema) : s.value.routines[schema]
+
+const schemaHasHits = (schema: string) => !!tableHits(schema).length || !!routineHits(schema).length
+const shownSchemas = computed(() => query.value ? s.value.schemas?.filter(x => hit(x.name) || schemaHasHits(x.name)) : s.value.schemas)
+const schemaOpen = (schema: string) => expanded.has(keyOf(schema)) || (!!query.value && schemaHasHits(schema))
+const tableOpen = (schema: string, table: string) => expanded.has(keyOf(schema, table)) || (!!query.value && !!columnHits(schema, table).length)
+const routinesOpen = (schema: string) => expanded.has(keyOf(schema, undefined, 'routines')) || (!!query.value && !!routineHits(schema).length)
+
 const rowCount = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })
 
 function tableTitle(t: TableInfo) {
@@ -207,30 +239,45 @@ function fkTitle(c: ColumnInfo) {
 </script>
 
 <template>
-  <div class="text-sm">
+  <!-- Focusable so that a click into the tree moves the focus here and ⌘F reaches the handler. -->
+  <div class="text-sm outline-none" tabindex="-1" @keydown="onKeydown">
     <div class="flex items-center justify-between px-3 py-1">
       <span class="text-xs font-medium uppercase text-muted">Schema</span>
       <UButton icon="i-lucide-refresh-cw" size="xs" variant="ghost" color="neutral" :loading="s.loading.schemas" title="Neu laden" @click="refresh" />
     </div>
+    <UInput
+      v-if="search !== undefined"
+      ref="searchInput"
+      v-model="search"
+      placeholder="Geladene Objekte durchsuchen …"
+      icon="i-lucide-search"
+      size="xs"
+      class="w-full px-2 pb-1"
+      @keydown.escape="search = undefined"
+    >
+      <template #trailing>
+        <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" title="Suche schließen" @click="search = undefined" />
+      </template>
+    </UInput>
     <p v-if="s.errors.schemas" class="px-3 py-1 text-xs text-error">{{ s.errors.schemas }}</p>
 
     <UContextMenu :items="menuItems">
       <div @contextmenu.capture="menuTarget = undefined" @contextmenu="onContextmenu">
-        <template v-for="schema in s.schemas" :key="schema.name">
+        <template v-for="schema in shownSchemas" :key="schema.name">
           <button
             v-if="!flatSchema"
             class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
             @click="toggleSchema(schema.name)"
           >
-            <UIcon :name="expanded.has(keyOf(schema.name)) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
+            <UIcon :name="schemaOpen(schema.name) ?'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
             <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-muted" />
             <span class="truncate">{{ schema.name }}</span>
             <UIcon v-if="s.loading[keyOf(schema.name)]" name="i-lucide-loader-circle" class="size-3.5 animate-spin text-dimmed" />
           </button>
 
-          <div v-if="flatSchema || expanded.has(keyOf(schema.name))" :class="flatSchema ? '' : 'pl-4'">
+          <div v-if="flatSchema || schemaOpen(schema.name)" :class="flatSchema ? '' : 'pl-4'">
             <p v-if="s.errors[keyOf(schema.name)]" class="px-3 py-1 text-xs text-error">{{ s.errors[keyOf(schema.name)] }}</p>
-            <template v-for="table in s.tables[schema.name]" :key="table.name">
+            <template v-for="table in shownTables(schema.name)" :key="table.name">
               <button
                 class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
                 :title="tableTitle(table)"
@@ -238,7 +285,7 @@ function fkTitle(c: ColumnInfo) {
                 @dblclick="selectTable(schema.name, table.name)"
                 @contextmenu="menuTarget = { schema: schema.name, table }"
               >
-                <UIcon :name="expanded.has(keyOf(schema.name, table.name)) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
+                <UIcon :name="tableOpen(schema.name, table.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
                 <UIcon :name="table.kind === 'view' ? 'i-lucide-eye' : 'i-lucide-table-2'" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ table.name }}</span>
                 <UIcon v-if="s.loading[keyOf(schema.name, table.name)]" name="i-lucide-loader-circle" class="size-3.5 animate-spin text-dimmed" />
@@ -248,11 +295,11 @@ function fkTitle(c: ColumnInfo) {
                 </span>
               </button>
 
-              <div v-if="expanded.has(keyOf(schema.name, table.name))" class="pl-9 pr-2">
+              <div v-if="tableOpen(schema.name, table.name)" class="pl-9 pr-2">
                 <p v-if="s.errors[keyOf(schema.name, table.name)]" class="py-1 text-xs text-error">{{ s.errors[keyOf(schema.name, table.name)] }}</p>
                 <p v-if="table.comment" class="py-0.5 text-xs italic text-muted">{{ table.comment }}</p>
                 <div
-                  v-for="col in s.columns[keyOf(schema.name, table.name)]"
+                  v-for="col in shownColumns(schema.name, table.name)"
                   :key="col.name"
                   class="flex items-center gap-1.5 py-0.5 text-xs"
                 >
@@ -294,15 +341,15 @@ function fkTitle(c: ColumnInfo) {
             </template>
 
             <p v-if="s.errors[keyOf(schema.name, undefined, 'routines')]" class="px-3 py-1 text-xs text-error">{{ s.errors[keyOf(schema.name, undefined, 'routines')] }}</p>
-            <template v-if="s.routines[schema.name]?.length">
+            <template v-if="shownRoutines(schema.name)?.length">
               <button class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated" @click="toggleGroup(keyOf(schema.name, undefined, 'routines'))">
-                <UIcon :name="expanded.has(keyOf(schema.name, undefined, 'routines')) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
+                <UIcon :name="routinesOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
                 <UIcon name="i-lucide-square-function" class="size-4 shrink-0 text-muted" />
-                <span class="truncate">Funktionen ({{ s.routines[schema.name]!.length }})</span>
+                <span class="truncate">Funktionen ({{ shownRoutines(schema.name)!.length }})</span>
               </button>
-              <div v-if="expanded.has(keyOf(schema.name, undefined, 'routines'))" class="pl-4">
+              <div v-if="routinesOpen(schema.name)" class="pl-4">
                 <div
-                  v-for="routine in s.routines[schema.name]"
+                  v-for="routine in shownRoutines(schema.name)"
                   :key="`${routine.kind}:${routine.name}`"
                   class="flex items-center gap-1 px-2 py-0.5 hover:bg-elevated"
                   :title="routine.kind === 'procedure' ? 'Prozedur' : 'Funktion'"

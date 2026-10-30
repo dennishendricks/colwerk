@@ -151,7 +151,19 @@ onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 const grid = useTemplateRef<{ filteredCount?: number }>('grid')
+const filterInput = useTemplateRef<{ inputRef?: HTMLInputElement }>('filterInput')
 const filter = ref('')
+
+// ⌘F with focus in the result area searches its values via the quick filter. The editor has its own
+// search, so the shortcut is not global.
+function onResultKeydown(e: KeyboardEvent) {
+  if (e.key.toLowerCase() !== 'f' || !(macOS.value ? e.metaKey : e.ctrlKey) || e.shiftKey || e.altKey) return
+  const input = filterInput.value?.inputRef
+  if (!input) return
+  e.preventDefault()
+  input.focus()
+  input.select()
+}
 // The grid resets it itself, but not when a new result mounts a fresh grid (other result index).
 watch(() => props.tab.result, () => (filter.value = ''))
 
@@ -297,6 +309,7 @@ const status = computed(() => {
           <!-- Pushed to the right edge itself only without result buttons: two auto margins would split the space. -->
           <UInput
             v-if="!tab.error && shown?.columns.length"
+            ref="filterInput"
             v-model="filter"
             placeholder="Ergebnis filtern …"
             icon="i-lucide-search"
@@ -319,7 +332,8 @@ const status = computed(() => {
             @click="copyPlan"
           />
         </div>
-        <div class="min-h-0 flex-1 overflow-hidden">
+        <!-- Focusable so that a click into the grid moves the focus here and ⌘F reaches the handler. -->
+        <div class="min-h-0 flex-1 overflow-hidden outline-none" tabindex="-1" @keydown="onResultKeydown">
           <UAlert
             v-if="tab.error"
             color="error"
