@@ -3,6 +3,7 @@ import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
 import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect } from '@codemirror/lang-sql'
+import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
 import { Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
@@ -45,6 +46,33 @@ const theme = EditorView.theme({
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 25%, transparent) !important' },
   '.cm-tooltip': { backgroundColor: 'var(--ui-bg-elevated)', border: '1px solid var(--ui-border)', color: 'var(--ui-text)' },
   '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'var(--ui-bg-accented)', color: 'var(--ui-text-highlighted)' },
+  // Search panel (⌘F)
+  '.cm-panels': { backgroundColor: 'var(--ui-bg-muted)', color: 'var(--ui-text)' },
+  '.cm-panels-top': { borderBottom: '1px solid var(--ui-border)' },
+  '.cm-textfield': { backgroundColor: 'var(--ui-bg)', border: '1px solid var(--ui-border-accented)', borderRadius: '4px' },
+  '.cm-button': { backgroundImage: 'none', backgroundColor: 'var(--ui-bg-elevated)', border: '1px solid var(--ui-border-accented)', borderRadius: '4px' },
+  '.cm-searchMatch': { backgroundColor: 'color-mix(in oklab, var(--ui-warning) 30%, transparent)' },
+  '.cm-searchMatch-selected': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 45%, transparent)' },
+})
+
+const phrases = EditorState.phrases.of({
+  Find: 'Suchen',
+  Replace: 'Ersetzen',
+  next: 'Weiter',
+  previous: 'Zurück',
+  all: 'Alle',
+  'match case': 'Groß-/Kleinschreibung',
+  regexp: 'Regulärer Ausdruck',
+  'by word': 'Ganzes Wort',
+  replace: 'Ersetzen',
+  'replace all': 'Alle ersetzen',
+  close: 'Schließen',
+  'current match': 'Aktueller Treffer',
+  'on line': 'in Zeile',
+  'replaced $ matches': '$ Treffer ersetzt',
+  'replaced match on line $': 'Treffer in Zeile $ ersetzt',
+  'Go to line': 'Gehe zu Zeile',
+  go: 'OK',
 })
 
 // The error mark refers to the text that was run, so any edit removes it.
@@ -101,6 +129,8 @@ onMounted(() => {
         bracketMatching(),
         closeBrackets(),
         autocompletion(),
+        search({ top: true }),
+        phrases,
         syntaxHighlighting(highlight),
         placeholder('SQL eingeben … (⌘/Strg + Enter führt aus)'),
         language.of(languageExtension()),
@@ -110,6 +140,7 @@ onMounted(() => {
           { key: 'Mod-e', run: () => (emit('explain'), true) },
           ...closeBracketsKeymap,
           ...completionKeymap,
+          ...searchKeymap,
           ...historyKeymap,
           ...defaultKeymap,
           indentWithTab,
