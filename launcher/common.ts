@@ -50,6 +50,25 @@ export function removeInstance(port: number): void {
   if (readInstance()?.port === port) Deno.removeSync(instanceFile())
 }
 
+// `window.json` in the data directory keeps the desktop window's size and position across runs; Deno does
+// not restore them itself. Size is the content size, which both the constructor and `getSize()` use.
+export interface WindowBounds { width: number, height: number, x: number, y: number }
+
+const windowFile = () => join(defaultDataDir(), 'window.json')
+
+export function readWindowBounds(): WindowBounds | undefined {
+  try {
+    return JSON.parse(Deno.readTextFileSync(windowFile()))
+  } catch {
+    return undefined
+  }
+}
+
+export function writeWindowBounds(bounds: WindowBounds): void {
+  Deno.mkdirSync(defaultDataDir(), { recursive: true })
+  Deno.writeTextFileSync(windowFile(), JSON.stringify(bounds))
+}
+
 /** Runs `cleanup` when the process ends normally or by Ctrl+C / SIGTERM, then exits. */
 export function onExit(cleanup: () => void): void {
   globalThis.addEventListener('unload', cleanup)
