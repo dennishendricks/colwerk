@@ -73,6 +73,18 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       assertEquals((bad.body?.cancel(), bad.status), 400)
     })
 
+    await t.step('writes and reads query files', async () => {
+      const path = `${dataDir}/query.sql`
+      await json(await call('/api/files/write', { method: 'POST', body: JSON.stringify({ path, sql: 'select 1;\n' }) }))
+      assertEquals(await json(await call('/api/files/read', { method: 'POST', body: JSON.stringify({ path }) })), { sql: 'select 1;\n' })
+      const statuses = await Promise.all([
+        call('/api/files/read', { method: 'POST', body: JSON.stringify({ path: 'query.sql' }) }),
+        call('/api/files/read', { method: 'POST', body: JSON.stringify({ path: `${dataDir}/missing.sql` }) }),
+        call('/api/files/write', { method: 'POST', body: JSON.stringify({ path }) }),
+      ].map(p => p.then(r => (r.body?.cancel(), r.status))))
+      assertEquals(statuses, [400, 400, 400])
+    })
+
     if (!pgUp) return
     const pg = testConnections.postgres
 

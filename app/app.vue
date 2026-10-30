@@ -5,7 +5,7 @@ import type { QueryTab } from '~/composables/workspace'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
 
 const { connections, activeConnectionId, activeDatabase, load, driverOf, setConnected } = useWorkspace()
-const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
+const { tabs, activeTabId, restoreTabs, addTab, closeTab, openFile, saveFile } = useTabs()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -148,6 +148,26 @@ function duplicateTab(tab?: QueryTab) {
   Object.assign(copy, { title: `${tab.title} (Kopie)`, sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
 }
 
+const toast = useToast()
+
+async function openQueryFile() {
+  try {
+    await openFile(activeConnectionId.value, activeDatabase.value)
+  } catch (e) {
+    toast.add({ title: 'Öffnen fehlgeschlagen', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+  }
+}
+
+async function save(tab?: QueryTab, saveAs = false) {
+  if (!tab) return
+  try {
+    const path = await saveFile(tab, saveAs)
+    if (path) toast.add({ title: 'Gespeichert', description: path, color: 'success', icon: 'i-lucide-check' })
+  } catch (e) {
+    toast.add({ title: 'Speichern fehlgeschlagen', description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+  }
+}
+
 function selectTab(index: number) {
   const tab = tabs.value[index]
   if (tab) activeTabId.value = tab.id
@@ -165,6 +185,9 @@ defineShortcuts({
   meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value, activeDatabase.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
   meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
+  meta_o: { usingInput: true, handler: openQueryFile },
+  meta_s: { usingInput: true, handler: () => save(activeTab.value) },
+  meta_shift_s: { usingInput: true, handler: () => save(activeTab.value, true) },
   meta_b: { usingInput: true, handler: toggleSidebar },
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, { usingInput: true, handler: () => selectTab(i) }])),
   '?': () => (shortcutsOpen.value = !shortcutsOpen.value),
@@ -199,6 +222,10 @@ watchEffect(() => {
     submenu('Ablage', [
       item('Neuer Tab', 'new-tab', true, 'CmdOrCtrl+T'),
       item('Tab duplizieren', 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
+      'separator',
+      item('Öffnen …', 'open', true, 'CmdOrCtrl+O'),
+      item('Speichern', 'save', !!tab, 'CmdOrCtrl+S'),
+      item('Speichern unter …', 'save-as', !!tab, 'CmdOrCtrl+Shift+S'),
       'separator',
       item('Neue Verbindung …', 'new-connection'),
       item(
@@ -258,6 +285,9 @@ defineMenuHandlers({
   update: () => checkForUpdate(true),
   'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
   'duplicate-tab': () => duplicateTab(activeTab.value),
+  open: openQueryFile,
+  save: () => save(activeTab.value),
+  'save-as': () => save(activeTab.value, true),
   'new-connection': () => openModal(),
   'toggle-connection': () => toggleConnection(),
   'close-tab': () => requestClose(activeTab.value),
@@ -355,7 +385,7 @@ defineMenuHandlers({
               @keydown.escape="renaming = undefined"
               @blur="commitRename(t)"
             >
-            <span v-else class="max-w-60 truncate" :title="t.title" @dblclick="startRename(t, $event)">{{ t.title }}</span>
+            <span v-else class="max-w-60 truncate" :title="t.path ?? t.title" @dblclick="startRename(t, $event)">{{ t.title }}</span>
             <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" title="Tab schließen" @click.stop="requestClose(t)" />
           </div>
           <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" title="Neuer Tab" @click="addTab(activeConnectionId, activeDatabase)" />
