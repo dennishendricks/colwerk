@@ -4,6 +4,8 @@ import { maskLiterals, type SplitDialect } from './sql-split.ts'
 const LANGUAGES: Record<SplitDialect, SqlLanguage> = { postgres: 'postgresql', duckdb: 'duckdb', mysql: 'mysql', mssql: 'transactsql' }
 const INDENT = '    '
 const JOIN = /^\s*(?:(?:natural|cross|inner|left|right|full|outer)\s+)*join\b/i
+const WITH = /^\s*with(?:\s+recursive)?\s*$/i
+const SET_OPERATOR = /^\s*(?:union|intersect|except)(?:\s+(?:all|distinct))?\s*$/i
 
 /**
  * Formats SQL like the former sqlfluff setup: 4-space indent, joins indented below `from`,
@@ -24,6 +26,8 @@ export function formatSql(sql: string, dialect: SplitDialect): string {
   const masked = maskLiterals(out, dialect)
   out = out.replace(/<>/g, (match, offset: number) => masked.slice(offset, offset + 2) === '<>' ? '!=' : match)
   out = onOwnLine(out, dialect)
+  out = ctes(out, dialect)
+  out = setOperators(out, dialect)
   return leadingCommas(out, dialect)
 }
 
@@ -68,6 +72,34 @@ function onOwnLine(sql: string, dialect: SplitDialect): string {
     }
   }
   return lines.join('\n')
+}
+
+/** `with` / `    a as (` → `with a as (`, the CTEs at the level of `with` and a blank line after each one. */
+function ctes(sql: string, dialect: SplitDialect): string {
+  const lines = sql.split('\n')
+  let masked = maskLiterals(sql, dialect).split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    if (!WITH.test(lines[i]!) || !WITH.test(masked[i]!)) continue
+    const indent = indentOf(lines[i]!)
+    // The CTEs are the deeper lines up to the main statement.
+    let end = i + 1
+    while (end < lines.length && (!masked[end]!.trim() || indentOf(lines[end]!) > indent)) end++
+    if (end === i + 1) continue
+    const block = lines.slice(i + 1, end).flatMap((line, k) => {
+      const out = line.startsWith(INDENT) ? line.slice(INDENT.length) : line
+      return indentOf(out) === indent && masked[i + 1 + k]!.trimStart().startsWith(')') ? [out, ''] : [out]
+    })
+    lines.splice(i, end - i, lines[i]!.trimEnd() + ' ' + block.shift()!.trimStart(), ...block)
+    // Nested `with`s are handled as the loop goes on, on the moved lines.
+    masked = maskLiterals(lines.join('\n'), dialect).split('\n')
+  }
+  return lines.join('\n')
+}
+
+/** A blank line before and after `union [all]`, `intersect` and `except`. */
+function setOperators(sql: string, dialect: SplitDialect): string {
+  const masked = maskLiterals(sql, dialect).split('\n')
+  return sql.split('\n').flatMap((line, i) => SET_OPERATOR.test(masked[i]!) ? ['', line, ''] : [line]).join('\n')
 }
 
 /** `a,` / `b` → `a` / `,b`; a comma before a less indented line (`select a, from`) is dropped. */
