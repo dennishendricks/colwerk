@@ -74,6 +74,15 @@ Deno.test('read-only statements', () => {
   for (const sql of yes) assertEquals(isReadOnlyStatement(sql, 'postgres'), true, sql)
   for (const sql of no) assertEquals(isReadOnlyStatement(sql, 'postgres'), false, sql)
   assertEquals(isReadOnlyStatement('select [delete] from t', 'mssql'), true)
+  const unpivot = 'with u as (unpivot t on (a, b) as "x" into name "k" value "v") select * from u'
+  assertEquals(isReadOnlyStatement(unpivot, 'duckdb'), true)
+  assertEquals(isReadOnlyStatement(unpivot, 'postgres'), false)
+  for (const sql of ['pivot t on k using sum(v)', 'unpivot t on a, b into name k value v', 'summarize t']) {
+    assertEquals(isReadOnlyStatement(sql, 'duckdb'), true, sql)
+  }
+  assertEquals(isReadOnlyStatement('select * from a inner merge join b on a.id = b.id option (merge union)', 'mssql'), true)
+  assertEquals(isReadOnlyStatement('merge into t using s on t.id = s.id when matched then delete', 'mssql'), false)
+  assertEquals(isReadOnlyStatement('select * from a inner merge join b on a.id = b.id', 'postgres'), false)
 })
 
 Deno.test('select statement detection', () => {
