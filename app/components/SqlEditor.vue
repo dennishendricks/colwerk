@@ -5,7 +5,7 @@ import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } fr
 import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect } from '@codemirror/lang-sql'
 import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
-import { Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder } from '@codemirror/view'
+import { Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder, tooltips } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
 
@@ -129,6 +129,8 @@ onMounted(() => {
         bracketMatching(),
         closeBrackets(),
         autocompletion(),
+        // Outside the editor so the completion list is not clipped by the panel and can flip upwards.
+        tooltips({ parent: document.body }),
         search({ top: true }),
         phrases,
         syntaxHighlighting(highlight),
