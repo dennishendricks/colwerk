@@ -244,5 +244,28 @@
   },
   "editor": {
     "placeholder": "Enter SQL … (⌘/Ctrl + Enter runs)"
+  },
+  "dialog": {
+    "open": "Choose File",
+    "save": "Save As"
+  },
+  "errors": {
+    "cancelled": "The query was cancelled.",
+    "timeout": "The query did not finish within {seconds} s and was cancelled.",
+    "disconnected": "The connection is disconnected.",
+    "busy": "A statement is already running in this tab.",
+    "explainSingle": "An execution plan is only available for a single statement.",
+    "analyzeReadOnly": "ANALYZE executes the statement and is only available for read-only statements.",
+    "noResultSet": "The statement returned no result set.",
+    "exportCancelled": "The export was cancelled.",
+    "driverMissing": "The DuckDB driver is not installed. Open the connection in Colwerk and choose “Load database driver”.",
+    "driverDownloadFailed": "Download of the DuckDB driver failed: {detail}",
+    "caUnreadable": "CA certificate not readable: {detail}",
+    "objectNotFound": "{name} not found.",
+    "definitionUnavailable": "Definition of {name} not available.",
+    "noFileDialog": "No file dialog available: install zenity or kdialog.",
+    "fileDialogFailed": "File dialog: {detail}",
+    "nameRequired": "Please enter a name.",
+    "invalidPort": "Invalid port."
   }
 }

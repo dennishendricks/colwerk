@@ -1,6 +1,6 @@
 import { loadDriver } from './registry.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
-import { type ConnectionConfig, DbError, type IntrospectRequest, type IntrospectResult, type QueryResult, type RowSink, type Session } from './types.ts'
+import { AppError, type ConnectionConfig, DbError, type IntrospectRequest, type IntrospectResult, type QueryResult, type RowSink, type Session } from './types.ts'
 
 // Error codes meaning the connection itself is gone; the session is dropped and reopened on next use.
 const CONNECTION_LOST = new Set(['ECONNRESET', 'EPIPE', 'ETIMEDOUT', 'ESOCKET', 'ECONNCLOSED', 'PROTOCOL_CONNECTION_LOST', '57P01', '08006', '08003'])
@@ -61,10 +61,10 @@ export class Workbench {
     const { dialect } = await this.resolveConfig(connectionId)
     // Checked here, not only in the UI: Postgres and DuckDB would run a second statement as such.
     const ranges = splitStatements(sql, dialect)
-    if (ranges.length !== 1) throw new DbError('Only a single statement can be explained.')
+    if (ranges.length !== 1) throw new AppError('explainSingle', 'Only a single statement can be explained.')
     const statement = sql.slice(ranges[0]!.from, ranges[0]!.to)
     if (analyze && (dialect === 'mssql' || !isReadOnlyStatement(statement, dialect))) {
-      throw new DbError('ANALYZE executes the statement and is only available for read-only statements.')
+      throw new AppError('analyzeReadOnly', 'ANALYZE executes the statement and is only available for read-only statements.')
     }
     return this.runTab(tabId, connectionId, database, async (s) => {
       const started = performance.now()
@@ -109,7 +109,7 @@ export class Workbench {
       tab.session.catch(() => this.tabs.delete(tabId))
       this.tabs.set(tabId, tab)
     }
-    if (tab.busy) throw new DbError('A statement is already running in this tab.')
+    if (tab.busy) throw new AppError('busy', 'A statement is already running in this tab.')
     tab.busy = true
     try {
       return await fn(await tab.session)
@@ -200,7 +200,7 @@ export class Workbench {
   }
 
   private async open(connectionId: string, database?: string): Promise<Session> {
-    if (this.disconnected.has(connectionId)) throw new DbError('The connection is disconnected.', 'EDISCONNECTED')
+    if (this.disconnected.has(connectionId)) throw new AppError('disconnected', 'The connection is disconnected.', { code: 'EDISCONNECTED' })
     const config = await this.resolveConfig(connectionId)
     return (await loadDriver(config.dialect)).connect({ ...config, database: database ?? config.database })
   }
@@ -241,7 +241,7 @@ async function withTimeout<T>(s: Session, timeoutSeconds: number, fn: () => Prom
   try {
     return await fn()
   } catch (e) {
-    if (timedOut) throw new DbError(`Query did not finish within ${timeoutSeconds} s and was cancelled`, 'ETIMEOUT')
+    if (timedOut) throw new AppError('timeout', `Query did not finish within ${timeoutSeconds} s and was cancelled`, { code: 'ETIMEOUT', params: { seconds: timeoutSeconds } })
     throw e
   } finally {
     clearTimeout(timer)

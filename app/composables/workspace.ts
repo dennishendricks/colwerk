@@ -342,7 +342,7 @@ export function useTabs() {
     tab.exporting = 'running'
     try {
       const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
-      const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'save', defaultName: `export-${stamp}.${format}` } })
+      const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'save', defaultName: `export-${stamp}.${format}`, title: t('dialog.save') } })
       // Widened: `cancel()` changes it while this call is waiting.
       if (!path || (tab.exporting as QueryTab['exporting']) === 'cancelled') return undefined
       const body = full ? { format, path, ...tab.source } : { format, path, columns: shown?.columns, rows: shown?.rows }
@@ -361,7 +361,7 @@ export function useTabs() {
    * Resolves with the tab, `undefined` if the user cancelled.
    */
   async function openFile(connectionId?: string, database?: string): Promise<QueryTab | undefined> {
-    const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'open' } })
+    const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'open', title: t('dialog.open') } })
     if (!path) return undefined
     const { sql } = await api<{ sql: string }>('/api/files/read', { method: 'POST', body: { path } })
     const existing = tabs.value.find(t => t.path === path)
@@ -381,7 +381,7 @@ export function useTabs() {
   async function saveFile(tab: QueryTab, saveAs = false): Promise<string | undefined> {
     const path = !saveAs && tab.path
       ? tab.path
-      : (await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'save', defaultName: `${tab.title}.sql` } })).path
+      : (await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'save', defaultName: `${tab.title}.sql`, title: t('dialog.save') } })).path
     if (!path) return undefined
     await api('/api/files/write', { method: 'POST', body: { path, sql: tab.sql } })
     tab.path = path

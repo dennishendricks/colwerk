@@ -1,5 +1,5 @@
 import { open, rename, rm } from 'node:fs/promises'
-import { createExporter, DbError, type ExportFormat, type RowSink } from '#core'
+import { AppError, createExporter, type ExportFormat, type RowSink } from '#core'
 
 // The server writes exports directly to the path chosen in the native save dialog (`/api/dialog`):
 // the desktop window does not save browser downloads. The file is written next to the target and
@@ -28,7 +28,7 @@ export async function writeExport(tabId: string, format: ExportFormat, path: str
         return exporter.rows(rows)
       },
     })
-    if (!hasColumns) throw new DbError('The statement returned no result set.')
+    if (!hasColumns) throw new AppError('noResultSet', 'The statement returned no result set.')
     aborted.signal.throwIfAborted()
     await exporter.finish()
     ok = true
@@ -43,7 +43,7 @@ export async function writeExport(tabId: string, format: ExportFormat, path: str
 /** Aborts every running export of a tab; its statement is cancelled by the caller. */
 export function cancelExports(tabId: string) {
   for (const [controller, tab] of running) {
-    if (tab === tabId) controller.abort(new DbError('Export was cancelled', 'ECANCEL'))
+    if (tab === tabId) controller.abort(new AppError('exportCancelled', 'Export was cancelled', { code: 'ECANCEL' }))
   }
 }
 

@@ -51,7 +51,7 @@ const picking = ref(false)
 async function pickFile() {
   picking.value = true
   try {
-    const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'open' } })
+    const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'open', title: t('dialog.open') } })
     if (path) form.file = path
   } catch (e) {
     toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
