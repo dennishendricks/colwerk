@@ -151,7 +151,8 @@ export function lineStart(sql: string, line: number): number {
   return at
 }
 
-const READ_START = /^\(*\s*(select|with|values|table|show|describe|desc|explain|from)\b/
+// `pivot`, `unpivot` and `summarize` are DuckDB statements; other dialects reject them without running anything.
+const READ_START = /^\(*\s*(select|with|values|table|show|describe|desc|explain|from|pivot|unpivot|summarize)\b/
 const SELECT_START = /^\(*\s*(select|with)\b/
 // Writes (also inside a CTE), `select … into`, `explain analyze` (executes the statement), procedures.
 const SIDE_EFFECT = /\b(insert|update|delete|merge|into|analyze|call|exec|execute)\b/
@@ -172,6 +173,10 @@ export function isSelectStatement(sql: string, dialect: SplitDialect): boolean {
 function readOnlyCode(sql: string, dialect: SplitDialect, start: RegExp): boolean {
   const ranges = splitStatements(sql, dialect)
   if (ranges.length !== 1) return false
-  const code = maskLiterals(sql.slice(ranges[0]!.from, ranges[0]!.to), dialect).trim().toLowerCase()
+  let code = maskLiterals(sql.slice(ranges[0]!.from, ranges[0]!.to), dialect).trim().toLowerCase()
+  // DuckDB's `unpivot … into name … value …` only names output columns.
+  if (dialect === 'duckdb') code = code.replace(/\binto\s+name\b/g, '')
+  // MSSQL's join and query hints (`inner merge join`, `option (merge union)`) only pick an algorithm.
+  if (dialect === 'mssql') code = code.replace(/\bmerge\s+(join|union)\b/g, '')
   return start.test(code) && !SIDE_EFFECT.test(code)
 }
