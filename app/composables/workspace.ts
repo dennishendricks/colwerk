@@ -201,6 +201,8 @@ export interface QueryTab {
   /** Database of the connection the tab runs in; undefined = the connection's default. */
   database?: string
   sql: string
+  /** File the query was opened from or last saved to. */
+  path?: string
   rowLimit: number
   /** Seconds after which the server cancels the statement. */
   timeout: number
@@ -227,12 +229,12 @@ const activeTabId = ref<string>()
 let tabCounter = 0
 
 // Editor content and settings of the open tabs are saved on the server (results are not).
-type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'rowLimit' | 'timeout'>
+type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'path' | 'rowLimit' | 'timeout'>
 interface SavedWorkspace { tabs: SavedTab[], activeTabId?: string }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 watch(() => JSON.stringify({
-  tabs: tabs.value.map(({ id, title, connectionId, database, sql, rowLimit, timeout }): SavedTab => ({ id, title, connectionId, database, sql, rowLimit, timeout })),
+  tabs: tabs.value.map(({ id, title, connectionId, database, sql, path, rowLimit, timeout }): SavedTab => ({ id, title, connectionId, database, sql, path, rowLimit, timeout })),
   activeTabId: activeTabId.value,
 } satisfies SavedWorkspace), (body) => {
   clearTimeout(saveTimer)
@@ -240,6 +242,9 @@ watch(() => JSON.stringify({
 })
 
 const openTransaction = (state?: TransactionState) => state === 'idle' ? undefined : state
+
+/** File name without directory and `.sql` extension, used as tab title. */
+const fileTitle = (path: string) => path.split(/[\\/]/).pop()!.replace(/\.sql$/i, '')
 
 export function useTabs() {
   async function restoreTabs() {
@@ -347,5 +352,38 @@ export function useTabs() {
     }
   }
 
-  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, explain, cancel, exportResult }
+  /**
+   * Asks for a query file in a native dialog and opens it in a new tab (or switches to the tab that already has it).
+   * Resolves with the tab, `undefined` if the user cancelled.
+   */
+  async function openFile(connectionId?: string, database?: string): Promise<QueryTab | undefined> {
+    const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'open' } })
+    if (!path) return undefined
+    const { sql } = await api<{ sql: string }>('/api/files/read', { method: 'POST', body: { path } })
+    const existing = tabs.value.find(t => t.path === path)
+    if (existing) {
+      activeTabId.value = existing.id
+      return existing
+    }
+    const tab = addTab(connectionId, database)
+    Object.assign(tab, { title: fileTitle(path), sql, path })
+    return tab
+  }
+
+  /**
+   * Writes the editor content to the tab's file; asks for the file first when the tab has none or `saveAs` is set.
+   * Resolves with the path, `undefined` if the user cancelled.
+   */
+  async function saveFile(tab: QueryTab, saveAs = false): Promise<string | undefined> {
+    const path = !saveAs && tab.path
+      ? tab.path
+      : (await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'save', defaultName: `${tab.title}.sql` } })).path
+    if (!path) return undefined
+    await api('/api/files/write', { method: 'POST', body: { path, sql: tab.sql } })
+    tab.path = path
+    tab.title = fileTitle(path)
+    return path
+  }
+
+  return { tabs, activeTabId, restoreTabs, addTab, closeTab, run, explain, cancel, exportResult, openFile, saveFile }
 }

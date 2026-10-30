@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import process from 'node:process'
 import { DbError } from './types.ts'
 
-const SAVE_TITLE = 'Export speichern'
+const SAVE_TITLE = 'Speichern unter'
 const OPEN_TITLE = 'Datei auswählen'
 
 function run(cmd: string, args: string[], env?: Record<string, string>): Promise<{ code: number, stdout: string, stderr: string } | undefined> {
