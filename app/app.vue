@@ -3,7 +3,7 @@ import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
 
-const { connections, activeConnectionId, activeDatabase, load } = useWorkspace()
+const { connections, activeConnectionId, activeDatabase, load, driverOf, setConnected } = useWorkspace()
 const { tabs, activeTabId, restoreTabs, addTab, closeTab } = useTabs()
 
 const loadError = ref<string>()
@@ -11,6 +11,28 @@ const modalOpen = ref(false)
 const editing = ref<ConnectionSummary>()
 
 const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value))
+const activeConnection = computed(() => connections.value.find(c => c.id === activeConnectionId.value))
+const locksDatabase = computed(() => !!driverOf(activeConnectionId.value)?.capabilities.locksDatabase)
+const togglingConnection = ref(false)
+// Disconnecting waits for confirmation while a tab of the connection has an open transaction.
+const confirmingDisconnect = ref(false)
+
+// Embedded databases are locked while Colwerk has them open; disconnecting frees them for other tools.
+async function toggleConnection(confirmed = false) {
+  const connection = activeConnection.value
+  if (!connection) return
+  if (!connection.disconnected && !confirmed && tabs.value.some(t => t.connectionId === connection.id && t.transaction)) {
+    confirmingDisconnect.value = true
+    return
+  }
+  confirmingDisconnect.value = false
+  togglingConnection.value = true
+  try {
+    await setConnected(connection.id, !!connection.disconnected)
+  } finally {
+    togglingConnection.value = false
+  }
+}
 const colorOf = (connectionId?: string) => connections.value.find(c => c.id === connectionId)?.color
 
 let listening = false
@@ -168,12 +190,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <SplitterGroup v-else direction="horizontal" auto-save-id="dbm-layout" class="h-full">
       <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible class="flex flex-col bg-muted/40">
         <div class="space-y-1 p-2">
-          <ConnectionPicker @edit="openModal" />
+          <div class="flex gap-1">
+            <div class="min-w-0 flex-1">
+              <ConnectionPicker @edit="openModal" />
+            </div>
+            <UButton
+              v-if="activeConnection && locksDatabase"
+              :icon="activeConnection.disconnected ? 'i-lucide-plug' : 'i-lucide-unplug'"
+              color="neutral"
+              variant="outline"
+              :loading="togglingConnection"
+              :title="activeConnection.disconnected ? 'Verbindung herstellen' : 'Verbindung trennen (gibt die Datenbankdatei für andere Programme frei)'"
+              @click="toggleConnection()"
+            />
+          </div>
           <DatabasePicker />
         </div>
         <div class="min-h-0 flex-1 overflow-auto pb-4">
+          <p v-if="activeConnection?.disconnected" class="px-3 py-2 text-sm text-muted">
+            Verbindung getrennt. Die Datenbankdatei ist für andere Programme freigegeben.
+          </p>
           <SchemaTree
-            v-if="activeConnectionId"
+            v-else-if="activeConnectionId"
             :key="`${activeConnectionId}/${activeDatabase ?? ''}`"
             :connection-id="activeConnectionId"
             :database="activeDatabase"
@@ -260,6 +298,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <div class="flex w-full justify-end gap-2">
           <UButton label="Abbrechen" color="neutral" variant="ghost" @click="closing = undefined" />
           <UButton label="Schließen" color="error" @click="confirmClose" />
+        </div>
+      </template>
+    </UModal>
+    <UModal
+      v-model:open="confirmingDisconnect"
+      title="Verbindung trennen?"
+      description="Offene Transaktionen in Tabs dieser Verbindung werden beim Trennen zurückgerollt."
+      :close="false"
+    >
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="Abbrechen" color="neutral" variant="ghost" @click="confirmingDisconnect = false" />
+          <UButton label="Trennen" color="error" @click="toggleConnection(true)" />
         </div>
       </template>
     </UModal>

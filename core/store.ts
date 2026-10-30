@@ -6,7 +6,11 @@ import { type Keychain, keychain, KeychainUnavailable } from './keychain.ts'
 import type { ConnectionConfig } from './types.ts'
 
 /** Connection as returned to the UI: never contains the password. */
-export type ConnectionSummary = Omit<ConnectionConfig, 'password'> & { hasPassword: boolean }
+export type ConnectionSummary = Omit<ConnectionConfig, 'password'> & {
+  hasPassword: boolean
+  /** Disconnected by the user (set by the API from the workbench, not stored). */
+  disconnected?: boolean
+}
 
 /**
  * `password: undefined` keeps the stored password, `''` removes it, any other string replaces it.
