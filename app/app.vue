@@ -42,7 +42,17 @@ async function init() {
   loadError.value = undefined
   try {
     await load()
-    if (!tabs.value.length) await restoreTabs()
+    if (!tabs.value.length) {
+      await restoreTabs()
+      // The sidebar opens on the connection and database of the restored active tab.
+      const restored = activeTab.value
+      if (restored?.connectionId && connections.value.some(c => c.id === restored.connectionId)) {
+        activeConnectionId.value = restored.connectionId
+        // After the watcher that resets the database on a connection change.
+        await nextTick()
+        activeDatabase.value = restored.database
+      }
+    }
     if (!tabs.value.length) addTab(activeConnectionId.value)
     if (!listening) {
       listening = true
