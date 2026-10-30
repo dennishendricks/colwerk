@@ -5,15 +5,18 @@
 // or, for the self-hosted binary, in the default browser. With the argument `mcp` it runs the stdio
 // bridge for MCP clients instead (see mcp-bridge.ts).
 import { mcpToken } from '../core/mcp-token.ts'
-import { appUrl, createToken, freePort, onExit, openInBrowser, removeInstance, writeInstance } from './common.ts'
+import { appUrl, createToken, freePort, onExit, openInBrowser, readWindowBounds, removeInstance, writeInstance, writeWindowBounds } from './common.ts'
 import { duckdbGlobals } from './native.ts'
 
 // Only available inside `deno desktop` binaries; not part of the default type libraries.
 type MenuItem = { item: { label: string, id?: string, enabled: boolean } } | 'separator'
-type BrowserWindowCtor = new (options: { title?: string, width?: number, height?: number }) => {
+type BrowserWindowCtor = new (options: { title?: string, width?: number, height?: number, x?: number, y?: number }) => {
   bind(name: string, handler: (...args: never[]) => unknown): void
   showContextMenu(x: number, y: number, menu: MenuItem[]): void
+  getSize(): [number, number]
+  getPosition(): [number, number]
   addEventListener(type: 'contextmenuclick', listener: (e: CustomEvent<{ id: string }>) => void): void
+  addEventListener(type: 'resize' | 'move', listener: () => void): void
 }
 const BrowserWindow = (Deno as unknown as { BrowserWindow?: BrowserWindowCtor }).BrowserWindow
 
@@ -30,8 +33,17 @@ Deno.env.set('DBM_TOKEN', token)
 // registered before the server starts so it is in place when the page loads.
 // The first window constructed adopts the startup window.
 if (BrowserWindow) {
-  const win = new BrowserWindow({ title: 'Colwerk', width: 1400, height: 900 })
+  const win = new BrowserWindow({ title: 'Colwerk', width: 1400, height: 900, ...readWindowBounds() })
   win.bind('sessionToken', () => token)
+  // Saved on every change: by the time `close` fires the window is gone and its bounds can no longer be read.
+  // There is no maximized state; a maximized or zoomed window is saved with its full size.
+  const saveBounds = () => {
+    const [width, height] = win.getSize()
+    const [x, y] = win.getPosition()
+    writeWindowBounds({ width, height, x, y })
+  }
+  win.addEventListener('resize', saveBounds)
+  win.addEventListener('move', saveBounds)
   // Native context menu for the page: resolves with the id of the chosen item. A dismissed menu fires
   // no event, so its call stays pending until the next menu resolves it with null.
   let choose: ((id: string | null) => void) | undefined
