@@ -10,6 +10,7 @@ Requirements: Deno 2.9+, Docker (optional, for the test databases).
 
 ```sh
 deno install --allow-scripts   # install dependencies
+deno task hooks                # pre-commit hook: refuses commits with unformatted files
 docker compose up -d           # test databases: Postgres :55432, MariaDB :53306, MSSQL :51433
 deno task dev                  # dev server; prints the URL including the session token
 ```
@@ -22,6 +23,8 @@ deno task dev                  # dev server; prints the URL including the sessio
 | `deno task release` | Version bump, build of all targets, tag and draft GitHub release |
 | `deno task test` | Driver contract tests, API end-to-end test, SQL splitter tests |
 | `deno task typecheck` | `deno check` and `nuxt typecheck` |
+| `deno task fmt` | Formats all files with `deno fmt` (settings in `deno.json`) |
+| `deno task hooks` | Enables the pre-commit hook in `.githooks/` |
 
 Tests against Postgres, MariaDB and MSSQL are skipped when the container is not reachable.
 

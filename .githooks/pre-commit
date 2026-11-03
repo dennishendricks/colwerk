@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses the commit if a staged file is not formatted by `deno fmt`. Enable with `deno task hooks`.
+git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 -r deno fmt --check --permit-no-files ||
+  { echo 'Not formatted, run `deno task fmt`.' >&2; exit 1; }
