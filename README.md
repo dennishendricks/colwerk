@@ -21,7 +21,7 @@ deno task dev                  # dev server; prints the URL including the sessio
 | `deno task dev`       | Nuxt dev server on `127.0.0.1`, random port, fresh token                      |
 | `deno task desktop`   | Desktop app for the host system (`--all-targets` for all), written to `dist/` |
 | `deno task compile`   | Self-hosted binary `dist/colwerk` that opens the default browser              |
-| `deno task release`   | Version bump, build of all targets, tag and draft GitHub release              |
+| `deno task release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release  |
 | `deno task test`      | Driver contract tests, API end-to-end test, SQL splitter tests                |
 | `deno task typecheck` | `deno check` and `nuxt typecheck`                                             |
 | `deno task fmt`       | Formats all files with `deno fmt` (settings in `deno.json`)                   |

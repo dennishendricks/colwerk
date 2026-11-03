@@ -1,7 +1,7 @@
-// `deno task release`: bumps the version in package.json, builds all desktop targets, pushes the commit with
-// the tag `v<version>` and creates a draft GitHub release with the contents of `dist` and their SHA-256 sums.
-// The draft is not visible to the update check (app/utils/update.ts) until it is published on GitHub.
-// Requires the GitHub CLI (`gh`), logged in with push access.
+// `deno task release`: bumps the version in package.json and pushes the commit with the tag `v<version>`.
+// The tag starts .github/workflows/release.yml, which builds all desktop targets and creates a draft GitHub
+// release with the contents of `dist`, their SHA-256 sums and build provenance attestations. The draft is not
+// visible to the update check (app/utils/update.ts) until it is published on GitHub.
 
 async function exec(cmd: string, args: string[]) {
   console.log(`$ ${cmd} ${args.join(' ')}`)
@@ -27,7 +27,6 @@ await output('git', ['fetch', 'origin', 'main'])
 if (await output('git', ['rev-parse', 'HEAD']) !== await output('git', ['rev-parse', 'origin/main'])) {
   fail('main is not in sync with origin/main.')
 }
-if (!await exec('gh', ['auth', 'status'])) fail('The GitHub CLI is not logged in (gh auth login).')
 
 const packageJson = await Deno.readTextFile('package.json')
 const current = JSON.parse(packageJson).version as string
@@ -45,41 +44,8 @@ if (!confirm(`Release ${tag}?`)) Deno.exit(0)
 // Replaces only the value, so the formatting of package.json stays as it is.
 await Deno.writeTextFile('package.json', packageJson.replace(`"version": "${current}"`, `"version": "${version}"`))
 
-// `dist` is emptied first, so only this build's files end up in the release.
-await Deno.remove('dist', { recursive: true }).catch(() => {})
-if (!await exec(Deno.execPath(), ['task', 'desktop', '--all-targets'])) {
-  await Deno.writeTextFile('package.json', packageJson)
-  fail('Build failed, package.json is reset.')
-}
-
-const files = [...Deno.readDirSync('dist')].filter((entry) => entry.isFile && !entry.name.startsWith('.')).map(
-  (entry) => entry.name,
-).sort()
-const sums = []
-for (const file of files) {
-  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', await Deno.readFile(`dist/${file}`)))
-  sums.push(`${Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join('')}  ${file}\n`)
-}
-await Deno.writeTextFile('dist/SHA256SUMS.txt', sums.join(''))
-
 if (!await exec('git', ['commit', '-m', `Release ${tag}`, 'package.json'])) fail('Commit failed.')
 if (!await exec('git', ['tag', '-a', tag, '-m', `Release ${tag}`])) fail('Tagging failed.')
 if (!await exec('git', ['push', '--atomic', 'origin', 'main', tag])) fail('Push failed.')
 
-const assets = [...files, 'SHA256SUMS.txt'].map((file) => `dist/${file}`)
-if (
-  !await exec('gh', [
-    'release',
-    'create',
-    tag,
-    '--draft',
-    '--verify-tag',
-    '--title',
-    `Colwerk ${version}`,
-    '--generate-notes',
-    ...assets,
-  ])
-) {
-  fail(`Creating the release failed; ${tag} is pushed, retry with gh release create.`)
-}
-console.log(`Draft release ${tag} created. Check it and publish it on GitHub.`)
+console.log(`${tag} pushed. The release workflow builds it and creates a draft release; publish it on GitHub.`)

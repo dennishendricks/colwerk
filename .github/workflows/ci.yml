@@ -45,3 +45,25 @@ jobs:
       - run: deno task compile
       - run: docker compose up -d --wait postgres mariadb mssql && docker compose run --rm mssql-init
       - run: deno task test
+
+  # DuckDB FFI, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main; the network
+  # databases are skipped here.
+  platforms:
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      # Keeps LF line endings on Windows, as in the repository.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+          cache: true
+      - run: deno install --frozen --allow-scripts
+      - run: deno task compile
+      - run: deno task test
