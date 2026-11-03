@@ -31,7 +31,7 @@ if (Deno.args[0] === 'mcp') {
 }
 
 const token = createToken()
-Deno.env.set('DBM_TOKEN', token)
+Deno.env.set('COLWERK_TOKEN', token)
 
 // The desktop window loads the server root on its own once it listens, which would override a
 // `navigate()` to a URL carrying the token. Instead the page fetches the token through a binding,

@@ -19,10 +19,10 @@ export type ConnectionInput = ConnectionConfig
 
 type StoredConnection = Omit<ConnectionConfig, 'password'> & { passwordEnc?: string }
 
-// Storage in `defaultDataDir()` (overridable with DBM_DATA_DIR):
+// Storage in `defaultDataDir()` (overridable with COLWERK_DATA_DIR):
 //   connections.json  – connection list, passwords AES-256-GCM encrypted
 // The 256-bit key lives in the OS keychain (see keychain.ts). Without a usable keychain, or with
-// DBM_KEYCHAIN=off, it lives next to the data in `secret.key` (file mode 0600), which only protects
+// COLWERK_KEYCHAIN=off, it lives next to the data in `secret.key` (file mode 0600), which only protects
 // against accidental disclosure (backups, sync folders, screen sharing). A `secret.key` of an older
 // version is moved into the keychain on first use.
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes))
@@ -43,7 +43,7 @@ export class ConnectionStore {
 
   constructor(
     private dir = defaultDataDir(),
-    private secrets: Keychain | null = process.env.DBM_KEYCHAIN === 'off' ? null : keychain(dir),
+    private secrets: Keychain | null = process.env.COLWERK_KEYCHAIN === 'off' ? null : keychain(dir),
   ) {}
 
   async list(): Promise<ConnectionSummary[]> {

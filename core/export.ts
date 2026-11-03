@@ -216,7 +216,7 @@ function parquetExporter(write: Write): Exporter {
   let columns: ResultColumn[] | undefined
   let targets: (Target | undefined)[] = []
   let staging: Promise<{ dir: string, file: FileHandle }> | undefined
-  const stage = () => (staging ??= mkdtemp(join(tmpdir(), 'dbm-export-')).then(async dir => ({ dir, file: await open(join(dir, 'rows.jsonl'), 'w') })))
+  const stage = () => (staging ??= mkdtemp(join(tmpdir(), 'colwerk-export-')).then(async dir => ({ dir, file: await open(join(dir, 'rows.jsonl'), 'w') })))
   return {
     columns: (c) => {
       columns = c

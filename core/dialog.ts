@@ -47,14 +47,14 @@ async function windows(kind: 'open' | 'save', name: string, title: string) {
 Add-Type -AssemblyName System.Windows.Forms
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $d = New-Object System.Windows.Forms.${kind === 'save' ? 'SaveFileDialog' : 'OpenFileDialog'}
-$d.Title = $env:DBM_DIALOG_TITLE
-$d.FileName = $env:DBM_DIALOG_NAME
+$d.Title = $env:COLWERK_DIALOG_TITLE
+$d.FileName = $env:COLWERK_DIALOG_NAME
 $owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }
 if ($d.ShowDialog($owner) -ne 'OK') { exit 1 }
 [Console]::Out.Write($d.FileName)
 `
   const encoded = Buffer.from(script, 'utf16le').toString('base64')
-  const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', encoded], { DBM_DIALOG_NAME: name, DBM_DIALOG_TITLE: title })
+  const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', encoded], { COLWERK_DIALOG_NAME: name, COLWERK_DIALOG_TITLE: title })
   return r && { ...r, cancelled: r.code === 1 }
 }
 

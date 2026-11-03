@@ -9,7 +9,7 @@ const pgUp = await reachable(testConnections.postgres)
 
 async function rawStatus(port: number, host: string, token: string): Promise<number> {
   const conn = await Deno.connect({ hostname: '127.0.0.1', port })
-  await conn.write(new TextEncoder().encode(`GET /api/drivers HTTP/1.1\r\nHost: ${host}\r\nx-dbm-token: ${token}\r\nConnection: close\r\n\r\n`))
+  await conn.write(new TextEncoder().encode(`GET /api/drivers HTTP/1.1\r\nHost: ${host}\r\nx-colwerk-token: ${token}\r\nConnection: close\r\n\r\n`))
   const buf = new Uint8Array(64)
   const n = await conn.read(buf)
   conn.close()
@@ -24,13 +24,13 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
   const server = new Deno.Command(Deno.execPath(), {
     args: ['run', '-A', '--config', '.output/deno.json', '--node-modules-dir=manual', '.output/server/index.mjs'],
     // Without keychain: no entries in the developer's keychain, and the key file can be checked.
-    env: { DBM_TOKEN: token, COLWERK_MCP_TOKEN: mcpToken, NITRO_HOST: '127.0.0.1', NITRO_PORT: String(port), DBM_DATA_DIR: dataDir, DBM_KEYCHAIN: 'off' },
+    env: { COLWERK_TOKEN: token, COLWERK_MCP_TOKEN: mcpToken, NITRO_HOST: '127.0.0.1', NITRO_PORT: String(port), COLWERK_DATA_DIR: dataDir, COLWERK_KEYCHAIN: 'off' },
     stdout: 'null',
     stderr: 'null',
   }).spawn()
 
   const base = `http://127.0.0.1:${port}`
-  const call = (path: string, init: RequestInit = {}, headers: Record<string, string> = { 'x-dbm-token': token }) =>
+  const call = (path: string, init: RequestInit = {}, headers: Record<string, string> = { 'x-colwerk-token': token }) =>
     fetch(base + path, { ...init, headers: { 'content-type': 'application/json', ...headers, ...init.headers as Record<string, string> } })
   const json = async (res: Response) => {
     const body = await res.json()
@@ -47,14 +47,14 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
     await t.step('rejects requests without valid token, foreign host or origin', async () => {
       const statuses = await Promise.all([
         call('/api/drivers', {}, {}),
-        call('/api/drivers', {}, { 'x-dbm-token': 'b'.repeat(64) }),
-        call('/api/drivers', {}, { 'x-dbm-token': token, origin: 'http://evil.example' }),
+        call('/api/drivers', {}, { 'x-colwerk-token': 'b'.repeat(64) }),
+        call('/api/drivers', {}, { 'x-colwerk-token': token, origin: 'http://evil.example' }),
       ].map(p => p.then(r => (r.body?.cancel(), r.status))))
       assertEquals(statuses, [401, 401, 403])
       // fetch() always sends the real Host header, so DNS rebinding is simulated with a raw request.
       assertEquals(await rawStatus(port, `evil.example:${port}`, token), 403)
       assertEquals(await rawStatus(port, `127.0.0.1:${port}`, token), 200)
-      const ok = await call('/api/drivers', {}, { 'x-dbm-token': token, origin: base })
+      const ok = await call('/api/drivers', {}, { 'x-colwerk-token': token, origin: base })
       assertEquals((await json(ok)).length, 4)
     })
 
@@ -203,7 +203,7 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       }
       // The MCP token only: neither none nor the UI's session token is enough.
       assertEquals((await mcp('tools/list', {}, {})).status, 401)
-      assertEquals((await mcp('tools/list', {}, { 'x-dbm-token': token, authorization: `Bearer ${token}` })).status, 401)
+      assertEquals((await mcp('tools/list', {}, { 'x-colwerk-token': token, authorization: `Bearer ${token}` })).status, 401)
       const { tools } = (await mcp('tools/list', {})).body.result
       assertEquals(tools.map((x: { name: string }) => x.name).sort(), ['describe-table', 'list-connections', 'list-schemas', 'list-tables', 'open-query', 'run-query', 'sample-rows'])
 

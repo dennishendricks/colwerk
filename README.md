@@ -46,7 +46,7 @@ Core decisions:
 ## Security
 
 - The server binds to `127.0.0.1` on a random port.
-- Every `/api/*` request needs a random per-start token (`x-dbm-token`, constant-time comparison).
+- Every `/api/*` request needs a random per-start token (`x-colwerk-token`, constant-time comparison).
 - Requests with a foreign `Host` or `Origin` are rejected (DNS rebinding, cross-site).
 
 ## MCP server
@@ -61,7 +61,7 @@ MCP clients authenticate with their own persistent token (`Authorization: Bearer
 
 ## Connections and credentials
 
-Connections, open tabs and query history are stored as JSON in the data directory (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with `DBM_DATA_DIR`). Passwords are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key` (mode 0600) if none is available or `DBM_KEYCHAIN=off`.
+Connections, open tabs and query history are stored as JSON in the data directory (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with `COLWERK_DATA_DIR`). Passwords are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key` (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
 
 ## Drivers and native libraries
 

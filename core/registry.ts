@@ -45,7 +45,7 @@ interface DuckdbHook {
   install(onProgress: (fraction: number) => void): Promise<void>
 }
 
-const duckdbHook = () => (globalThis as { dbmDuckdb?: DuckdbHook }).dbmDuckdb
+const duckdbHook = () => (globalThis as { colwerkDuckdb?: DuckdbHook }).colwerkDuckdb
 
 /** Fails unless DuckDB's native library is in place. Call before importing the driver. */
 async function prepareDuckdb(): Promise<void> {

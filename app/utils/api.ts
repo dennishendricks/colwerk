@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'dbm-token'
+const TOKEN_KEY = 'colwerk-token'
 
 /** Reads the session token from `#token=…` (dev server, self-hosted binary) and keeps it for reloads. */
 function takeToken(): string | null {
@@ -18,7 +18,7 @@ const desktopToken = (window as { bindings?: { sessionToken(): Promise<string> }
 
 const fetcher = $fetch.create({
   async onRequest({ options }) {
-    options.headers.set('x-dbm-token', sessionToken.value ?? await desktopToken ?? '')
+    options.headers.set('x-colwerk-token', sessionToken.value ?? await desktopToken ?? '')
   },
 }) as (url: string, options?: object) => Promise<unknown>
 
@@ -26,7 +26,7 @@ export function api<T = unknown>(url: string, options?: { method?: 'GET' | 'POST
   return fetcher(url, options) as Promise<T>
 }
 
-/** The error's text; errors of Colwerk itself (`key` from the server, see server/utils/dbm.ts) in the UI's language. */
+/** The error's text; errors of Colwerk itself (`key` from the server, see server/utils/colwerk.ts) in the UI's language. */
 export function errorMessage(e: unknown): string {
   const err = e as { data?: { message?: string, data?: { key?: string, params?: Record<string, unknown> } }, message?: string }
   const { key, params } = err.data?.data ?? {}
@@ -42,7 +42,7 @@ export function errorMessage(e: unknown): string {
 export async function subscribe(url: string, onEvent: (event: string, data: string) => void): Promise<never> {
   for (;;) {
     try {
-      const res = await fetch(url, { headers: { 'x-dbm-token': sessionToken.value ?? await desktopToken ?? '' } })
+      const res = await fetch(url, { headers: { 'x-colwerk-token': sessionToken.value ?? await desktopToken ?? '' } })
       const reader = res.ok ? res.body?.pipeThrough(new TextDecoderStream()).getReader() : undefined
       let buffer = ''
       for (let chunk = await reader?.read(); chunk && !chunk.done; chunk = await reader!.read()) {
