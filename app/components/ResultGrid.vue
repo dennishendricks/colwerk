@@ -11,17 +11,17 @@ const { t } = useI18n()
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 
-type Row = { index: number, cells: CellValue[] }
+type Row = { index: number; cells: CellValue[] }
 type Column = ReturnType<TableRow<Row>['getVisibleCells']>[number]['column']
 
 const data = computed<Row[]>(() => props.result.rows.map((cells, index) => ({ index, cells })))
 
-const sorting = ref<{ id: string, desc: boolean }[]>([])
+const sorting = ref<{ id: string; desc: boolean }[]>([])
 // The `#` column always stays at the left edge; columns pinned later are appended after it.
-const columnPinning = ref<{ left: string[], right: string[] }>({ left: ['#'], right: [] })
+const columnPinning = ref<{ left: string[]; right: string[] }>({ left: ['#'], right: [] })
 const columnVisibility = ref<Record<string, boolean>>({})
 const columnSizing = ref<Record<string, number>>({})
-const columnFilters = ref<{ id: string, value: unknown }[]>([])
+const columnFilters = ref<{ id: string; value: unknown }[]>([])
 const globalFilter = ref(filter.value)
 // Column ids are positions, so state of the previous result must not carry over.
 watch(() => props.result, () => {
@@ -57,13 +57,27 @@ function containsText(row: TableRow<Row>, id: string, query: string) {
 // Lower-cased once per filter run instead of once per cell.
 containsText.resolveFilterValue = (query: string) => query.toLowerCase()
 // The default only searches columns whose first value is a string or number.
-const globalFilterOptions = { globalFilterFn: containsText, getColumnCanGlobalFilter: (column: Column) => column.getIsVisible() }
+const globalFilterOptions = {
+  globalFilterFn: containsText,
+  getColumnCanGlobalFilter: (column: Column) => column.getIsVisible(),
+}
 
-const filteredCount = computed(() => globalFilter.value || columnFilters.value.length ? table.value?.tableApi.getFilteredRowModel().rows.length : undefined)
+const filteredCount = computed(() =>
+  globalFilter.value || columnFilters.value.length ? table.value?.tableApi.getFilteredRowModel().rows.length : undefined
+)
 defineExpose({ filteredCount })
 
 // The table has a fixed layout of exactly the column sizes, which pinned offsets and resizing rely on.
-const table = useTemplateRef<{ $el: HTMLElement, tableApi: { getTotalSize(): number, getRowModel(): { rows: TableRow<Row>[] }, getFilteredRowModel(): { rows: unknown[] } } }>('table')
+const table = useTemplateRef<
+  {
+    $el: HTMLElement
+    tableApi: {
+      getTotalSize(): number
+      getRowModel(): { rows: TableRow<Row>[] }
+      getFilteredRowModel(): { rows: unknown[] }
+    }
+  }
+>('table')
 const tableWidth = computed(() => table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined)
 const sizeStyle = ({ column }: { column: Column }) => ({ width: `${column.getSize()}px` })
 // Pinned headers are sticky, which already positions the resize handle.
@@ -90,17 +104,26 @@ const columns = computed<TableColumn<Row>[]>(() => [
     enableResizing: false,
     size: Math.max(44, Math.round(String(props.result.rows.length).length * CHAR_WIDTH + 16)),
     meta: { style: { th: sizeStyle }, class: { td: pinnedClass } },
-    header: ({ table }) => h(UDropdownMenu, {
-      items: table.getAllLeafColumns().filter(c => c.getCanHide()).map((c): DropdownMenuItem => ({
-        label: props.result.columns[Number(c.id)]?.name,
-        type: 'checkbox',
-        checked: c.getIsVisible(),
-        onUpdateChecked: (v: boolean) => c.toggleVisibility(v),
-        onSelect: (e: Event) => e.preventDefault(),
-      })),
-      content: { align: 'start' },
-      ui: { content: 'max-h-96' },
-    }, () => h(UButton, { icon: 'i-lucide-columns-3', color: 'neutral', variant: 'ghost', size: 'xs', class: '-my-1', title: t('grid.toggleColumns') })),
+    header: ({ table }) =>
+      h(UDropdownMenu, {
+        items: table.getAllLeafColumns().filter((c) => c.getCanHide()).map((c): DropdownMenuItem => ({
+          label: props.result.columns[Number(c.id)]?.name,
+          type: 'checkbox',
+          checked: c.getIsVisible(),
+          onUpdateChecked: (v: boolean) => c.toggleVisibility(v),
+          onSelect: (e: Event) => e.preventDefault(),
+        })),
+        content: { align: 'start' },
+        ui: { content: 'max-h-96' },
+      }, () =>
+        h(UButton, {
+          icon: 'i-lucide-columns-3',
+          color: 'neutral',
+          variant: 'ghost',
+          size: 'xs',
+          class: '-my-1',
+          title: t('grid.toggleColumns'),
+        })),
     cell: ({ row }) => h('span', { class: 'text-dimmed' }, row.original.index + 1),
   },
   ...props.result.columns.map((col, i): TableColumn<Row> => ({
@@ -108,27 +131,40 @@ const columns = computed<TableColumn<Row>[]>(() => [
     size: initialSize(col, i),
     minSize: 40,
     // null → undefined, which `sortUndefined` keeps last in both directions.
-    accessorFn: row => row.cells[i] ?? undefined,
+    accessorFn: (row) => row.cells[i] ?? undefined,
     sortingFn: (a, b, id) => compareCells(a.getValue(id), b.getValue(id)),
     sortUndefined: 'last',
     filterFn: containsText,
     meta: { style: { th: sizeStyle }, class: { th: headerClass, td: pinnedClass } },
-    header: ({ column, header }) => [h(UDropdownMenu, { items: headerItems(column), content: { align: 'start', onCloseAutoFocus: openColumnFilter } }, () => h(UButton, {
-      color: 'neutral',
-      variant: 'ghost',
-      size: 'xs',
-      class: '-mx-1.5 -my-1 font-semibold',
-      title: col.type,
-      icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
-      'data-column': column.id,
-      trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
-    }, () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)])), h('div', {
-      class: ['absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none hover:bg-primary', column.getIsResizing() && 'bg-primary'],
-      title: t('grid.resize'),
-      onMousedown: header.getResizeHandler(),
-      onTouchstart: header.getResizeHandler(),
-      onDblclick: () => column.resetSize(),
-    })],
+    header: (
+      { column, header },
+    ) => [
+      h(
+        UDropdownMenu,
+        { items: headerItems(column), content: { align: 'start', onCloseAutoFocus: openColumnFilter } },
+        () =>
+          h(UButton, {
+            color: 'neutral',
+            variant: 'ghost',
+            size: 'xs',
+            class: '-mx-1.5 -my-1 font-semibold',
+            title: col.type,
+            icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
+            'data-column': column.id,
+            trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
+          }, () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)]),
+      ),
+      h('div', {
+        class: [
+          'absolute inset-y-0 right-0 w-1 cursor-col-resize touch-none select-none hover:bg-primary',
+          column.getIsResizing() && 'bg-primary',
+        ],
+        title: t('grid.resize'),
+        onMousedown: header.getResizeHandler(),
+        onTouchstart: header.getResizeHandler(),
+        onDblclick: () => column.resetSize(),
+      }),
+    ],
     cell: ({ row }) => renderCell(row.original.cells[i] ?? null),
   })),
 ])
@@ -144,17 +180,31 @@ function headerItems(column: Column): DropdownMenuItem[][] {
   return [
     [
       { label: t('grid.sortAsc'), icon: 'i-lucide-arrow-up-narrow-wide', onSelect: () => column.toggleSorting(false) },
-      { label: t('grid.sortDesc'), icon: 'i-lucide-arrow-down-wide-narrow', onSelect: () => column.toggleSorting(true) },
+      {
+        label: t('grid.sortDesc'),
+        icon: 'i-lucide-arrow-down-wide-narrow',
+        onSelect: () => column.toggleSorting(true),
+      },
       ...sorted ? [{ label: t('grid.clearSort'), icon: 'i-lucide-x', onSelect: () => column.clearSorting() }] : [],
     ],
     [
-      ...pinned !== 'left' ? [{ label: t('grid.pinLeft'), icon: 'i-lucide-pin', onSelect: () => column.pin('left') }] : [],
-      ...pinned !== 'right' ? [{ label: t('grid.pinRight'), icon: 'i-lucide-pin', onSelect: () => column.pin('right') }] : [],
+      ...pinned !== 'left'
+        ? [{ label: t('grid.pinLeft'), icon: 'i-lucide-pin', onSelect: () => column.pin('left') }]
+        : [],
+      ...pinned !== 'right'
+        ? [{ label: t('grid.pinRight'), icon: 'i-lucide-pin', onSelect: () => column.pin('right') }]
+        : [],
       ...pinned ? [{ label: t('grid.unpin'), icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : [],
     ],
     [
       { label: t('grid.filter'), icon: 'i-lucide-filter', onSelect: () => pendingFilter = column },
-      ...column.getIsFiltered() ? [{ label: t('grid.removeFilter'), icon: 'i-lucide-filter-x', onSelect: () => column.setFilterValue(undefined) }] : [],
+      ...column.getIsFiltered()
+        ? [{
+          label: t('grid.removeFilter'),
+          icon: 'i-lucide-filter-x',
+          onSelect: () => column.setFilterValue(undefined),
+        }]
+        : [],
     ],
     [{ label: t('grid.hide'), icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
   ]
@@ -162,7 +212,7 @@ function headerItems(column: Column): DropdownMenuItem[][] {
 
 // One popover for all column filters, anchored at the header button. It opens only once the menu
 // has closed, because the menu returning focus to its trigger would dismiss it right away.
-const filtering = shallowRef<{ column: Column, anchor: Element }>()
+const filtering = shallowRef<{ column: Column; anchor: Element }>()
 let pendingFilter: Column | undefined
 function openColumnFilter(e: Event) {
   const column = pendingFilter
@@ -178,7 +228,8 @@ const NUMERIC = /^-?\d+(\.\d+)?(e[+-]?\d+)?$/i
 // One instance: `localeCompare` with locale and options builds a collator on every call.
 const collator = new Intl.Collator('de', { numeric: true })
 function compareCells(a: CellValue, b: CellValue) {
-  const isNum = (v: CellValue) => typeof v === 'number' || typeof v === 'boolean' || (typeof v === 'string' && NUMERIC.test(v))
+  const isNum = (v: CellValue) =>
+    typeof v === 'number' || typeof v === 'boolean' || (typeof v === 'string' && NUMERIC.test(v))
   if (isNum(a) && isNum(b)) return Number(a) - Number(b)
   return collator.compare(cellText(a), cellText(b))
 }
@@ -189,8 +240,10 @@ function cellText(value: CellValue) {
 
 // Desktop app only: the launcher shows a native context menu (see launcher/main.ts). In the browser
 // the browser's own menu stays.
-type MenuItem = { item: { label: string, id: string, enabled: boolean } } | 'separator'
-const contextMenu = (window as { bindings?: { contextMenu?(x: number, y: number, menu: MenuItem[]): Promise<string | null> } }).bindings?.contextMenu
+type MenuItem = { item: { label: string; id: string; enabled: boolean } } | 'separator'
+const contextMenu =
+  (window as { bindings?: { contextMenu?(x: number, y: number, menu: MenuItem[]): Promise<string | null> } }).bindings
+    ?.contextMenu
 
 async function onRowContextmenu(e: Event, row: TableRow<Row>) {
   e.preventDefault()
@@ -210,9 +263,13 @@ async function onRowContextmenu(e: Event, row: TableRow<Row>) {
   } else if (id === 'show') {
     showDetail(row, col!)
   } else if (id === 'json') {
-    await navigator.clipboard.writeText(JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2))
+    await navigator.clipboard.writeText(
+      JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2),
+    )
   } else if (id === 'csv') {
-    await navigator.clipboard.writeText([columns.map(c => c.name), cells].map(fields => fields.map(csvField).join(';')).join('\r\n'))
+    await navigator.clipboard.writeText(
+      [columns.map((c) => c.name), cells].map((fields) => fields.map(csvField).join(';')).join('\r\n'),
+    )
   }
 }
 
@@ -233,7 +290,7 @@ function onDblclick(e: MouseEvent) {
 }
 
 const detailOpen = ref(false)
-const detail = shallowRef<{ column: ResultSet['columns'][number], value: CellValue }>()
+const detail = shallowRef<{ column: ResultSet['columns'][number]; value: CellValue }>()
 function showDetail(row: TableRow<Row>, col: number) {
   detail.value = { column: props.result.columns[col]!, value: row.original.cells[col] ?? null }
   detailOpen.value = true
@@ -285,16 +342,20 @@ function renderCell(value: CellValue) {
     }"
     @dblclick="onDblclick"
   />
-  <UModal v-model:open="detailOpen" :title="detail?.column.name" :description="detail?.column.type" :ui="{ content: 'max-w-3xl' }">
+  <UModal v-model:open="detailOpen" :title="detail?.column.name" :description="detail?.column.type"
+    :ui="{ content: 'max-w-3xl' }">
     <template #body>
       <span v-if="detail?.value === null" class="font-mono text-xs italic text-dimmed">NULL</span>
-      <pre v-else-if="detail" class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{ detailText(detail.value) }}</pre>
+      <pre v-else-if="detail"
+        class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{ detailText(detail.value) }}</pre>
     </template>
     <template #footer>
-      <UButton :label="t('common.copy')" icon="i-lucide-copy" color="neutral" variant="outline" @click="copyValue(detail!.value)" />
+      <UButton :label="t('common.copy')" icon="i-lucide-copy" color="neutral" variant="outline"
+        @click="copyValue(detail!.value)" />
     </template>
   </UModal>
-  <UPopover :open="!!filtering" :reference="filtering?.anchor" :content="{ align: 'start' }" @update:open="open => open || (filtering = undefined)">
+  <UPopover :open="!!filtering" :reference="filtering?.anchor" :content="{ align: 'start' }"
+    @update:open="open => open || (filtering = undefined)">
     <template #content>
       <UInput
         v-if="filtering"

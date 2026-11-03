@@ -23,7 +23,10 @@ export default defineEventHandler((event) => {
   }
   // Static assets carry no data; every API call needs the per-launch session token, every MCP call
   // the MCP token (core/mcp-token.ts), set by the launcher once it is read from the keychain.
-  if (event.path.startsWith('/api/') && !tokenMatches(getRequestHeader(event, 'x-colwerk-token'), process.env.COLWERK_TOKEN)) {
+  if (
+    event.path.startsWith('/api/') &&
+    !tokenMatches(getRequestHeader(event, 'x-colwerk-token'), process.env.COLWERK_TOKEN)
+  ) {
     throw createError({ statusCode: 401, message: 'Missing or invalid session token' })
   }
   const bearer = getRequestHeader(event, 'authorization')?.match(/^Bearer (.+)$/i)?.[1]

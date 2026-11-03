@@ -1,9 +1,29 @@
 import { loadDriver } from './registry.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
-import { AppError, type CellValue, type ConnectionConfig, DbError, type IntrospectRequest, type IntrospectResult, type QueryResult, type RowSink, type Session } from './types.ts'
+import {
+  AppError,
+  type CellValue,
+  type ConnectionConfig,
+  DbError,
+  type IntrospectRequest,
+  type IntrospectResult,
+  type QueryResult,
+  type RowSink,
+  type Session,
+} from './types.ts'
 
 // Error codes meaning the connection itself is gone; the session is dropped and reopened on next use.
-const CONNECTION_LOST = new Set(['ECONNRESET', 'EPIPE', 'ETIMEDOUT', 'ESOCKET', 'ECONNCLOSED', 'PROTOCOL_CONNECTION_LOST', '57P01', '08006', '08003'])
+const CONNECTION_LOST = new Set([
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ESOCKET',
+  'ECONNCLOSED',
+  'PROTOCOL_CONNECTION_LOST',
+  '57P01',
+  '08006',
+  '08003',
+])
 
 const PLAN_ROW_LIMIT = 10_000
 
@@ -25,7 +45,7 @@ interface TabSession {
 export class Workbench {
   private tabs = new Map<string, TabSession>()
   // Keyed by connection and database (metaKey).
-  private meta = new Map<string, { connectionId: string, session: Promise<Session>, queue: Promise<unknown> }>()
+  private meta = new Map<string, { connectionId: string; session: Promise<Session>; queue: Promise<unknown> }>()
   private cache = new Map<string, Promise<unknown>>()
   // Connections the user disconnected: no sessions are opened until `connect` (frees DuckDB's file lock for other tools).
   private disconnected = new Set<string>()
@@ -41,11 +61,21 @@ export class Workbench {
    * Cancels the statement when it has not finished after `timeoutSeconds` (connecting does not count).
    * Result and error carry the session's transaction state: a failed statement can leave a transaction open.
    */
-  execute(tabId: string, connectionId: string, sql: string, rowLimit: number, timeoutSeconds: number, database?: string): Promise<QueryResult> {
+  execute(
+    tabId: string,
+    connectionId: string,
+    sql: string,
+    rowLimit: number,
+    timeoutSeconds: number,
+    database?: string,
+  ): Promise<QueryResult> {
     return this.runTab(tabId, connectionId, database, async (s) => {
       const transaction = () => s.transactionState().catch(() => undefined)
       try {
-        return { ...await withTimeout(s, timeoutSeconds, () => s.execute(sql, { rowLimit })), transaction: await transaction() }
+        return {
+          ...await withTimeout(s, timeoutSeconds, () => s.execute(sql, { rowLimit })),
+          transaction: await transaction(),
+        }
       } catch (err) {
         if (err instanceof DbError && !CONNECTION_LOST.has(err.code ?? '')) err.transaction = await transaction()
         throw err
@@ -57,14 +87,24 @@ export class Workbench {
    * The execution plan of exactly one statement as text, in the tab's session (same session state as `execute`).
    * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server or SQLite.
    */
-  async explain(tabId: string, connectionId: string, sql: string, analyze: boolean, timeoutSeconds: number, database?: string): Promise<{ plan: string, durationMs: number }> {
+  async explain(
+    tabId: string,
+    connectionId: string,
+    sql: string,
+    analyze: boolean,
+    timeoutSeconds: number,
+    database?: string,
+  ): Promise<{ plan: string; durationMs: number }> {
     const { dialect } = await this.resolveConfig(connectionId)
     // Checked here, not only in the UI: Postgres and DuckDB would run a second statement as such.
     const ranges = splitStatements(sql, dialect)
     if (ranges.length !== 1) throw new AppError('explainSingle', 'Only a single statement can be explained.')
     const statement = sql.slice(ranges[0]!.from, ranges[0]!.to)
     if (analyze && (dialect === 'mssql' || dialect === 'sqlite' || !isReadOnlyStatement(statement, dialect))) {
-      throw new AppError('analyzeReadOnly', 'ANALYZE executes the statement and is only available for read-only statements.')
+      throw new AppError(
+        'analyzeReadOnly',
+        'ANALYZE executes the statement and is only available for read-only statements.',
+      )
     }
     return this.runTab(tabId, connectionId, database, async (s) => {
       const started = performance.now()
@@ -96,17 +136,25 @@ export class Workbench {
         depth.set(r[0], (depth.get(r[1]) ?? -1) + 1)
         return `${'  '.repeat(depth.get(r[0])!)}${r.at(-1)}`
       }
-      const plan = result.resultSets.map(set => set.rows.map(line).join('\n')).join('\n\n')
-      return { plan: dialect === 'mysql' ? JSON.stringify(JSON.parse(plan), null, 2) : plan, durationMs: performance.now() - started }
+      const plan = result.resultSets.map((set) => set.rows.map(line).join('\n')).join('\n\n')
+      return {
+        plan: dialect === 'mysql' ? JSON.stringify(JSON.parse(plan), null, 2) : plan,
+        durationMs: performance.now() - started,
+      }
     })
   }
 
   /** Streams the full result through the tab's session (same session state as `execute`). */
   stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
-    return this.runTab(tabId, connectionId, database, s => s.stream(sql, sink))
+    return this.runTab(tabId, connectionId, database, (s) => s.stream(sql, sink))
   }
 
-  private async runTab<T>(tabId: string, connectionId: string, database: string | undefined, fn: (s: Session) => Promise<T>): Promise<T> {
+  private async runTab<T>(
+    tabId: string,
+    connectionId: string,
+    database: string | undefined,
+    fn: (s: Session) => Promise<T>,
+  ): Promise<T> {
     let tab = this.tabs.get(tabId)
     if (tab && (tab.connectionId !== connectionId || tab.database !== database)) {
       await this.closeTab(tabId)
@@ -138,17 +186,28 @@ export class Workbench {
     const tab = this.tabs.get(tabId)
     if (!tab) return
     this.tabs.delete(tabId)
-    await tab.session.then(s => s.close(), () => {})
+    await tab.session.then((s) => s.close(), () => {})
   }
 
-  introspect<R extends IntrospectRequest>(connectionId: string, request: R, refresh = false, database?: string): Promise<IntrospectResult<R>> {
+  introspect<R extends IntrospectRequest>(
+    connectionId: string,
+    request: R,
+    refresh = false,
+    database?: string,
+  ): Promise<IntrospectResult<R>> {
     // DDL is fetched on demand and must reflect the current definition.
-    if (request.kind === 'ddl') return this.runMeta(connectionId, database, s => s.introspect(request))
-    const key = JSON.stringify([connectionId, database ?? null, request.kind, 'schema' in request ? request.schema : '', 'table' in request ? request.table : ''])
+    if (request.kind === 'ddl') return this.runMeta(connectionId, database, (s) => s.introspect(request))
+    const key = JSON.stringify([
+      connectionId,
+      database ?? null,
+      request.kind,
+      'schema' in request ? request.schema : '',
+      'table' in request ? request.table : '',
+    ])
     if (refresh) this.invalidate(connectionId, request, database)
     let result = this.cache.get(key) as Promise<IntrospectResult<R>> | undefined
     if (!result) {
-      result = this.runMeta(connectionId, database, s => s.introspect(request))
+      result = this.runMeta(connectionId, database, (s) => s.introspect(request))
       result.catch(() => this.cache.delete(key))
       this.cache.set(key, result)
     }
@@ -162,7 +221,7 @@ export class Workbench {
     for (const [key, meta] of this.meta) {
       if (meta.connectionId !== connectionId) continue
       this.meta.delete(key)
-      closing.push(meta.session.then(s => s.close(), () => {}))
+      closing.push(meta.session.then((s) => s.close(), () => {}))
     }
     for (const [tabId, tab] of this.tabs) {
       if (tab.connectionId === connectionId) closing.push(this.closeTab(tabId))
@@ -185,7 +244,11 @@ export class Workbench {
   }
 
   async closeAll(): Promise<void> {
-    await Promise.all([...new Set([...this.meta.values(), ...this.tabs.values()].map(s => s.connectionId))].map(id => this.closeConnection(id)))
+    await Promise.all(
+      [...new Set([...this.meta.values(), ...this.tabs.values()].map((s) => s.connectionId))].map((id) =>
+        this.closeConnection(id)
+      ),
+    )
   }
 
   /** Drops cached entries of a connection; with a request only that entry and everything below it, in the request's database. */
@@ -195,20 +258,23 @@ export class Workbench {
       if (!key.startsWith(prefix)) continue
       const [, db, kind, schema, table] = JSON.parse(key) as [string, string | null, string, string, string]
       if (request && db !== (database ?? null)) continue
-      const below = !request
-        || request.kind === 'schemas'
-        || (request.kind === 'databases' && kind === 'databases')
-        || (request.kind === 'tables' && schema === request.schema)
+      const below = !request ||
+        request.kind === 'schemas' ||
+        (request.kind === 'databases' && kind === 'databases') ||
+        (request.kind === 'tables' && schema === request.schema) ||
         // Refreshing a table (its columns) also drops its indexes.
-        || (request.kind === 'columns' && (kind === 'columns' || kind === 'indexes') && schema === request.schema && table === request.table)
-        || (request.kind === 'indexes' && kind === 'indexes' && schema === request.schema && table === request.table)
-        || (request.kind === 'routines' && kind === 'routines' && schema === request.schema)
+        (request.kind === 'columns' && (kind === 'columns' || kind === 'indexes') && schema === request.schema &&
+          table === request.table) ||
+        (request.kind === 'indexes' && kind === 'indexes' && schema === request.schema && table === request.table) ||
+        (request.kind === 'routines' && kind === 'routines' && schema === request.schema)
       if (below) this.cache.delete(key)
     }
   }
 
   private async open(connectionId: string, database?: string): Promise<Session> {
-    if (this.disconnected.has(connectionId)) throw new AppError('disconnected', 'The connection is disconnected.', { code: 'EDISCONNECTED' })
+    if (this.disconnected.has(connectionId)) {
+      throw new AppError('disconnected', 'The connection is disconnected.', { code: 'EDISCONNECTED' })
+    }
     const config = await this.resolveConfig(connectionId)
     return (await loadDriver(config.dialect)).connect({ ...config, database: database ?? config.database })
   }
@@ -229,7 +295,7 @@ export class Workbench {
       } catch (e) {
         if (CONNECTION_LOST.has((e as DbError).code ?? '') && this.meta.get(key)?.session === session) {
           this.meta.delete(key)
-          session.then(s => s.close(), () => {})
+          session.then((s) => s.close(), () => {})
         }
         throw e
       }
@@ -249,7 +315,12 @@ async function withTimeout<T>(s: Session, timeoutSeconds: number, fn: () => Prom
   try {
     return await fn()
   } catch (e) {
-    if (timedOut) throw new AppError('timeout', `Query did not finish within ${timeoutSeconds} s and was cancelled`, { code: 'ETIMEOUT', params: { seconds: timeoutSeconds } })
+    if (timedOut) {
+      throw new AppError('timeout', `Query did not finish within ${timeoutSeconds} s and was cancelled`, {
+        code: 'ETIMEOUT',
+        params: { seconds: timeoutSeconds },
+      })
+    }
     throw e
   } finally {
     clearTimeout(timer)

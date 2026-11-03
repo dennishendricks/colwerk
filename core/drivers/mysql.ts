@@ -2,7 +2,22 @@ import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
 import { mysqlGeometryToText } from '../geometry.ts'
 import { splitStatements } from '../sql-split.ts'
-import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import {
+  AppError,
+  type ColumnInfo,
+  type ConnectionConfig,
+  DbError,
+  type Driver,
+  type IndexInfo,
+  type IntrospectRequest,
+  type IntrospectResult,
+  type QueryResult,
+  type ResultColumn,
+  type RowSink,
+  type Session,
+  type TableInfo,
+  type TransactionState,
+} from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
@@ -52,13 +67,13 @@ async function options(c: ConnectionConfig): Promise<ConnectionOptions> {
 }
 
 function resultColumns(fields: FieldPacket[]): ResultColumn[] {
-  return fields.map(f => ({ name: f.name, type: typeNames[f.columnType ?? -1] ?? String(f.columnType) }))
+  return fields.map((f) => ({ name: f.name, type: typeNames[f.columnType ?? -1] ?? String(f.columnType) }))
 }
 
 /** `sql`: the text that was sent, to locate a syntax error in it. */
 function wrap(e: unknown, sql?: string): DbError {
   if (e instanceof DbError) return e
-  const err = e as { message?: string, code?: string }
+  const err = e as { message?: string; code?: string }
   const message = err.message ?? String(e)
   return new DbError(message, err.code, sql === undefined ? undefined : syntaxErrorPosition(sql, message))
 }
@@ -151,7 +166,7 @@ class MysqlSession implements Session {
     this.stopReason = null
     // `KILL QUERY` would also drop the statements after the truncated one, so scripts read the rest and discard it.
     const single = splitStatements(sql, 'mysql').length <= 1
-    const sets: { columns: ResultColumn[], rows: unknown[][], truncated: boolean }[] = []
+    const sets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean }[] = []
     let affectedRows: number | undefined
     let limitKill: Promise<void> = Promise.resolve()
 
@@ -180,7 +195,11 @@ class MysqlSession implements Session {
       query.on('error', (err: { errno?: number }) => {
         if (err.errno === ER_QUERY_INTERRUPTED && this.stopReason === 'limit') return
         this.running = false
-        reject(err.errno === ER_QUERY_INTERRUPTED ? new AppError('cancelled', 'Query was cancelled', { code: 'ER_QUERY_INTERRUPTED' }) : wrap(err, sql))
+        reject(
+          err.errno === ER_QUERY_INTERRUPTED
+            ? new AppError('cancelled', 'Query was cancelled', { code: 'ER_QUERY_INTERRUPTED' })
+            : wrap(err, sql),
+        )
       })
       query.on('end', async () => {
         if (!this.running) return
@@ -188,7 +207,7 @@ class MysqlSession implements Session {
         await limitKill
         this.running = false
         resolve({
-          resultSets: sets.map(s => ({ ...s, rows: s.rows.map(r => r.map(normalizeValue)) })),
+          resultSets: sets.map((s) => ({ ...s, rows: s.rows.map((r) => r.map(normalizeValue)) })),
           affectedRows: sets.length ? undefined : affectedRows,
           durationMs: performance.now() - started,
         })
@@ -207,7 +226,7 @@ class MysqlSession implements Session {
     // Pauses reading from the socket until the sink has taken the batch; a failing sink kills the query.
     const flush = () => {
       if (!batch.length || failed) return
-      const rows = batch.map(r => r.map(normalizeValue))
+      const rows = batch.map((r) => r.map(normalizeValue))
       batch = []
       this.conn.pause()
       pending = sink.rows(rows).then(() => this.conn.resume(), (e) => {
@@ -232,7 +251,12 @@ class MysqlSession implements Session {
       })
       query.on('error', (err: { errno?: number }) => {
         this.running = false
-        reject(failed ?? (err.errno === ER_QUERY_INTERRUPTED ? new AppError('cancelled', 'Query was cancelled', { code: 'ER_QUERY_INTERRUPTED' }) : wrap(err)))
+        reject(
+          failed ??
+            (err.errno === ER_QUERY_INTERRUPTED
+              ? new AppError('cancelled', 'Query was cancelled', { code: 'ER_QUERY_INTERRUPTED' })
+              : wrap(err)),
+        )
       })
       query.on('end', async () => {
         if (!this.running) return
@@ -273,7 +297,9 @@ class MysqlSession implements Session {
       if (req.kind === 'schemas') return (await db.query(SQL.schemas))[0] as IntrospectResult<R>
       if (req.kind === 'tables') {
         const [rows] = await db.query(SQL.tables, [req.schema])
-        type Row = Pick<TableInfo, 'name' | 'kind' | 'comment' | 'partitioning'> & { row_estimate: string | number | null }
+        type Row = Pick<TableInfo, 'name' | 'kind' | 'comment' | 'partitioning'> & {
+          row_estimate: string | number | null
+        }
         return (rows as Row[]).map(({ row_estimate, ...r }): TableInfo => ({
           schema: req.schema,
           ...r,
@@ -283,7 +309,7 @@ class MysqlSession implements Session {
       }
       if (req.kind === 'indexes') {
         const [rows] = await db.query(SQL.indexes, [req.schema, req.table])
-        return (rows as { name: string, cols: string | null, is_unique: string | number }[]).map((r): IndexInfo => ({
+        return (rows as { name: string; cols: string | null; is_unique: string | number }[]).map((r): IndexInfo => ({
           name: r.name,
           // Functional indexes (MySQL 8) have no column name.
           columns: r.cols ? r.cols.split('\n') : [],
@@ -294,9 +320,13 @@ class MysqlSession implements Session {
       if (req.kind === 'routines') return (await db.query(SQL.routines, [req.schema]))[0] as IntrospectResult<R>
       if (req.kind === 'ddl') {
         const types = req.object === 'routine'
-          ? ((await db.query(SQL.routineTypes, [req.schema, req.name]))[0] as { type: string }[]).map(r => r.type)
+          ? ((await db.query(SQL.routineTypes, [req.schema, req.name]))[0] as { type: string }[]).map((r) => r.type)
           : [req.object.toUpperCase()]
-        if (!types.length) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
+        if (!types.length) {
+          throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, {
+            params: { name: `${req.schema}.${req.name}` },
+          })
+        }
         const ddl: string[] = []
         for (const type of types) {
           // The statement's text is in the column `Create Table`, `Create View`, `Create Function` or `Create Procedure`.
@@ -310,7 +340,7 @@ class MysqlSession implements Session {
       const seen = new Set<string>()
       return (rows as Record<string, string | number | null>[])
         // A column in several foreign keys appears once per key; keep the first.
-        .filter(r => !seen.has(r.name as string) && seen.add(r.name as string))
+        .filter((r) => !seen.has(r.name as string) && seen.add(r.name as string))
         .map((r): ColumnInfo => ({
           name: r.name as string,
           type: r.type as string,

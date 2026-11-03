@@ -8,14 +8,16 @@ import { writeThirdPartyLicenses } from './licenses.ts'
 
 const mode = Deno.args[0]
 if (mode !== 'compile' && mode !== 'desktop') {
-  console.error('usage: deno run -A scripts/package.ts <compile|desktop> [--all-targets] [--keep-output] [extra deno flags]')
+  console.error(
+    'usage: deno run -A scripts/package.ts <compile|desktop> [--all-targets] [--keep-output] [extra deno flags]',
+  )
   Deno.exit(2)
 }
 
 // `deno desktop --all-targets` itself writes every target to the host's `desktop.output` (Deno 2.9.8),
 // so the targets are built one by one with an explicit `--output`. In `dist` each package is named
 // `<app>-<version>-<os>-<arch>` with the extension of its `desktop.output` (e.g. `Colwerk-0.1.0-macos-arm64.dmg`).
-const TARGETS: Record<string, { os: 'macos' | 'windows' | 'linux', duckdb: string, arch: string }> = {
+const TARGETS: Record<string, { os: 'macos' | 'windows' | 'linux'; duckdb: string; arch: string }> = {
   'aarch64-apple-darwin': { os: 'macos', duckdb: 'darwin-arm64', arch: 'arm64' },
   'x86_64-apple-darwin': { os: 'macos', duckdb: 'darwin-x64', arch: 'x64' },
   'x86_64-pc-windows-msvc': { os: 'windows', duckdb: 'win32-x64', arch: 'x64' },
@@ -25,7 +27,7 @@ const TARGETS: Record<string, { os: 'macos' | 'windows' | 'linux', duckdb: strin
 const allTargets = mode === 'desktop' && Deno.args.includes('--all-targets')
 const keepOutput = mode === 'desktop' && Deno.args.includes('--keep-output')
 const targets = allTargets ? Object.keys(TARGETS) : [Deno.build.target]
-const extraArgs = Deno.args.slice(1).filter(arg => arg !== '--all-targets' && arg !== '--keep-output')
+const extraArgs = Deno.args.slice(1).filter((arg) => arg !== '--all-targets' && arg !== '--keep-output')
 
 async function exec(cmd: string, args: string[], cwd?: string) {
   const { code } = await new Deno.Command(cmd, { args, cwd, stdout: 'inherit', stderr: 'inherit' }).spawn().status
@@ -52,7 +54,8 @@ for (const file of ['data-dir.ts', 'keychain.ts', 'mcp-token.ts']) {
 // they would resolve relative to `.output/deno.json`.
 const { desktop } = JSON.parse(await Deno.readTextFile('deno.json'))
 const appVersion = JSON.parse(await Deno.readTextFile('package.json')).version
-const absolute = (paths: Record<string, string>) => Object.fromEntries(Object.entries(paths).map(([os, path]) => [os, resolve(path)]))
+const absolute = (paths: Record<string, string>) =>
+  Object.fromEntries(Object.entries(paths).map(([os, path]) => [os, resolve(path)]))
 await Deno.writeTextFile(
   '.output/deno.json',
   JSON.stringify(
@@ -82,7 +85,10 @@ async function writeDuckdbManifest(platform: string) {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${url}: ${res.status}`)
   const { dist } = await res.json()
-  await Deno.writeTextFile('.output/launcher/duckdb.json', JSON.stringify({ version, platform, tarball: dist.tarball, integrity: dist.integrity }))
+  await Deno.writeTextFile(
+    '.output/launcher/duckdb.json',
+    JSON.stringify({ version, platform, tarball: dist.tarball, integrity: dist.integrity }),
+  )
 }
 
 for (const target of targets) {
@@ -94,7 +100,9 @@ for (const target of targets) {
   // the unpacked app next to it with the same name as `.zip`.
   const buildDir = resolve('.output/desktop', target)
   if (mode === 'desktop') await Deno.remove(buildDir, { recursive: true }).catch(() => {})
-  const output = mode === 'desktop' ? `${buildDir}/${basename(desktop.output[os])}` : `dist/colwerk${os === 'windows' ? '.exe' : ''}`
+  const output = mode === 'desktop'
+    ? `${buildDir}/${basename(desktop.output[os])}`
+    : `dist/colwerk${os === 'windows' ? '.exe' : ''}`
   await Deno.mkdir(dirname(output), { recursive: true })
   await run([
     mode,
@@ -111,7 +119,9 @@ for (const target of targets) {
     '--allow-env',
     '--allow-sys',
     '--allow-ffi',
-    `--allow-run=${['security', 'secret-tool', 'powershell', 'osascript', 'zenity', 'kdialog', 'open', 'cmd', 'xdg-open'].join(',')}`,
+    `--allow-run=${
+      ['security', 'secret-tool', 'powershell', 'osascript', 'zenity', 'kdialog', 'open', 'cmd', 'xdg-open'].join(',')
+    }`,
     '--include',
     '.output/public',
     '--include',
@@ -138,7 +148,7 @@ for (const target of targets) {
 
     const zip = resolve(dirname(dist), `${name}.zip`)
     await Deno.remove(zip).catch(() => {})
-    const files = [...Deno.readDirSync(buildDir)].map(entry => entry.name)
+    const files = [...Deno.readDirSync(buildDir)].map((entry) => entry.name)
     // `-y` keeps the symlinks inside a macOS .app (its signature covers them); Windows only has bsdtar.
     if (Deno.build.os === 'windows') await exec('tar', ['-a', '-cf', zip, ...files], buildDir)
     else await exec('zip', ['-qry', zip, ...files], buildDir)

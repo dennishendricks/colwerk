@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { defaultDataDir } from '../core/data-dir.ts'
 
 export function createToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 /** Reserves a random free port on 127.0.0.1. */
@@ -20,7 +20,11 @@ export function appUrl(port: number, token: string): string {
 
 /** Opens `url` in the default browser; on Windows it passes through `cmd`, so it must not contain `&`, `^` etc. */
 export function openInBrowser(url: string): void {
-  const [cmd, ...args] = Deno.build.os === 'darwin' ? ['open', url] : Deno.build.os === 'windows' ? ['cmd', '/c', 'start', '', url] : ['xdg-open', url]
+  const [cmd, ...args] = Deno.build.os === 'darwin'
+    ? ['open', url]
+    : Deno.build.os === 'windows'
+    ? ['cmd', '/c', 'start', '', url]
+    : ['xdg-open', url]
   try {
     new Deno.Command(cmd!, { args, stdout: 'null', stderr: 'null' }).spawn()
   } catch {
@@ -52,7 +56,12 @@ export function removeInstance(port: number): void {
 
 // `window.json` in the data directory keeps the desktop window's size and position across runs; Deno does
 // not restore them itself. Size is the content size, which both the constructor and `getSize()` use.
-export interface WindowBounds { width: number, height: number, x: number, y: number }
+export interface WindowBounds {
+  width: number
+  height: number
+  x: number
+  y: number
+}
 
 const windowFile = () => join(defaultDataDir(), 'window.json')
 

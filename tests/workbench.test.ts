@@ -25,7 +25,7 @@ Deno.test({ name: 'closing a tab cancels its statement', ...opts }, async () => 
   const wb = workbench({ id: 'wb-close', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   const started = performance.now()
   const running = assertRejects(() => wb.execute('tab', 'wb-close', SLOW, 1, 600))
-  await new Promise(r => setTimeout(r, 500))
+  await new Promise((r) => setTimeout(r, 500))
   await wb.cancel('tab')
   await wb.closeTab('tab')
   await running
@@ -53,12 +53,15 @@ Deno.test({ name: 'duckdb: file reconnects after garbage collection', ...opts },
   assert(gc, 'run with --v8-flags=--expose-gc')
   for (let i = 0; i < 5; i++) {
     gc()
-    await new Promise(r => setTimeout(r, 20))
+    await new Promise((r) => setTimeout(r, 20))
   }
   let timer: ReturnType<typeof setTimeout> | undefined
   const hung = new Promise<never>((_, reject) => timer = setTimeout(() => reject(new Error('connect hung')), 5_000))
   try {
-    assertEquals((await Promise.race([wb.execute('tab', 'wb-gc', 'select 1 as x', 10, 10), hung])).resultSets[0]!.rows, [[1]])
+    assertEquals(
+      (await Promise.race([wb.execute('tab', 'wb-gc', 'select 1 as x', 10, 10), hung])).resultSets[0]!.rows,
+      [[1]],
+    )
   } finally {
     clearTimeout(timer)
   }
@@ -103,11 +106,31 @@ Deno.test({ name: 'duckdb: disconnect releases the file until connect', ...opts 
 // The plan is taken in the tab's session, so it sees the session's temp table.
 // DuckDB plans a table as "Empty Result" when its statistics rule out every row, so its table gets rows
 // and the filter is one the statistics cannot decide.
-const explainCases: { config: ConnectionConfig, create: string, table: string, analyze: boolean }[] = [
-  { config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' }, create: 'create temp table wb_explain_t as from (values (1), (3)) v(x)', table: 'wb_explain_t', analyze: true },
-  { config: testConnections.postgres, create: 'create temp table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
-  { config: testConnections.mysql, create: 'create temporary table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
-  { config: testConnections.mssql, create: 'create table #wb_explain_t (x int)', table: '#wb_explain_t', analyze: false },
+const explainCases: { config: ConnectionConfig; create: string; table: string; analyze: boolean }[] = [
+  {
+    config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' },
+    create: 'create temp table wb_explain_t as from (values (1), (3)) v(x)',
+    table: 'wb_explain_t',
+    analyze: true,
+  },
+  {
+    config: testConnections.postgres,
+    create: 'create temp table wb_explain_t (x int)',
+    table: 'wb_explain_t',
+    analyze: true,
+  },
+  {
+    config: testConnections.mysql,
+    create: 'create temporary table wb_explain_t (x int)',
+    table: 'wb_explain_t',
+    analyze: true,
+  },
+  {
+    config: testConnections.mssql,
+    create: 'create table #wb_explain_t (x int)',
+    table: '#wb_explain_t',
+    analyze: false,
+  },
 ]
 
 for (const c of explainCases) {
@@ -129,29 +152,34 @@ for (const c of explainCases) {
 }
 
 // A tab session is reopened when the tab runs in another database of the connection.
-const databaseCases: { config: ConnectionConfig, current: string, other: string }[] = [
+const databaseCases: { config: ConnectionConfig; current: string; other: string }[] = [
   { config: testConnections.postgres, current: 'select current_database()', other: 'postgres' },
   { config: testConnections.mysql, current: 'select database()', other: 'information_schema' },
   { config: testConnections.mssql, current: 'select db_name()', other: 'master' },
 ]
 
 for (const c of databaseCases) {
-  Deno.test({ name: `${c.config.dialect}: switching the database`, ignore: !(await reachable(c.config)), ...opts }, async () => {
-    const wb = workbench(c.config)
-    const id = c.config.id
-    const current = async (database?: string) => (await wb.execute('tab', id, c.current, 1, 10, database)).resultSets[0]!.rows[0]![0]
-    assertEquals(await current(), c.config.database)
-    assertEquals(await current(c.other), c.other)
-    assertEquals(await current(), c.config.database)
-    const databases = (await wb.introspect(id, { kind: 'databases' })).map(d => d.name)
-    assert(databases.includes(c.config.database!), `databases: ${databases}`)
-    await wb.closeAll()
-  })
+  Deno.test(
+    { name: `${c.config.dialect}: switching the database`, ignore: !(await reachable(c.config)), ...opts },
+    async () => {
+      const wb = workbench(c.config)
+      const id = c.config.id
+      const current = async (database?: string) =>
+        (await wb.execute('tab', id, c.current, 1, 10, database)).resultSets[0]!.rows[0]![0]
+      assertEquals(await current(), c.config.database)
+      assertEquals(await current(c.other), c.other)
+      assertEquals(await current(), c.config.database)
+      const databases = (await wb.introspect(id, { kind: 'databases' })).map((d) => d.name)
+      assert(databases.includes(c.config.database!), `databases: ${databases}`)
+      await wb.closeAll()
+    },
+  )
 }
 
 Deno.test({ name: 'refreshing a table drops its cached indexes; DDL is never cached', ...opts }, async () => {
   const wb = workbench({ id: 'wb-cache', name: 'duck', dialect: 'duckdb', file: ':memory:' })
-  const indexes = async () => (await wb.introspect('wb-cache', { kind: 'indexes', schema: 'main', table: 't' })).map(i => i.name)
+  const indexes = async () =>
+    (await wb.introspect('wb-cache', { kind: 'indexes', schema: 'main', table: 't' })).map((i) => i.name)
   const ddl = () => wb.introspect('wb-cache', { kind: 'ddl', schema: 'main', name: 't', object: 'table' })
   await wb.execute('tab', 'wb-cache', 'create table t (x int)', 1, 10)
   assertEquals(await indexes(), [])

@@ -23,7 +23,8 @@ async function readOptional(file: string): Promise<string | undefined> {
 /** The MCP token; with `create`, a new one is stored when none exists yet. */
 export async function mcpToken({ create = false, dir = defaultDataDir() } = {}): Promise<string | undefined> {
   if (process.env.COLWERK_MCP_TOKEN) return process.env.COLWERK_MCP_TOKEN
-  const fresh = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
+  const fresh = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('')
   if (process.env.COLWERK_KEYCHAIN !== 'off') {
     const secrets = keychain(dir, 'mcp')
     try {

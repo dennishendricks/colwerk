@@ -45,12 +45,19 @@ const cases: Case[] = [
     createTemp: 'create temp table t (x int)',
     insertSeven: 'insert into t select generate_series(1, 7)',
     multi: 'select 1 as a; select 2 as b',
-    annotate: [`comment on table sales.orders is 'Orders'`, `comment on column sales.orders.total is 'Order total'`, 'analyze sales.orders'],
+    annotate: [
+      `comment on table sales.orders is 'Orders'`,
+      `comment on column sales.orders.total is 'Order total'`,
+      'analyze sales.orders',
+    ],
     routines: [
       `create or replace function sales.colwerk_add_so(a int) returns int language sql as 'select a + 1'`,
       `create or replace procedure sales.colwerk_touch_so() language sql as 'select 1'`,
     ],
-    dropRoutines: ['drop function if exists sales.colwerk_add_so(int)', 'drop procedure if exists sales.colwerk_touch_so()'],
+    dropRoutines: [
+      'drop function if exists sales.colwerk_add_so(int)',
+      'drop procedure if exists sales.colwerk_touch_so()',
+    ],
   },
   {
     config: testConnections.mysql,
@@ -63,7 +70,11 @@ const cases: Case[] = [
     createTemp: 'create temporary table t (x int)',
     insertSeven: 'insert into t select seq from seq_1_to_7',
     multi: 'select 1 as a; select 2 as b',
-    annotate: [`alter table orders comment = 'Orders'`, `alter table orders modify total decimal(12, 2) not null comment 'Order total'`, 'analyze table orders'],
+    annotate: [
+      `alter table orders comment = 'Orders'`,
+      `alter table orders modify total decimal(12, 2) not null comment 'Order total'`,
+      'analyze table orders',
+    ],
     routines: [
       'drop function if exists colwerk_add_so',
       'create function colwerk_add_so(a int) returns int deterministic return a + 1',
@@ -130,13 +141,15 @@ const cases: Case[] = [
       'insert into orders with recursive s(i) as (select 1 union all select i + 1 from s where i < 50000) select i, 1 + i % 200, i * 1.37 from s',
     ],
     // No decimal or timestamp types: such values are stored as text (or as a lossy REAL).
-    values: `select 9007199254740993 as big, '12345678901234567890.123' as dec, '2024-01-02T03:04:05.123456' as ts, x'deadbeef' as bin, null as n`,
+    values:
+      `select 9007199254740993 as big, '12345678901234567890.123' as dec, '2024-01-02T03:04:05.123456' as ts, x'deadbeef' as bin, null as n`,
     ts: '2024-01-02T03:04:05.123456',
     schema: 'main',
     customersSchema: 'main',
     sleep: 'with recursive c(x) as (select 1 union all select x + 1 from c where x < 100000000) select count(*) from c',
     createTemp: 'create temp table t (x int)',
-    insertSeven: 'insert into t with recursive s(i) as (select 1 union all select i + 1 from s where i < 7) select i from s',
+    insertSeven:
+      'insert into t with recursive s(i) as (select 1 union all select i + 1 from s where i < 7) select i from s',
     multi: 'select 1 as a; select 2 as b',
     // No comments on tables and columns, no stored routines.
     annotate: ['analyze'],
@@ -161,7 +174,7 @@ for (const c of cases) {
 
   Deno.test({ name: `${name}: unified value model`, ...opts }, async () => {
     const r = (await (await session()).execute(c.values, { rowLimit: 10 })).resultSets[0]!
-    assertEquals(r.columns.map(col => col.name), ['big', 'dec', 'ts', 'bin', 'n'])
+    assertEquals(r.columns.map((col) => col.name), ['big', 'dec', 'ts', 'bin', 'n'])
     const [big, dec, ts, bin, n] = r.rows[0]!
     assertEquals(big, '9007199254740993')
     assertEquals(typeof dec, 'string')
@@ -189,11 +202,17 @@ for (const c of cases) {
     const ins = await s.execute(c.insertSeven, { rowLimit: 1 })
     if (name !== 'duckdb') assertEquals(ins.affectedRows, 7)
     const tableName = name === 'mssql' ? '#t' : 't'
-    assertEquals(rows(await s.execute(`select count(*) as n from ${tableName}`, { rowLimit: 1 }))[0]![0]!.toString(), '7')
+    assertEquals(
+      rows(await s.execute(`select count(*) as n from ${tableName}`, { rowLimit: 1 }))[0]![0]!.toString(),
+      '7',
+    )
     const multi = await s.execute(c.multi, { rowLimit: 10 })
-    assertEquals(multi.resultSets.map(r => r.columns.map(col => col.name)), [['a'], ['b']])
+    assertEquals(multi.resultSets.map((r) => r.columns.map((col) => col.name)), [['a'], ['b']])
     // A truncated result set neither cuts off nor skips the statements after it.
-    const script = await s.execute(`select * from ${c.schema}.orders; ${c.insertSeven}; select count(*) as n from ${tableName}`, { rowLimit: 10 })
+    const script = await s.execute(
+      `select * from ${c.schema}.orders; ${c.insertSeven}; select count(*) as n from ${tableName}`,
+      { rowLimit: 10 },
+    )
     assertEquals(script.resultSets.length, 2)
     assertEquals(script.resultSets[0]!.rows.length, 10)
     assert(script.resultSets[0]!.truncated)
@@ -227,51 +246,99 @@ for (const c of cases) {
     // Postgres aborts the transaction on any error, DuckDB only on runtime errors (not on binder errors);
     // MySQL, SQL Server and SQLite keep it usable after this error.
     await s.execute(begin, { rowLimit: 1 })
-    await assertRejects(() => s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 }))
+    await assertRejects(() =>
+      s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 })
+    )
     assertEquals(await s.transactionState(), name === 'postgres' || name === 'duckdb' ? 'failed' : 'open')
     await s.execute('rollback', { rowLimit: 1 })
     assertEquals(await s.transactionState(), 'idle')
   })
 
   if (name === 'duckdb') {
-    Deno.test({ name: `${name}: v1Storage creates the file in the storage format of DuckDB 1.4`, ...opts }, async () => {
-      const dir = await Deno.makeTempDir()
-      try {
-        for (const v1Storage of [true, false]) {
-          const s = await (await loadDriver(name)).connect({ ...c.config, id: `duck-v1-${v1Storage}`, file: join(dir, `${v1Storage}.duckdb`), v1Storage })
-          try {
-            const sql = `select map_extract_value(tags, 'storage_version') from duckdb_databases() where database_name = current_database()`
-            assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), [[v1Storage ? 'v1.4.0+' : 'v2.0.0+']])
-          } finally {
-            await s.close()
+    Deno.test(
+      { name: `${name}: v1Storage creates the file in the storage format of DuckDB 1.4`, ...opts },
+      async () => {
+        const dir = await Deno.makeTempDir()
+        try {
+          for (const v1Storage of [true, false]) {
+            const s = await (await loadDriver(name)).connect({
+              ...c.config,
+              id: `duck-v1-${v1Storage}`,
+              file: join(dir, `${v1Storage}.duckdb`),
+              v1Storage,
+            })
+            try {
+              const sql =
+                `select map_extract_value(tags, 'storage_version') from duckdb_databases() where database_name = current_database()`
+              assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), [[v1Storage ? 'v1.4.0+' : 'v2.0.0+']])
+            } finally {
+              await s.close()
+            }
           }
+        } finally {
+          await Deno.remove(dir, { recursive: true })
         }
-      } finally {
-        await Deno.remove(dir, { recursive: true })
-      }
-    })
+      },
+    )
 
     Deno.test({ name: `${name}: GEOMETRY as WKT`, ...opts }, async () => {
-      const res = await (await session()).execute(`select 'POLYGON((0 0, 1 0, 1 1, 0 0))'::GEOMETRY as g, 'POINT(1 2)'::GEOMETRY('OGC:CRS84') as crs`, { rowLimit: 1 })
-      assertEquals(res.resultSets[0]!.columns.map(c => c.type), ['GEOMETRY', `GEOMETRY('OGC:CRS84')`])
+      const res = await (await session()).execute(
+        `select 'POLYGON((0 0, 1 0, 1 1, 0 0))'::GEOMETRY as g, 'POINT(1 2)'::GEOMETRY('OGC:CRS84') as crs`,
+        { rowLimit: 1 },
+      )
+      assertEquals(res.resultSets[0]!.columns.map((c) => c.type), ['GEOMETRY', `GEOMETRY('OGC:CRS84')`])
       assertEquals(rows(res), [['POLYGON ((0 0, 1 0, 1 1, 0 0))', 'POINT (1 2)']])
     })
 
     Deno.test({ name: `${name}: a VARIANT value equals the value it was cast from`, ...opts }, async () => {
       const s = await session()
       const values = [
-        'true', 'false', '-5::tinyint', '-300::smallint', '-70000::integer', '-5000000000::bigint', '-170141183460469231731687303715884105727::hugeint',
-        '200::utinyint', '60000::usmallint', '4000000000::uinteger', '18000000000000000000::ubigint', '340282366920938463463374607431768211455::uhugeint',
-        '1.5::float', '-2.25::double', `'nan'::double`, '-12.345::decimal(5,3)', '123456789.12::decimal(11,2)', '-1234567890123456.78::decimal(18,2)',
-        '12345678901234567890.123::decimal(38,3)', `repeat('ä', 200)`, `'\\xDE\\xAD'::blob`, `'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid`,
-        `date '2024-01-02'`, `date '-0044-03-15'`, `time '03:04:05.123456'`, `'03:04:05.123456789'::time_ns`, `timestamp_s '2024-01-02 03:04:05'`,
-        `timestamp_ms '2024-01-02 03:04:05.123'`, `timestamp '2024-01-02 03:04:05.123456'`, `timestamp_ns '2024-01-02 03:04:05.123456789'`,
-        `'03:04:05+02:30'::timetz`, `'2024-01-02 03:04:05+00'::timestamptz`, `'2024-01-02 03:04:05.123456789+00'::timestamptz_ns`,
-        `interval '1 month 2 days 3 seconds'`, '12345678901234567890123::bignum', `'10110'::bit`, `'POINT(1 2)'::geometry`,
-        `[1, null, 3]`, `{'a': 1, 'b': [{'c': 'x'}], 'd': null}`, 'null',
+        'true',
+        'false',
+        '-5::tinyint',
+        '-300::smallint',
+        '-70000::integer',
+        '-5000000000::bigint',
+        '-170141183460469231731687303715884105727::hugeint',
+        '200::utinyint',
+        '60000::usmallint',
+        '4000000000::uinteger',
+        '18000000000000000000::ubigint',
+        '340282366920938463463374607431768211455::uhugeint',
+        '1.5::float',
+        '-2.25::double',
+        `'nan'::double`,
+        '-12.345::decimal(5,3)',
+        '123456789.12::decimal(11,2)',
+        '-1234567890123456.78::decimal(18,2)',
+        '12345678901234567890.123::decimal(38,3)',
+        `repeat('ä', 200)`,
+        `'\\xDE\\xAD'::blob`,
+        `'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid`,
+        `date '2024-01-02'`,
+        `date '-0044-03-15'`,
+        `time '03:04:05.123456'`,
+        `'03:04:05.123456789'::time_ns`,
+        `timestamp_s '2024-01-02 03:04:05'`,
+        `timestamp_ms '2024-01-02 03:04:05.123'`,
+        `timestamp '2024-01-02 03:04:05.123456'`,
+        `timestamp_ns '2024-01-02 03:04:05.123456789'`,
+        `'03:04:05+02:30'::timetz`,
+        `'2024-01-02 03:04:05+00'::timestamptz`,
+        `'2024-01-02 03:04:05.123456789+00'::timestamptz_ns`,
+        `interval '1 month 2 days 3 seconds'`,
+        '12345678901234567890123::bignum',
+        `'10110'::bit`,
+        `'POINT(1 2)'::geometry`,
+        `[1, null, 3]`,
+        `{'a': 1, 'b': [{'c': 'x'}], 'd': null}`,
+        'null',
       ]
       await s.execute(`set timezone = 'UTC'`, { rowLimit: 1 })
-      const res = await s.execute(`select ${values.map((v, i) => `${v} as v${i}, (${v})::variant as w${i}`).join(', ')}`, { rowLimit: 1 })
+      const res = await s.execute(
+        `select ${values.map((v, i) => `${v} as v${i}, (${v})::variant as w${i}`).join(', ')}`,
+        { rowLimit: 1 },
+      )
       const [row] = rows(res) as unknown[][]
       values.forEach((v, i) => assertEquals(row![2 * i + 1], row![2 * i], v))
     })
@@ -279,14 +346,19 @@ for (const c of cases) {
 
   if (name === 'mysql') {
     Deno.test({ name: `${name}: geometry as WKT with SRID`, ...opts }, async () => {
-      const res = await (await session()).execute(`select ST_GeomFromText('POINT(1 2)', 4326) as g, ST_GeomFromText('LINESTRING(0 0, 1 1)') as l`, { rowLimit: 1 })
+      const res = await (await session()).execute(
+        `select ST_GeomFromText('POINT(1 2)', 4326) as g, ST_GeomFromText('LINESTRING(0 0, 1 1)') as l`,
+        { rowLimit: 1 },
+      )
       assertEquals(rows(res), [['SRID=4326;POINT (1 2)', 'LINESTRING (0 0, 1 1)']])
     })
   }
 
   if (name === 'postgres') {
     // Only when PostGIS is installed in the test database (the postgres image of docker-compose.yml has none).
-    const postgis = !ignore && rows(await (await session()).execute(`select 1 from pg_extension where extname = 'postgis'`, { rowLimit: 1 })).length > 0
+    const postgis = !ignore &&
+      rows(await (await session()).execute(`select 1 from pg_extension where extname = 'postgis'`, { rowLimit: 1 }))
+          .length > 0
     Deno.test({ name: `${name}: PostGIS geometry and geography as EWKT`, ...opts, ignore: !postgis }, async () => {
       const s = await session()
       const sql = `select 'SRID=4326;POINT(7.1 50.7)'::geometry as g, 'POINT Z (1 2 3)'::geometry as z,
@@ -294,16 +366,23 @@ for (const c of cases) {
       const expected = [['SRID=4326;POINT (7.1 50.7)', 'POINT Z (1 2 3)', 'SRID=4326;LINESTRING (0 0, 1 1)', null]]
       assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), expected)
       const streamed: unknown[][] = []
-      await s.stream(sql, { columns: () => {}, rows: async (r) => {
-        streamed.push(...r)
-      } })
+      await s.stream(sql, {
+        columns: () => {},
+        rows: async (r) => {
+          streamed.push(...r)
+        },
+      })
       assertEquals(streamed, expected)
     })
 
     Deno.test({ name: `${name}: date and timestamp arrays keep the unified string form`, ...opts }, async () => {
-      const [[ts, d, tz]] = rows(await (await session()).execute(
-        `select array['2024-01-02 03:04:05.123456'::timestamp, null] as ts, array['2024-01-02'::date] as d,
-           array['2024-01-02 03:04:05+00'::timestamptz] as tz`, { rowLimit: 1 })) as [[string[], string[], string[]]]
+      const [[ts, d, tz]] = rows(
+        await (await session()).execute(
+          `select array['2024-01-02 03:04:05.123456'::timestamp, null] as ts, array['2024-01-02'::date] as d,
+           array['2024-01-02 03:04:05+00'::timestamptz] as tz`,
+          { rowLimit: 1 },
+        ),
+      ) as [[string[], string[], string[]]]
       assertEquals(ts, ['2024-01-02T03:04:05.123456', null])
       assertEquals(d, ['2024-01-02'])
       assertMatch(tz[0]!, /^2024-01-0[12]T\d{2}:\d{2}:05[+-]\d{2}:\d{2}$/)
@@ -321,15 +400,35 @@ for (const c of cases) {
 
   if (name === 'mssql') {
     Deno.test({ name: `${name}: GO separates batches`, ...opts }, async () => {
-      const r = await (await session()).execute(`declare @x int = 1\nselect @x as a\nGO\nselect 2 as b`, { rowLimit: 10 })
-      assertEquals(r.resultSets.map(s => s.rows), [[[1]], [[2]]])
-      await assertRejects(() => (session().then(s => s.execute(`select 1\nGO\nselect * from does_not_exist`, { rowLimit: 1 }))), Error, 'Batch 2:')
+      const r = await (await session()).execute(`declare @x int = 1\nselect @x as a\nGO\nselect 2 as b`, {
+        rowLimit: 10,
+      })
+      assertEquals(r.resultSets.map((s) => s.rows), [[[1]], [[2]]])
+      await assertRejects(
+        () => (session().then((s) => s.execute(`select 1\nGO\nselect * from does_not_exist`, { rowLimit: 1 }))),
+        Error,
+        'Batch 2:',
+      )
     })
 
     Deno.test({ name: `${name}: session language and date format`, ...opts }, async () => {
-      const s = await (await loadDriver(name)).connect({ ...c.config, language: 'Deutsch', dateFormat: 'ymd', connectRetries: 0, multiSubnetFailover: true })
+      const s = await (await loadDriver(name)).connect({
+        ...c.config,
+        language: 'Deutsch',
+        dateFormat: 'ymd',
+        connectRetries: 0,
+        multiSubnetFailover: true,
+      })
       try {
-        assertEquals(rows(await s.execute(`select @@language as lang, date_format from sys.dm_exec_sessions where session_id = @@spid`, { rowLimit: 1 })), [['Deutsch', 'ymd']])
+        assertEquals(
+          rows(
+            await s.execute(
+              `select @@language as lang, date_format from sys.dm_exec_sessions where session_id = @@spid`,
+              { rowLimit: 1 },
+            ),
+          ),
+          [['Deutsch', 'ymd']],
+        )
       } finally {
         await s.close()
       }
@@ -342,12 +441,12 @@ for (const c of cases) {
     let count = 0
     let maxBatch = 0
     await s.stream(`select id, total from ${c.schema}.orders`, {
-      columns: cols => (columns = cols.map(col => col.name)),
+      columns: (cols) => (columns = cols.map((col) => col.name)),
       // A slow consumer: the driver must wait instead of buffering everything.
       rows: async (rows) => {
         count += rows.length
         maxBatch = Math.max(maxBatch, rows.length)
-        await new Promise(r => setTimeout(r, 1))
+        await new Promise((r) => setTimeout(r, 1))
       },
     })
     assertEquals(columns, ['id', 'total'])
@@ -356,13 +455,18 @@ for (const c of cases) {
 
     // A failing sink aborts the statement; the session stays usable.
     let seen = 0
-    await assertRejects(() => s.stream(`select id from ${c.schema}.orders`, {
-      columns: () => {},
-      rows: async (rows) => {
-        seen += rows.length
-        throw new Error('client gone')
-      },
-    }), Error, 'client gone')
+    await assertRejects(
+      () =>
+        s.stream(`select id from ${c.schema}.orders`, {
+          columns: () => {},
+          rows: async (rows) => {
+            seen += rows.length
+            throw new Error('client gone')
+          },
+        }),
+      Error,
+      'client gone',
+    )
     assert(seen <= 2048, `${seen} rows after abort`)
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
   })
@@ -371,7 +475,7 @@ for (const c of cases) {
     const s = await session()
     const started = performance.now()
     const running = assertRejects(() => s.execute(c.sleep, { rowLimit: 1 }))
-    await new Promise(r => setTimeout(r, 500))
+    await new Promise((r) => setTimeout(r, 500))
     await s.cancel()
     await running
     assert(performance.now() - started < 10_000, 'cancel took too long')
@@ -380,23 +484,25 @@ for (const c of cases) {
 
   Deno.test({ name: `${name}: introspection`, ...opts }, async () => {
     const s = await session()
-    const schemas = (await s.introspect({ kind: 'schemas' })).map(x => x.name)
+    const schemas = (await s.introspect({ kind: 'schemas' })).map((x) => x.name)
     assert(schemas.includes(c.schema), `schemas: ${schemas}`)
-    const databases = (await s.introspect({ kind: 'databases' })).map(x => x.name)
+    const databases = (await s.introspect({ kind: 'databases' })).map((x) => x.name)
     assert(databases.includes(c.config.database ?? 'memory'), `databases: ${databases}`)
     for (const stmt of c.annotate) await s.execute(stmt, { rowLimit: 1 })
     const tables = await s.introspect({ kind: 'tables', schema: c.schema })
-    const orders = tables.find(t => t.name === 'orders')!
+    const orders = tables.find((t) => t.name === 'orders')!
     assertEquals(orders.kind, 'table')
     assertEquals(orders.comment, name === 'sqlite' ? null : 'Orders')
     assertEquals(orders.partitioning, null)
     // Statistics are approximate: InnoDB samples pages.
     assert(orders.rowEstimate! > 25_000 && orders.rowEstimate! < 100_000, `rowEstimate: ${orders.rowEstimate}`)
-    const view = tables.find(t => t.name === 'order_totals')!
+    const view = tables.find((t) => t.name === 'order_totals')!
     assertEquals(view.kind, 'view')
     assertEquals(view.rowEstimate, null)
     assertEquals(view.comment, null)
-    const cols = Object.fromEntries((await s.introspect({ kind: 'columns', schema: c.schema, table: 'orders' })).map(col => [col.name, col]))
+    const cols = Object.fromEntries(
+      (await s.introspect({ kind: 'columns', schema: c.schema, table: 'orders' })).map((col) => [col.name, col]),
+    )
     assertEquals(cols.id!.primaryKey, true)
     assertEquals(cols.id!.nullable, false)
     assertEquals(cols.customer_id!.primaryKey, false)
@@ -410,26 +516,39 @@ for (const c of cases) {
   Deno.test({ name: `${name}: indexes, routines, DDL`, ...opts }, async () => {
     const s = await session()
     const indexes = await s.introspect({ kind: 'indexes', schema: c.schema, table: 'orders' })
-    assertEquals(indexes.filter(i => i.primary).map(i => [i.columns, i.unique]), [[['id'], true]])
-    assertEquals(indexes.find(i => i.name === 'orders_customer_idx'), { name: 'orders_customer_idx', columns: ['customer_id'], unique: false, primary: false })
+    assertEquals(indexes.filter((i) => i.primary).map((i) => [i.columns, i.unique]), [[['id'], true]])
+    assertEquals(indexes.find((i) => i.name === 'orders_customer_idx'), {
+      name: 'orders_customer_idx',
+      columns: ['customer_id'],
+      unique: false,
+      primary: false,
+    })
 
     for (const stmt of c.routines) await s.execute(stmt, { rowLimit: 1 })
     if (name === 'sqlite') assertEquals(await s.introspect({ kind: 'routines', schema: c.schema }), [])
-    else try {
-      const routines = await s.introspect({ kind: 'routines', schema: c.schema })
-      assertEquals(routines.find(r => r.name === 'colwerk_add_so'), { name: 'colwerk_add_so', kind: 'function' })
-      if (name !== 'duckdb') assertEquals(routines.find(r => r.name === 'colwerk_touch_so')?.kind, 'procedure')
-      assert(!routines.some(r => ['sum', 'abs', 'now'].includes(r.name)), 'built-in functions listed')
-      assertMatch(await s.introspect({ kind: 'ddl', schema: c.schema, name: 'colwerk_add_so', object: 'routine' }), /colwerk_add_so[\s\S]*\+ 1/)
-    } finally {
-      for (const stmt of c.dropRoutines) await s.execute(stmt, { rowLimit: 1 })
-    }
+    else {try {
+        const routines = await s.introspect({ kind: 'routines', schema: c.schema })
+        assertEquals(routines.find((r) => r.name === 'colwerk_add_so'), { name: 'colwerk_add_so', kind: 'function' })
+        if (name !== 'duckdb') assertEquals(routines.find((r) => r.name === 'colwerk_touch_so')?.kind, 'procedure')
+        assert(!routines.some((r) => ['sum', 'abs', 'now'].includes(r.name)), 'built-in functions listed')
+        assertMatch(
+          await s.introspect({ kind: 'ddl', schema: c.schema, name: 'colwerk_add_so', object: 'routine' }),
+          /colwerk_add_so[\s\S]*\+ 1/,
+        )
+      } finally {
+        for (const stmt of c.dropRoutines) await s.execute(stmt, { rowLimit: 1 })
+      }}
 
     const table = await s.introspect({ kind: 'ddl', schema: c.schema, name: 'orders', object: 'table' })
     assertMatch(table, /^create table/i)
     for (const part of [/customer_id/, /references/i, /orders_customer_idx/]) assertMatch(table, part)
-    assertMatch(await s.introspect({ kind: 'ddl', schema: c.schema, name: 'order_totals', object: 'view' }), /^create\b[\s\S]*view[\s\S]*sum\(/i)
-    await assertRejects(() => s.introspect({ kind: 'ddl', schema: c.schema, name: 'does_not_exist_so', object: 'view' }))
+    assertMatch(
+      await s.introspect({ kind: 'ddl', schema: c.schema, name: 'order_totals', object: 'view' }),
+      /^create\b[\s\S]*view[\s\S]*sum\(/i,
+    )
+    await assertRejects(() =>
+      s.introspect({ kind: 'ddl', schema: c.schema, name: 'does_not_exist_so', object: 'view' })
+    )
   })
 
   Deno.test({ name: `${name}: close`, ...opts }, async () => {

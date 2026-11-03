@@ -1,4 +1,11 @@
-import { AppError, type ConnectionAuth, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
+import {
+  AppError,
+  type ConnectionAuth,
+  type Dialect,
+  type Driver,
+  type DriverInfo,
+  type DriverStatus,
+} from './types.ts'
 
 interface RegistryEntry extends DriverInfo {
   // Driver modules are imported on first use so that e.g. DuckDB's native library is only loaded when needed.
@@ -13,38 +20,68 @@ const registry: Record<Dialect, RegistryEntry> = {
     label: 'PostgreSQL',
     defaultPort: 5432,
     auths: ['password', ...entra],
-    capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: true, supportsDatabases: true, locksDatabase: false },
-    load: () => import('./drivers/postgres.ts').then(m => m.postgresDriver),
+    capabilities: {
+      supportsCancel: true,
+      supportsSchemas: true,
+      supportsNetwork: true,
+      supportsDatabases: true,
+      locksDatabase: false,
+    },
+    load: () => import('./drivers/postgres.ts').then((m) => m.postgresDriver),
   },
   mysql: {
     dialect: 'mysql',
     label: 'MySQL / MariaDB',
     defaultPort: 3306,
     auths: ['password', ...entra],
-    capabilities: { supportsCancel: true, supportsSchemas: false, supportsNetwork: true, supportsDatabases: true, locksDatabase: false },
-    load: () => import('./drivers/mysql.ts').then(m => m.mysqlDriver),
+    capabilities: {
+      supportsCancel: true,
+      supportsSchemas: false,
+      supportsNetwork: true,
+      supportsDatabases: true,
+      locksDatabase: false,
+    },
+    load: () => import('./drivers/mysql.ts').then((m) => m.mysqlDriver),
   },
   mssql: {
     dialect: 'mssql',
     label: 'SQL Server',
     defaultPort: 1433,
     auths: ['password', 'windows', ...entra],
-    capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: true, supportsDatabases: true, locksDatabase: false },
-    load: () => import('./drivers/mssql.ts').then(m => m.mssqlDriver),
+    capabilities: {
+      supportsCancel: true,
+      supportsSchemas: true,
+      supportsNetwork: true,
+      supportsDatabases: true,
+      locksDatabase: false,
+    },
+    load: () => import('./drivers/mssql.ts').then((m) => m.mssqlDriver),
   },
   duckdb: {
     dialect: 'duckdb',
     label: 'DuckDB',
     auths: [],
-    capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: false, supportsDatabases: false, locksDatabase: true },
-    load: () => prepareDuckdb().then(() => import('./drivers/duckdb.ts')).then(m => m.duckdbDriver),
+    capabilities: {
+      supportsCancel: true,
+      supportsSchemas: true,
+      supportsNetwork: false,
+      supportsDatabases: false,
+      locksDatabase: true,
+    },
+    load: () => prepareDuckdb().then(() => import('./drivers/duckdb.ts')).then((m) => m.duckdbDriver),
   },
   sqlite: {
     dialect: 'sqlite',
     label: 'SQLite',
     auths: [],
-    capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: false, supportsDatabases: false, locksDatabase: false },
-    load: () => import('./drivers/sqlite.ts').then(m => m.sqliteDriver),
+    capabilities: {
+      supportsCancel: true,
+      supportsSchemas: true,
+      supportsNetwork: false,
+      supportsDatabases: false,
+      locksDatabase: false,
+    },
+    load: () => import('./drivers/sqlite.ts').then((m) => m.sqliteDriver),
   },
 }
 
@@ -63,7 +100,11 @@ const duckdbHook = () => (globalThis as { colwerkDuckdb?: DuckdbHook }).colwerkD
 /** Fails unless DuckDB's native library is in place. Call before importing the driver. */
 async function prepareDuckdb(): Promise<void> {
   if (await duckdbHook()?.installed() === false) {
-    throw new AppError('driverMissing', 'The DuckDB driver is not installed. Open the connection in Colwerk and choose "Load database driver".', { code: 'ENODRIVER' })
+    throw new AppError(
+      'driverMissing',
+      'The DuckDB driver is not installed. Open the connection in Colwerk and choose "Load database driver".',
+      { code: 'ENODRIVER' },
+    )
   }
 }
 
@@ -83,11 +124,15 @@ export function loadDriver(dialect: Dialect): Promise<Driver> {
   return driver
 }
 
-let installing: { progress?: number, done: Promise<void> } | undefined
+let installing: { progress?: number; done: Promise<void> } | undefined
 
 export async function driverStatus(): Promise<DriverStatus[]> {
   const duckdb = await duckdbHook()?.installed() ?? true
-  return drivers.map(d => d.dialect === 'duckdb' ? { ...d, installed: duckdb, installProgress: installing?.progress } : { ...d, installed: true })
+  return drivers.map((d) =>
+    d.dialect === 'duckdb'
+      ? { ...d, installed: duckdb, installProgress: installing?.progress }
+      : { ...d, installed: true }
+  )
 }
 
 /** Downloads the native library of a driver that is not installed yet; concurrent calls share the download. */
@@ -96,9 +141,11 @@ export function installDriver(dialect: Dialect): Promise<void> {
   if (dialect !== 'duckdb' || !hook) return Promise.resolve()
   if (!installing) {
     const state: { progress?: number } = {}
-    const done = hook.install(fraction => (state.progress = fraction))
+    const done = hook.install((fraction) => (state.progress = fraction))
       .catch((e) => {
-        throw new AppError('driverDownloadFailed', `Download of the DuckDB driver failed: ${(e as Error).message}`, { params: { detail: (e as Error).message } })
+        throw new AppError('driverDownloadFailed', `Download of the DuckDB driver failed: ${(e as Error).message}`, {
+          params: { detail: (e as Error).message },
+        })
       })
       .finally(() => (installing = undefined))
     installing = Object.assign(state, { done })

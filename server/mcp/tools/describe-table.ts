@@ -28,7 +28,7 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
       comment: info.comment,
       partitioning: info.partitioning,
       clustering: info.clustering,
-      columns: columns.map(c => ({
+      columns: columns.map((c) => ({
         name: c.name,
         type: c.type,
         nullable: c.nullable,

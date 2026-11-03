@@ -4,7 +4,13 @@ import { withoutLogin } from '../core/login.ts'
 import { AppError, type ConnectionConfig } from '../core/types.ts'
 
 Deno.test('entra: without a login, MCP requests get an error instead of a browser window', async () => {
-  const config: ConnectionConfig = { id: 'e', name: 'e', dialect: 'mssql', host: 'example.database.windows.net', auth: 'entra-interactive' }
+  const config: ConnectionConfig = {
+    id: 'e',
+    name: 'e',
+    dialect: 'mssql',
+    host: 'example.database.windows.net',
+    auth: 'entra-interactive',
+  }
   const e = await assertRejects(() => withoutLogin(() => entraToken(config, ENTRA_SCOPE.mssql)), AppError)
   assertEquals(e.key, 'entraLoginRequired')
 })

@@ -18,7 +18,11 @@ export interface SplitOptions {
  * brackets (mssql, sqlite), `GO` batch separators on their own line (mssql) and trigger bodies (sqlite).
  * Ranges are trimmed and exclude the delimiter; empty statements are dropped.
  */
-export function splitStatements(sql: string, dialect: SplitDialect, { semicolons = true, blankLines = false }: SplitOptions = {}): StatementRange[] {
+export function splitStatements(
+  sql: string,
+  dialect: SplitDialect,
+  { semicolons = true, blankLines = false }: SplitOptions = {},
+): StatementRange[] {
   const ranges: StatementRange[] = []
   let start = 0
   let i = 0
@@ -105,7 +109,7 @@ function literalEnd(sql: string, dialect: SplitDialect, i: number): number | und
     const end = sql.indexOf('*/', i + 2)
     return end === -1 ? n : end + 2
   }
-  if (ch === '\'') return quoted('\'', dialect === 'mysql')
+  if (ch === "'") return quoted("'", dialect === 'mysql')
   if (ch === '"') return quoted('"', dialect === 'mysql')
   if (ch === '`' && (dialect === 'mysql' || dialect === 'sqlite')) return quoted('`', false)
   if (ch === '[' && (dialect === 'mssql' || dialect === 'sqlite')) return quoted(']', false)
@@ -123,7 +127,7 @@ function inTriggerBody(text: string): boolean {
   if (!/^\s*create\s+(temp\s+|temporary\s+)?trigger\b/.test(code)) return false
   // CASE … END may appear in the body as well.
   const words = code.match(/\b(begin|case|end)\b/g) ?? []
-  return words.filter(w => w !== 'end').length > words.filter(w => w === 'end').length
+  return words.filter((w) => w !== 'end').length > words.filter((w) => w === 'end').length
 }
 
 function isGoLine(sql: string, i: number): boolean {
@@ -139,14 +143,14 @@ function isGoLine(sql: string, i: number): boolean {
  */
 export function statementAt(sql: string, dialect: SplitDialect, cursor: number): StatementRange | undefined {
   const ranges = splitStatements(sql, dialect, { blankLines: dialect === 'mssql' })
-  return ranges.find(r => cursor >= r.from && cursor <= r.to)
-    ?? ranges.filter(r => r.to <= cursor).at(-1)
-    ?? ranges.find(r => r.from >= cursor)
+  return ranges.find((r) => cursor >= r.from && cursor <= r.to) ??
+    ranges.filter((r) => r.to <= cursor).at(-1) ??
+    ranges.find((r) => r.from >= cursor)
 }
 
 /** The statement texts of a script (see `splitStatements`). */
 export function statementTexts(sql: string, dialect: SplitDialect, options?: SplitOptions): string[] {
-  return splitStatements(sql, dialect, options).map(r => sql.slice(r.from, r.to))
+  return splitStatements(sql, dialect, options).map((r) => sql.slice(r.from, r.to))
 }
 
 /** Offset of the first character of the 1-based `line` (the last line if there are fewer). */

@@ -24,7 +24,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 `
 
-type Package = { name: string, version: string, license?: string, text?: string }
+type Package = { name: string; version: string; license?: string; text?: string }
 
 async function readPackage(dir: string): Promise<Package> {
   const { name, version, license } = JSON.parse(await Deno.readTextFile(join(dir, 'package.json')))
@@ -47,6 +47,10 @@ export async function writeThirdPartyLicenses(file: string): Promise<void> {
   const sorted = [...packages.values()].sort((a, b) => a.name.localeCompare(b.name))
   const entries = [{ name: 'Deno', version: Deno.version.deno, license: 'MIT', text: DENO_LICENSE }, ...sorted]
   const rule = '='.repeat(80)
-  const body = entries.map(p => `${rule}\n${p.name} ${p.version} (${p.license ?? 'unknown license'})\n${rule}\n\n${p.text?.trim() ?? 'No license text included in the package.'}\n`)
+  const body = entries.map((p) =>
+    `${rule}\n${p.name} ${p.version} (${p.license ?? 'unknown license'})\n${rule}\n\n${
+      p.text?.trim() ?? 'No license text included in the package.'
+    }\n`
+  )
   await Deno.writeTextFile(file, `Colwerk contains the following third-party software.\n\n${body.join('\n')}`)
 }

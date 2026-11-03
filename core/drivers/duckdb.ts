@@ -1,5 +1,24 @@
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import {
+  AppError,
+  type CellValue,
+  type ColumnInfo,
+  type ConnectionConfig,
+  type DatabaseInfo,
+  DbError,
+  type Driver,
+  type IndexInfo,
+  type IntrospectRequest,
+  type IntrospectResult,
+  type QueryResult,
+  type ResultSet,
+  type RoutineInfo,
+  type RowSink,
+  type SchemaInfo,
+  type Session,
+  type TableInfo,
+  type TransactionState,
+} from '../types.ts'
 import { connect, type Connection } from './duckdb-ffi.ts'
 
 function wrap(e: unknown): DbError {
@@ -103,7 +122,11 @@ class DuckDBSession implements Session {
             if (!result.isQuery) continue
             const rows: CellValue[][] = []
             for (let chunk; rows.length <= rowLimit && (chunk = await result.next());) rows.push(...chunk)
-            resultSets.push({ columns: result.columns, rows: rows.slice(0, rowLimit), truncated: rows.length > rowLimit })
+            resultSets.push({
+              columns: result.columns,
+              rows: rows.slice(0, rowLimit),
+              truncated: rows.length > rowLimit,
+            })
           } finally {
             result.close()
           }
@@ -115,7 +138,11 @@ class DuckDBSession implements Session {
           throw err
         }
       }
-      return { resultSets, affectedRows: resultSets.length ? undefined : affectedRows, durationMs: performance.now() - started }
+      return {
+        resultSets,
+        affectedRows: resultSets.length ? undefined : affectedRows,
+        durationMs: performance.now() - started,
+      }
     })
   }
 
@@ -154,10 +181,14 @@ class DuckDBSession implements Session {
   async introspect<R extends IntrospectRequest>(req: R): Promise<IntrospectResult<R>> {
     try {
       // No switching between databases (supportsDatabases is false): only the opened one.
-      if (req.kind === 'databases') return await this.rows<DatabaseInfo>('select current_database() as name') as IntrospectResult<R>
+      if (req.kind === 'databases') {
+        return await this.rows<DatabaseInfo>('select current_database() as name') as IntrospectResult<R>
+      }
       if (req.kind === 'schemas') return await this.rows<SchemaInfo>(SQL.schemas) as IntrospectResult<R>
       if (req.kind === 'tables') {
-        const tables = await this.rows<{ name: string, kind: TableInfo['kind'], row_estimate: string | null, comment: string | null }>(SQL.tables, [req.schema])
+        const tables = await this.rows<
+          { name: string; kind: TableInfo['kind']; row_estimate: string | null; comment: string | null }
+        >(SQL.tables, [req.schema])
         return tables.map(({ row_estimate, ...t }): TableInfo => ({
           schema: req.schema,
           ...t,
@@ -166,38 +197,57 @@ class DuckDBSession implements Session {
           clustering: null,
         })) as IntrospectResult<R>
       }
-      if (req.kind === 'routines') return await this.rows<RoutineInfo>(SQL.routines, [req.schema]) as IntrospectResult<R>
+      if (req.kind === 'routines') {
+        return await this.rows<RoutineInfo>(SQL.routines, [req.schema]) as IntrospectResult<R>
+      }
       if (req.kind === 'ddl') return await this.ddl(req) as IntrospectResult<R>
       const params = [req.schema, req.table]
       if (req.kind === 'indexes') {
         const [constraints, indexes] = await Promise.all([
-          this.rows<{ type: string, name: string, cols: string[] }>(SQL.constraints, params),
-          this.rows<{ name: string, expressions: string, is_unique: boolean }>(SQL.indexes, params),
+          this.rows<{ type: string; name: string; cols: string[] }>(SQL.constraints, params),
+          this.rows<{ name: string; expressions: string; is_unique: boolean }>(SQL.indexes, params),
         ])
         // Primary keys and unique constraints are not listed in duckdb_indexes().
         return [
-          ...constraints.filter(k => k.type !== 'FOREIGN KEY').sort((a, b) => Number(b.type === 'PRIMARY KEY') - Number(a.type === 'PRIMARY KEY'))
-            .map((k): IndexInfo => ({ name: k.name, columns: k.cols, unique: true, primary: k.type === 'PRIMARY KEY' })),
-          ...indexes.map((i): IndexInfo => ({ name: i.name, columns: i.expressions.slice(1, -1).split(', '), unique: i.is_unique, primary: false })),
+          ...constraints.filter((k) => k.type !== 'FOREIGN KEY').sort((a, b) =>
+            Number(b.type === 'PRIMARY KEY') - Number(a.type === 'PRIMARY KEY')
+          )
+            .map((k): IndexInfo => ({
+              name: k.name,
+              columns: k.cols,
+              unique: true,
+              primary: k.type === 'PRIMARY KEY',
+            })),
+          ...indexes.map((i): IndexInfo => ({
+            name: i.name,
+            columns: i.expressions.slice(1, -1).split(', '),
+            unique: i.is_unique,
+            primary: false,
+          })),
         ] as IntrospectResult<R>
       }
       const [columns, constraints, indexes] = await Promise.all([
-        this.rows<{ name: string, type: string, nullable: boolean, comment: string | null }>(SQL.columns, params),
-        this.rows<{ type: string, name: string, cols: string[], ref_table: string | null, ref_cols: string[] }>(SQL.constraints, params),
-        this.rows<{ name: string, expressions: string }>(SQL.indexes, params),
+        this.rows<{ name: string; type: string; nullable: boolean; comment: string | null }>(SQL.columns, params),
+        this.rows<{ type: string; name: string; cols: string[]; ref_table: string | null; ref_cols: string[] }>(
+          SQL.constraints,
+          params,
+        ),
+        this.rows<{ name: string; expressions: string }>(SQL.indexes, params),
       ])
       return columns.map((c): ColumnInfo => {
-        const fk = constraints.find(k => k.type === 'FOREIGN KEY' && k.cols.includes(c.name))
+        const fk = constraints.find((k) => k.type === 'FOREIGN KEY' && k.cols.includes(c.name))
         const refColumn = fk?.ref_table ? fk.ref_cols[fk.cols.indexOf(c.name)] : undefined
         return {
           ...c,
-          primaryKey: constraints.some(k => k.type === 'PRIMARY KEY' && k.cols.includes(c.name)),
+          primaryKey: constraints.some((k) => k.type === 'PRIMARY KEY' && k.cols.includes(c.name)),
           // duckdb_constraints() has no referenced schema; DuckDB only allows FKs within one schema.
-          references: fk?.ref_table && refColumn ? { schema: req.schema, table: fk.ref_table, column: refColumn } : undefined,
+          references: fk?.ref_table && refColumn
+            ? { schema: req.schema, table: fk.ref_table, column: refColumn }
+            : undefined,
           indexes: [
-            ...constraints.filter(k => k.type === 'UNIQUE' && k.cols.includes(c.name)).map(k => k.name),
+            ...constraints.filter((k) => k.type === 'UNIQUE' && k.cols.includes(c.name)).map((k) => k.name),
             // `expressions` looks like "[col_a, col_b]"; expression indexes simply don't match a column.
-            ...indexes.filter(i => i.expressions.slice(1, -1).split(', ').includes(c.name)).map(i => i.name),
+            ...indexes.filter((i) => i.expressions.slice(1, -1).split(', ').includes(c.name)).map((i) => i.name),
           ].sort(),
         }
       }) as IntrospectResult<R>
@@ -211,12 +261,22 @@ class DuckDBSession implements Session {
     let ddl: string[]
     if (req.object === 'routine') {
       // Macros are stored as their body only; overloads appear as separate rows.
-      const macros = await this.rows<{ type: string, parameters: string[], definition: string }>(SQL.routineDdl, params)
-      ddl = macros.map(m => `create macro ${ident(req.schema)}.${ident(req.name)}(${m.parameters.join(', ')}) as ${m.type === 'table_macro' ? 'table ' : ''}${m.definition};`)
+      const macros = await this.rows<{ type: string; parameters: string[]; definition: string }>(SQL.routineDdl, params)
+      ddl = macros.map((m) =>
+        `create macro ${ident(req.schema)}.${ident(req.name)}(${m.parameters.join(', ')}) as ${
+          m.type === 'table_macro' ? 'table ' : ''
+        }${m.definition};`
+      )
     } else {
-      ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map(r => r.sql)
+      ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map((r) =>
+        r.sql
+      )
     }
-    if (!ddl.length) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
+    if (!ddl.length) {
+      throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, {
+        params: { name: `${req.schema}.${req.name}` },
+      })
+    }
     return ddl.join('\n\n')
   }
 

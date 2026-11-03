@@ -20,7 +20,11 @@ const recordBundledPackages = {
 // `pg-pool` requires `pg`, which resolves to pg's ESM wrapper and is then read before its initialization.
 const pgCommonJs = {
   name: 'colwerk:pg-commonjs',
-  resolveId(this: { resolve(id: string, importer?: string, options?: { skipSelf: boolean }): Promise<unknown> }, id: string, importer?: string) {
+  resolveId(
+    this: { resolve(id: string, importer?: string, options?: { skipSelf: boolean }): Promise<unknown> },
+    id: string,
+    importer?: string,
+  ) {
     if (id === 'pg') return this.resolve('pg/lib/index.js', importer, { skipSelf: true })
   },
 }
@@ -98,7 +102,8 @@ export default defineNuxtConfig({
   mcp: {
     name: 'colwerk',
     description: 'Database structures and read-only SQL queries for the connections configured in Colwerk.',
-    instructions: `Call list-connections first; every other tool needs a connectionId from it, and its "dialect" decides the SQL dialect.
+    instructions:
+      `Call list-connections first; every other tool needs a connectionId from it, and its "dialect" decides the SQL dialect.
 Explore with list-schemas, list-tables and describe-table before writing queries.
 run-query and sample-rows only read. Use open-query to hand a query to the user in the editor instead of running it.`,
   },

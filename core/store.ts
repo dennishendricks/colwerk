@@ -26,7 +26,7 @@ type StoredConnection = Omit<ConnectionConfig, 'password'> & { passwordEnc?: str
 // against accidental disclosure (backups, sync folders, screen sharing). A `secret.key` of an older
 // version is moved into the keychain on first use.
 const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes))
-const unb64 = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0))
+const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
 
 async function readKeyFile(file: string): Promise<string | undefined> {
   try {
@@ -51,7 +51,7 @@ export class ConnectionStore {
   }
 
   async get(id: string): Promise<ConnectionConfig> {
-    const stored = (await this.read()).find(c => c.id === id)
+    const stored = (await this.read()).find((c) => c.id === id)
     if (!stored) throw new Error(`Unknown connection: ${id}`)
     const { passwordEnc, ...config } = stored
     return { ...config, password: passwordEnc ? await this.decrypt(passwordEnc) : undefined }
@@ -60,24 +60,26 @@ export class ConnectionStore {
   /** Resolves a password-less input against the stored password (`undefined` = keep). */
   async resolve(input: ConnectionInput): Promise<ConnectionConfig> {
     if (input.password !== undefined) return input
-    const existing = (await this.read()).find(c => c.id === input.id)
+    const existing = (await this.read()).find((c) => c.id === input.id)
     return { ...input, password: existing?.passwordEnc ? await this.decrypt(existing.passwordEnc) : undefined }
   }
 
   save(input: ConnectionInput): Promise<void> {
     return this.mutate(async (all) => {
       const { password, ...config } = input
-      const existing = all.find(c => c.id === input.id)
+      const existing = all.find((c) => c.id === input.id)
       const passwordEnc = password === undefined
         ? existing?.passwordEnc
-        : password === '' ? undefined : await this.encrypt(password)
+        : password === ''
+        ? undefined
+        : await this.encrypt(password)
       const next: StoredConnection = { ...config, passwordEnc }
-      return existing ? all.map(c => c.id === input.id ? next : c) : [...all, next]
+      return existing ? all.map((c) => c.id === input.id ? next : c) : [...all, next]
     })
   }
 
   remove(id: string): Promise<void> {
-    return this.mutate(async all => all.filter(c => c.id !== id))
+    return this.mutate(async (all) => all.filter((c) => c.id !== id))
   }
 
   private async read(): Promise<StoredConnection[]> {
@@ -142,7 +144,11 @@ export class ConnectionStore {
 
   private async encrypt(plain: string): Promise<string> {
     const iv = crypto.getRandomValues(new Uint8Array(12))
-    const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await this.cryptoKey(), new TextEncoder().encode(plain))
+    const data = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      await this.cryptoKey(),
+      new TextEncoder().encode(plain),
+    )
     return `v1:${b64(iv)}:${b64(new Uint8Array(data))}`
   }
 

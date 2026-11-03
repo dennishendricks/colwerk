@@ -51,13 +51,19 @@ watch(open, (isOpen) => {
     confirmWrites: c?.confirmWrites ?? false,
   })
   // Opens with the further options shown when the connection uses one of them.
-  showAdvanced.value = !!(c && (c.tenantId || c.clientId || c.socket || c.searchPath || c.instanceName || c.readOnlyIntent
-    || c.multiSubnetFailover || c.connectRetries !== undefined || c.language || c.dateFormat || c.sslCa || c.sslInsecure || c.sslStrict || c.sslServerName))
+  showAdvanced.value =
+    !!(c && (c.tenantId || c.clientId || c.socket || c.searchPath || c.instanceName || c.readOnlyIntent ||
+      c.multiSubnetFailover || c.connectRetries !== undefined || c.language || c.dateFormat || c.sslCa ||
+      c.sslInsecure || c.sslStrict || c.sslServerName))
 }, { immediate: true })
 
-const driver = computed(() => drivers.value.find(d => d.dialect === form.dialect))
-const dialectItems = computed(() => drivers.value.map(d => ({ label: d.label, value: d.dialect })).sort((a, b) => a.label.localeCompare(b.label)))
-const authItems = computed(() => (driver.value?.auths ?? []).map(a => ({ label: t(`connection.auths.${a}`), value: a })))
+const driver = computed(() => drivers.value.find((d) => d.dialect === form.dialect))
+const dialectItems = computed(() =>
+  drivers.value.map((d) => ({ label: d.label, value: d.dialect })).sort((a, b) => a.label.localeCompare(b.label))
+)
+const authItems = computed(() =>
+  (driver.value?.auths ?? []).map((a) => ({ label: t(`connection.auths.${a}`), value: a }))
+)
 // Another dialect may not offer the selected login.
 watch(driver, (d) => {
   if (d && !d.auths.includes(form.auth as ConnectionAuth)) form.auth = d.auths[0]
@@ -65,23 +71,31 @@ watch(driver, (d) => {
 const isEntra = computed(() => form.auth?.startsWith('entra-') ?? false)
 // SQL Server takes the user from the Entra token; PostgreSQL and MySQL need the database user that belongs to it.
 const showUser = computed(() => !isEntra.value || form.dialect !== 'mssql' || form.auth === 'entra-interactive')
-const showPassword = computed(() => form.auth === 'password' || form.auth === 'windows' || form.auth === 'entra-service-principal')
+const showPassword = computed(() =>
+  form.auth === 'password' || form.auth === 'windows' || form.auth === 'entra-service-principal'
+)
 
 // `default` stands for no SET DATEFORMAT (the session language decides); select items cannot have an empty value.
 const dateFormatItems = computed(() => [
   { label: t('connection.dateFormatDefault'), value: 'default' },
-  ...(['dmy', 'mdy', 'ymd', 'ydm', 'myd', 'dym'] satisfies DateFormat[]).map(f => ({ label: f, value: f })),
+  ...(['dmy', 'mdy', 'ymd', 'ydm', 'myd', 'dym'] satisfies DateFormat[]).map((f) => ({ label: f, value: f })),
 ])
 const dateFormat = computed({
   get: () => form.dateFormat ?? 'default',
   set: (v: string) => (form.dateFormat = v === 'default' ? undefined : v as DateFormat),
 })
 
-const folders = computed(() => [...new Set(connections.value.flatMap(c => c.folder ? [c.folder] : []))].sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' })))
+const folders = computed(() =>
+  [...new Set(connections.value.flatMap((c) => c.folder ? [c.folder] : []))].sort((a, b) =>
+    a.localeCompare(b, 'de', { sensitivity: 'base' })
+  )
+)
 
 // An empty password field keeps the stored password (sent as `undefined`), `''` removes it (also when the login needs none).
 function payload(): Partial<ConnectionInput> {
-  const password = clearPassword.value || !showPassword.value ? '' : form.password || (props.connection?.hasPassword ? undefined : '')
+  const password = clearPassword.value || !showPassword.value
+    ? ''
+    : form.password || (props.connection?.hasPassword ? undefined : '')
   return { ...form, password }
 }
 
@@ -90,7 +104,10 @@ const picking = ref(false)
 async function pickFile() {
   picking.value = true
   try {
-    const { path } = await api<{ path: string | null }>('/api/dialog', { method: 'POST', body: { kind: 'open', title: t('dialog.open') } })
+    const { path } = await api<{ path: string | null }>('/api/dialog', {
+      method: 'POST',
+      body: { kind: 'open', title: t('dialog.open') },
+    })
     if (path) form.file = path
   } catch (e) {
     toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
@@ -117,12 +134,15 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
   <UModal v-model:open="open" :title="connection ? t('connection.edit') : t('connection.new')">
     <template #body>
       <!-- Names, hosts and paths are not prose: no autocorrect, capitalization or spell check (Safari/WebView). -->
-      <form class="grid grid-cols-2 gap-3" @submit.prevent="driver?.installed && act('save', () => saveConnection(payload()), t('common.saved'))">
+      <form class="grid grid-cols-2 gap-3"
+        @submit.prevent="driver?.installed && act('save', () => saveConnection(payload()), t('common.saved'))">
         <UFormField :label="t('connection.name')" required>
-          <UInput v-model="form.name" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
+          <UInput v-model="form.name" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false"
+            autofocus />
         </UFormField>
         <UFormField :label="t('connection.folder')" :help="t('connection.folderHelp')">
-          <UInput v-model="form.folder" class="w-full" list="colwerk-folders" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+          <UInput v-model="form.folder" class="w-full" list="colwerk-folders" autocomplete="off" autocorrect="off"
+            autocapitalize="off" :spellcheck="false" />
           <datalist id="colwerk-folders">
             <option v-for="f in folders" :key="f" :value="f" />
           </datalist>
@@ -136,7 +156,8 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             <UInput v-model="form.host" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
           </UFormField>
           <UFormField :label="t('connection.port')">
-            <UInput v-model.number="form.port" type="number" :placeholder="String(driver.defaultPort ?? '')" class="w-full" />
+            <UInput v-model.number="form.port" type="number" :placeholder="String(driver.defaultPort ?? '')"
+              class="w-full" />
           </UFormField>
           <UFormField :label="t('connection.database')" class="col-span-2">
             <UInput v-model="form.database" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
@@ -149,10 +170,12 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           </UFormField>
           <template v-if="form.auth === 'entra-service-principal'">
             <UFormField :label="t('connection.tenantId')" required>
-              <UInput v-model="form.tenantId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+              <UInput v-model="form.tenantId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off"
+                :spellcheck="false" />
             </UFormField>
             <UFormField :label="t('connection.clientId')" required>
-              <UInput v-model="form.clientId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+              <UInput v-model="form.clientId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off"
+                :spellcheck="false" />
             </UFormField>
           </template>
           <UFormField
@@ -161,9 +184,12 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             :help="isEntra ? form.dialect === 'mssql' ? t('connection.accountHelp') : t('connection.entraUserHelp') : undefined"
             :class="showPassword ? undefined : 'col-span-2'"
           >
-            <UInput v-model="form.user" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+            <UInput v-model="form.user" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off"
+              :spellcheck="false" />
           </UFormField>
-          <UFormField v-if="showPassword" :label="form.auth === 'entra-service-principal' ? t('connection.clientSecret') : t('connection.password')" :class="showUser ? undefined : 'col-span-2'">
+          <UFormField v-if="showPassword"
+            :label="form.auth === 'entra-service-principal' ? t('connection.clientSecret') : t('connection.password')"
+            :class="showUser ? undefined : 'col-span-2'">
             <UInput
               v-model="form.password"
               type="password"
@@ -198,27 +224,36 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               <div class="grid grid-cols-2 gap-3 pt-3">
                 <template v-if="form.auth === 'entra-interactive' || form.auth === 'entra-default'">
                   <UFormField :label="t('connection.tenantId')" :help="t('connection.tenantIdHelp')">
-                    <UInput v-model="form.tenantId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                    <UInput v-model="form.tenantId" class="w-full" autocomplete="off" autocorrect="off"
+                      autocapitalize="off" :spellcheck="false" />
                   </UFormField>
-                  <UFormField v-if="form.auth === 'entra-interactive'" :label="t('connection.clientId')" :help="t('connection.clientIdHelp')">
-                    <UInput v-model="form.clientId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                  <UFormField v-if="form.auth === 'entra-interactive'" :label="t('connection.clientId')"
+                    :help="t('connection.clientIdHelp')">
+                    <UInput v-model="form.clientId" class="w-full" autocomplete="off" autocorrect="off"
+                      autocapitalize="off" :spellcheck="false" />
                   </UFormField>
                 </template>
-                <UFormField v-if="form.dialect === 'postgres' || form.dialect === 'mysql'" :label="t('connection.socket')" :help="t(`connection.socketHelp.${form.dialect}`)" class="col-span-2">
-                  <UInput v-model="form.socket" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                <UFormField v-if="form.dialect === 'postgres' || form.dialect === 'mysql'"
+                  :label="t('connection.socket')" :help="t(`connection.socketHelp.${form.dialect}`)" class="col-span-2">
+                  <UInput v-model="form.socket" class="w-full" autocorrect="off" autocapitalize="off"
+                    :spellcheck="false" />
                 </UFormField>
-                <UFormField v-if="form.dialect === 'postgres'" :label="t('connection.searchPath')" :help="t('connection.searchPathHelp')" class="col-span-2">
-                  <UInput v-model="form.searchPath" class="w-full" placeholder="&quot;$user&quot;, public" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                <UFormField v-if="form.dialect === 'postgres'" :label="t('connection.searchPath')"
+                  :help="t('connection.searchPathHelp')" class="col-span-2">
+                  <UInput v-model="form.searchPath" class="w-full" placeholder="&quot;$user&quot;, public"
+                    autocorrect="off" autocapitalize="off" :spellcheck="false" />
                 </UFormField>
                 <template v-if="form.dialect === 'mssql'">
                   <UFormField :label="t('connection.instanceName')" :help="t('connection.instanceNameHelp')">
-                    <UInput v-model="form.instanceName" class="w-full" placeholder="SQLEXPRESS" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                    <UInput v-model="form.instanceName" class="w-full" placeholder="SQLEXPRESS" autocorrect="off"
+                      autocapitalize="off" :spellcheck="false" />
                   </UFormField>
                   <UFormField :label="t('connection.connectRetries')" :help="t('connection.connectRetriesHelp')">
                     <UInput v-model.number="form.connectRetries" type="number" min="0" placeholder="3" class="w-full" />
                   </UFormField>
                   <UFormField :label="t('connection.language')" :help="t('connection.languageHelp')">
-                    <UInput v-model="form.language" class="w-full" placeholder="us_english" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                    <UInput v-model="form.language" class="w-full" placeholder="us_english" autocorrect="off"
+                      autocapitalize="off" :spellcheck="false" />
                   </UFormField>
                   <UFormField :label="t('connection.dateFormat')" :help="t('connection.dateFormatHelp')">
                     <USelect v-model="dateFormat" :items="dateFormatItems" class="w-full" />
@@ -232,11 +267,14 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                 </template>
                 <template v-if="form.ssl">
                   <UFormField :label="t('connection.caCert')" :help="t('connection.caCertHelp')" class="col-span-2">
-                    <UInput v-model="form.sslCa" class="w-full" :placeholder="t('connection.caCertPlaceholder')" autocorrect="off" autocapitalize="off" :spellcheck="false" :disabled="form.sslInsecure" />
+                    <UInput v-model="form.sslCa" class="w-full" :placeholder="t('connection.caCertPlaceholder')"
+                      autocorrect="off" autocapitalize="off" :spellcheck="false" :disabled="form.sslInsecure" />
                   </UFormField>
                   <template v-if="form.dialect === 'mssql'">
-                    <UFormField :label="t('connection.sslServerName')" :help="t('connection.sslServerNameHelp')" class="col-span-2">
-                      <UInput v-model="form.sslServerName" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                    <UFormField :label="t('connection.sslServerName')" :help="t('connection.sslServerNameHelp')"
+                      class="col-span-2">
+                      <UInput v-model="form.sslServerName" class="w-full" autocorrect="off" autocapitalize="off"
+                        :spellcheck="false" />
                     </UFormField>
                     <UFormField class="col-span-2" :help="t('connection.sslStrictHelp')">
                       <USwitch v-model="form.sslStrict" :label="t('connection.sslStrict')" />
@@ -254,14 +292,17 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
         <template v-else>
           <UFormField :label="t('connection.file')" class="col-span-2" :help="t('connection.fileHelp')">
             <div class="flex gap-2">
-              <UInput v-model="form.file" class="flex-1" placeholder=":memory:" autocorrect="off" autocapitalize="off" :spellcheck="false" />
-              <UButton color="neutral" variant="outline" icon="i-lucide-folder-open" :label="t('connection.browse')" :loading="picking" @click="pickFile" />
+              <UInput v-model="form.file" class="flex-1" placeholder=":memory:" autocorrect="off" autocapitalize="off"
+                :spellcheck="false" />
+              <UButton color="neutral" variant="outline" icon="i-lucide-folder-open" :label="t('connection.browse')"
+                :loading="picking" @click="pickFile" />
             </div>
           </UFormField>
           <UFormField class="col-span-2">
             <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
           </UFormField>
-          <UFormField v-if="form.dialect === 'duckdb' && form.file && form.file !== ':memory:'" class="col-span-2" :help="t('connection.v1StorageHelp')">
+          <UFormField v-if="form.dialect === 'duckdb' && form.file && form.file !== ':memory:'" class="col-span-2"
+            :help="t('connection.v1StorageHelp')">
             <USwitch v-model="form.v1Storage" :label="t('connection.v1Storage')" />
           </UFormField>
         </template>

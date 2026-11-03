@@ -3,14 +3,30 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { maskLiterals, splitStatements, type StatementRange } from '../sql-split.ts'
-import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RoutineInfo, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import {
+  AppError,
+  type ColumnInfo,
+  type ConnectionConfig,
+  DbError,
+  type Driver,
+  type IndexInfo,
+  type IntrospectRequest,
+  type IntrospectResult,
+  type QueryResult,
+  type ResultColumn,
+  type RoutineInfo,
+  type RowSink,
+  type Session,
+  type TableInfo,
+  type TransactionState,
+} from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
 
 type Request =
-  | { op: 'open', path: string, readOnly: boolean }
-  | { op: 'execute', statements: string[], rowLimit: number }
-  | { op: 'stream', sql: string, batch: number }
-  | { op: 'rows', sql: string, params: string[] }
+  | { op: 'open'; path: string; readOnly: boolean }
+  | { op: 'execute'; statements: string[]; rowLimit: number }
+  | { op: 'stream'; sql: string; batch: number }
+  | { op: 'rows'; sql: string; params: string[] }
   | { op: 'transaction' }
   | { op: 'close' }
 
@@ -24,7 +40,7 @@ interface WorkerError {
 }
 
 interface ExecuteResult {
-  resultSets: { columns: ResultColumn[], rows: unknown[][], truncated: boolean }[]
+  resultSets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean }[]
   changes: number
 }
 
@@ -34,19 +50,24 @@ interface ExecuteResult {
  * not use anything from outside the function.
  */
 function workerMain() {
-  const port = self as unknown as { postMessage(reply: Reply): void, onmessage: (e: MessageEvent<Request | { op: 'next' } | { op: 'abort' }>) => void }
+  const port = self as unknown as {
+    postMessage(reply: Reply): void
+    onmessage: (e: MessageEvent<Request | { op: 'next' } | { op: 'abort' }>) => void
+  }
   let db: DatabaseSync
   // Takes the main thread's answer to a streamed batch.
   let ack: ((op: 'next' | 'abort') => void) | undefined
 
-  const value = (v: unknown) => typeof v === 'bigint' && v >= Number.MIN_SAFE_INTEGER && v <= Number.MAX_SAFE_INTEGER ? Number(v) : v
+  const value = (v: unknown) =>
+    typeof v === 'bigint' && v >= Number.MIN_SAFE_INTEGER && v <= Number.MAX_SAFE_INTEGER ? Number(v) : v
   const prepare = (sql: string) => {
     const st = db.prepare(sql)
     st.setReadBigInts(true)
     st.setReturnArrays(true)
     return st
   }
-  const columns = (st: ReturnType<DatabaseSync['prepare']>) => st.columns().map(c => ({ name: c.name, type: c.type ?? '' }))
+  const columns = (st: ReturnType<DatabaseSync['prepare']>) =>
+    st.columns().map((c) => ({ name: c.name, type: c.type ?? '' }))
   const totalChanges = () => Number((db.prepare('select total_changes() as n').get() as { n: number }).n)
 
   async function handle(req: Request): Promise<unknown> {
@@ -74,7 +95,11 @@ function workerMain() {
               rows.push(row.map(value))
               if (rows.length > req.rowLimit) break
             }
-            result.resultSets.push({ columns: cols, rows: rows.slice(0, req.rowLimit), truncated: rows.length > req.rowLimit })
+            result.resultSets.push({
+              columns: cols,
+              rows: rows.slice(0, req.rowLimit),
+              truncated: rows.length > req.rowLimit,
+            })
           } catch (e) {
             throw Object.assign(e as Error, { statement: i })
           }
@@ -89,7 +114,7 @@ function workerMain() {
         const flush = async () => {
           port.postMessage({ rows: batch })
           batch = []
-          return await new Promise(resolve => (ack = resolve)) === 'next'
+          return await new Promise((resolve) => (ack = resolve)) === 'next'
         }
         for (const row of st.iterate() as Iterable<unknown[]>) {
           batch.push(row.map(value))
@@ -124,7 +149,7 @@ const workerUrl = URL.createObjectURL(new Blob([`(${workerMain.toString()})()`],
  * without a statement.
  */
 function statements(sql: string): StatementRange[] {
-  return splitStatements(sql, 'sqlite').filter(r => maskLiterals(sql.slice(r.from, r.to), 'sqlite').trim())
+  return splitStatements(sql, 'sqlite').filter((r) => maskLiterals(sql.slice(r.from, r.to), 'sqlite').trim())
 }
 
 /**
@@ -160,10 +185,14 @@ const SQL = {
 class SqliteSession implements Session {
   worker!: Worker
   private queue: Promise<unknown> = Promise.resolve()
-  private current?: { resolve(result: unknown): void, reject(e: unknown): void, onData?(data: Data): void }
+  private current?: { resolve(result: unknown): void; reject(e: unknown): void; onData?(data: Data): void }
 
   /** `name`: the database as listed by introspection (file name or `memory`); `release`: called on close. */
-  constructor(private open: Extract<Request, { op: 'open' }>, private name: string, private release: () => Promise<void>) {}
+  constructor(
+    private open: Extract<Request, { op: 'open' }>,
+    private name: string,
+    private release: () => Promise<void>,
+  ) {}
 
   /** Starts a worker and opens the database in it; requests sent afterwards wait for it. */
   start(): Promise<unknown> {
@@ -184,10 +213,12 @@ class SqliteSession implements Session {
 
   /** Sends the request once the previous ones are done; rejects with a WorkerError, or an AppError when cancelled. */
   private request<T>(req: Request, onData?: (data: Data) => void): Promise<T> {
-    const run = this.queue.then(() => new Promise<T>((resolve, reject) => {
-      this.current = { resolve: resolve as (result: unknown) => void, reject, onData }
-      this.worker.postMessage(req)
-    }))
+    const run = this.queue.then(() =>
+      new Promise<T>((resolve, reject) => {
+        this.current = { resolve: resolve as (result: unknown) => void, reject, onData }
+        this.worker.postMessage(req)
+      })
+    )
     this.queue = run.catch(() => {})
     return run
   }
@@ -197,9 +228,13 @@ class SqliteSession implements Session {
     const started = performance.now()
     const ranges = statements(sql)
     try {
-      const result = await this.request<ExecuteResult>({ op: 'execute', statements: ranges.map(r => sql.slice(r.from, r.to)), rowLimit })
+      const result = await this.request<ExecuteResult>({
+        op: 'execute',
+        statements: ranges.map((r) => sql.slice(r.from, r.to)),
+        rowLimit,
+      })
       return {
-        resultSets: result.resultSets.map(s => ({ ...s, rows: s.rows.map(r => r.map(normalizeValue)) })),
+        resultSets: result.resultSets.map((s) => ({ ...s, rows: s.rows.map((r) => r.map(normalizeValue)) })),
         affectedRows: result.resultSets.length ? undefined : result.changes,
         durationMs: performance.now() - started,
       }
@@ -217,7 +252,7 @@ class SqliteSession implements Session {
         if ('columns' in data) return sink.columns(data.columns)
         const worker = this.worker
         try {
-          await sink.rows(data.rows.map(r => r.map(normalizeValue)))
+          await sink.rows(data.rows.map((r) => r.map(normalizeValue)))
           worker.postMessage({ op: 'next' })
         } catch (e) {
           // A failing sink stops the statement; the session stays usable.
@@ -257,14 +292,20 @@ class SqliteSession implements Session {
     // No switching between databases (supportsDatabases is false): only the opened one. Its schemas are the
     // attached databases (main, temp, ATTACH).
     if (req.kind === 'databases') return [{ name: this.name }] as IntrospectResult<R>
-    if (req.kind === 'schemas') return await this.rows('select name from pragma_database_list order by seq') as IntrospectResult<R>
+    if (req.kind === 'schemas') {
+      return await this.rows('select name from pragma_database_list order by seq') as IntrospectResult<R>
+    }
     if (req.kind === 'tables') {
-      const tables = await this.rows<{ name: string, type: string }>(SQL.tables, [req.schema])
+      const tables = await this.rows<{ name: string; type: string }>(SQL.tables, [req.schema])
       // Row counts are only known after ANALYZE.
-      const counts = new Map(tables.some(t => t.name === 'sqlite_stat1')
-        ? (await this.rows<{ tbl: string, n: number }>(`select tbl, max(cast(stat as integer)) as n from ${ident(req.schema)}.sqlite_stat1 group by tbl`)).map(r => [r.tbl, r.n])
-        : [])
-      return tables.filter(t => t.type !== 'shadow' && !t.name.startsWith('sqlite_')).map((t): TableInfo => ({
+      const counts = new Map(
+        tables.some((t) => t.name === 'sqlite_stat1')
+          ? (await this.rows<{ tbl: string; n: number }>(
+            `select tbl, max(cast(stat as integer)) as n from ${ident(req.schema)}.sqlite_stat1 group by tbl`,
+          )).map((r) => [r.tbl, r.n])
+          : [],
+      )
+      return tables.filter((t) => t.type !== 'shadow' && !t.name.startsWith('sqlite_')).map((t): TableInfo => ({
         schema: req.schema,
         name: t.name,
         kind: t.type === 'view' ? 'view' : 'table',
@@ -278,39 +319,56 @@ class SqliteSession implements Session {
     if (req.kind === 'routines') return [] as RoutineInfo[] as IntrospectResult<R>
     if (req.kind === 'ddl') {
       // The table or view first, then its indexes and triggers; automatic indexes have no SQL.
-      const rows = req.object === 'routine'
-        ? []
-        : await this.rows<{ type: string, sql: string }>(
-            `select type, sql from ${ident(req.schema)}.sqlite_schema where tbl_name = ? and sql is not null order by type = ? desc, type, name`,
-            [req.name, req.object],
-          )
-      if (rows[0]?.type !== req.object) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
-      return rows.map(r => `${r.sql};`).join('\n\n') as IntrospectResult<R>
+      const rows = req.object === 'routine' ? [] : await this.rows<{ type: string; sql: string }>(
+        `select type, sql from ${
+          ident(req.schema)
+        }.sqlite_schema where tbl_name = ? and sql is not null order by type = ? desc, type, name`,
+        [req.name, req.object],
+      )
+      if (rows[0]?.type !== req.object) {
+        throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, {
+          params: { name: `${req.schema}.${req.name}` },
+        })
+      }
+      return rows.map((r) => `${r.sql};`).join('\n\n') as IntrospectResult<R>
     }
-    const indexColumns = await this.rows<{ name: string, unique: number, origin: string, col: string | null }>(SQL.indexColumns, [req.table, req.schema, req.schema])
+    const indexColumns = await this.rows<{ name: string; unique: number; origin: string; col: string | null }>(
+      SQL.indexColumns,
+      [req.table, req.schema, req.schema],
+    )
     if (req.kind === 'indexes') {
       const indexes = new Map<string, IndexInfo>()
       for (const r of indexColumns) {
-        if (!indexes.has(r.name)) indexes.set(r.name, { name: r.name, columns: [], unique: r.unique === 1, primary: r.origin === 'pk' })
+        if (!indexes.has(r.name)) {
+          indexes.set(r.name, { name: r.name, columns: [], unique: r.unique === 1, primary: r.origin === 'pk' })
+        }
         if (r.col !== null) indexes.get(r.name)!.columns.push(r.col)
       }
       const list = [...indexes.values()]
       // An INTEGER PRIMARY KEY is the rowid and has no index of its own.
-      if (!list.some(i => i.primary)) {
-        const pk = (await this.rows<{ name: string }>(SQL.primaryKey, [req.table, req.schema])).map(r => r.name)
+      if (!list.some((i) => i.primary)) {
+        const pk = (await this.rows<{ name: string }>(SQL.primaryKey, [req.table, req.schema])).map((r) => r.name)
         if (pk.length) list.push({ name: 'PRIMARY KEY', columns: pk, unique: true, primary: true })
       }
       return list.sort((a, b) => Number(b.primary) - Number(a.primary)) as IntrospectResult<R>
     }
-    const columns = await this.rows<{ name: string, type: string, notnull: number, pk: number, hidden: number }>(SQL.columns, [req.table, req.schema])
-    const foreignKeys = await this.rows<{ from: string, table: string, to: string | null, seq: number }>(SQL.foreignKeys, [req.table, req.schema])
+    const columns = await this.rows<{ name: string; type: string; notnull: number; pk: number; hidden: number }>(
+      SQL.columns,
+      [req.table, req.schema],
+    )
+    const foreignKeys = await this.rows<{ from: string; table: string; to: string | null; seq: number }>(
+      SQL.foreignKeys,
+      [req.table, req.schema],
+    )
     for (const k of foreignKeys) {
       // A foreign key without columns references the primary key.
-      if (k.to === null) k.to = (await this.rows<{ name: string }>(SQL.primaryKey, [k.table, req.schema]))[k.seq]?.name ?? null
+      if (k.to === null) {
+        k.to = (await this.rows<{ name: string }>(SQL.primaryKey, [k.table, req.schema]))[k.seq]?.name ?? null
+      }
     }
     // Hidden columns of virtual tables are left out; generated columns are listed.
-    return columns.filter(c => c.hidden !== 1).map((c): ColumnInfo => {
-      const fk = foreignKeys.find(k => k.from === c.name)
+    return columns.filter((c) => c.hidden !== 1).map((c): ColumnInfo => {
+      const fk = foreignKeys.find((k) => k.from === c.name)
       return {
         name: c.name,
         type: c.type,
@@ -318,7 +376,8 @@ class SqliteSession implements Session {
         primaryKey: c.pk > 0,
         // Foreign keys only reference tables of the same schema.
         references: fk?.to ? { schema: req.schema, table: fk.table, column: fk.to } : undefined,
-        indexes: [...new Set(indexColumns.filter(i => i.col === c.name && i.origin !== 'pk').map(i => i.name))].sort(),
+        indexes: [...new Set(indexColumns.filter((i) => i.col === c.name && i.origin !== 'pk').map((i) => i.name))]
+          .sort(),
         comment: null,
       }
     }) as IntrospectResult<R>
@@ -345,9 +404,9 @@ class SqliteSession implements Session {
 // `:memory:` stands for a temporary file per connection, shared by its sessions and removed with the last one:
 // a real in-memory database only lives in one connection, and the URI of a shared one (`file:x?mode=memory`)
 // is opened as a plain file name unless Deno runs with all permissions.
-const memoryFiles = new Map<string, { dir: Promise<string>, sessions: number }>()
+const memoryFiles = new Map<string, { dir: Promise<string>; sessions: number }>()
 
-async function memoryFile(connectionId: string): Promise<{ path: string, release: () => Promise<void> }> {
+async function memoryFile(connectionId: string): Promise<{ path: string; release: () => Promise<void> }> {
   let file = memoryFiles.get(connectionId)
   if (!file) memoryFiles.set(connectionId, file = { dir: mkdtemp(join(tmpdir(), 'colwerk-sqlite-')), sessions: 0 })
   file.sessions++
