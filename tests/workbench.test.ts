@@ -101,8 +101,10 @@ Deno.test({ name: 'duckdb: disconnect releases the file until connect', ...opts 
 })
 
 // The plan is taken in the tab's session, so it sees the session's temp table.
+// DuckDB plans a table as "Empty Result" when its statistics rule out every row, so its table gets rows
+// and the filter is one the statistics cannot decide.
 const explainCases: { config: ConnectionConfig, create: string, table: string, analyze: boolean }[] = [
-  { config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' }, create: 'create temp table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
+  { config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' }, create: 'create temp table wb_explain_t as from (values (1), (3)) v(x)', table: 'wb_explain_t', analyze: true },
   { config: testConnections.postgres, create: 'create temp table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
   { config: testConnections.mysql, create: 'create temporary table wb_explain_t (x int)', table: 'wb_explain_t', analyze: true },
   { config: testConnections.mssql, create: 'create table #wb_explain_t (x int)', table: '#wb_explain_t', analyze: false },
@@ -114,7 +116,7 @@ for (const c of explainCases) {
     const wb = workbench(c.config)
     const id = c.config.id
     await wb.execute('tab', id, c.create, 1, 10)
-    const select = `select x from ${c.table} where x > 1;`
+    const select = `select x from ${c.table} where x % 2 = 0;`
     assertMatch((await wb.explain('tab', id, select, false, 10)).plan, /wb_explain_t/)
     if (c.analyze) assert((await wb.explain('tab', id, select, true, 10)).plan.trim())
     await assertRejects(() => wb.explain('tab', id, `insert into ${c.table} values (1)`, true, 10), Error, 'read-only')
