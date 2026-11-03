@@ -31,7 +31,9 @@ const highlight = HighlightStyle.define([
 ])
 
 const theme = EditorView.theme({
-  '&': { height: '100%', fontSize: '13px', backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
+  '&': { fontSize: '13px', backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
+  // Not on `&` alone: the tooltip container in the body carries the theme classes too and would extend the page.
+  '&.cm-editor': { height: '100%' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
   // Colors from the theme tokens so both color modes keep a readable contrast (WCAG AA):
