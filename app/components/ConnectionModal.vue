@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ConnectionInput, ConnectionSummary } from '#core'
+import type { ConnectionAuth, ConnectionInput, ConnectionSummary, DateFormat } from '#core'
 
 const props = defineProps<{ connection?: ConnectionSummary }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -11,6 +11,7 @@ const { t } = useI18n()
 const form = reactive<Partial<ConnectionInput>>({})
 const busy = ref<'test' | 'save' | 'delete' | 'install'>()
 const clearPassword = ref(false)
+const showAdvanced = ref(false)
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -26,23 +27,60 @@ watch(open, (isOpen) => {
     database: c?.database ?? '',
     user: c?.user ?? '',
     password: '',
+    auth: c?.auth,
+    domain: c?.domain ?? '',
+    tenantId: c?.tenantId ?? '',
+    clientId: c?.clientId ?? '',
+    socket: c?.socket ?? '',
+    searchPath: c?.searchPath ?? '',
+    instanceName: c?.instanceName ?? '',
+    readOnlyIntent: c?.readOnlyIntent ?? false,
+    multiSubnetFailover: c?.multiSubnetFailover ?? false,
+    connectRetries: c?.connectRetries,
+    language: c?.language ?? '',
+    dateFormat: c?.dateFormat,
     ssl: c?.ssl ?? false,
     sslCa: c?.sslCa ?? '',
     sslInsecure: c?.sslInsecure ?? false,
+    sslStrict: c?.sslStrict ?? false,
+    sslServerName: c?.sslServerName ?? '',
     file: c?.file ?? '',
     readOnly: c?.readOnly ?? false,
     color: c?.color,
     confirmWrites: c?.confirmWrites ?? false,
   })
+  // Opens with the further options shown when the connection uses one of them.
+  showAdvanced.value = !!(c && (c.tenantId || c.clientId || c.socket || c.searchPath || c.instanceName || c.readOnlyIntent
+    || c.multiSubnetFailover || c.connectRetries !== undefined || c.language || c.dateFormat || c.sslCa || c.sslInsecure || c.sslStrict || c.sslServerName))
 }, { immediate: true })
 
 const driver = computed(() => drivers.value.find(d => d.dialect === form.dialect))
 const dialectItems = computed(() => drivers.value.map(d => ({ label: d.label, value: d.dialect })).sort((a, b) => a.label.localeCompare(b.label)))
+const authItems = computed(() => (driver.value?.auths ?? []).map(a => ({ label: t(`connection.auths.${a}`), value: a })))
+// Another dialect may not offer the selected login.
+watch(driver, (d) => {
+  if (d && !d.auths.includes(form.auth as ConnectionAuth)) form.auth = d.auths[0]
+}, { immediate: true })
+const isEntra = computed(() => form.auth?.startsWith('entra-') ?? false)
+// SQL Server takes the user from the Entra token; PostgreSQL and MySQL need the database user that belongs to it.
+const showUser = computed(() => !isEntra.value || form.dialect !== 'mssql' || form.auth === 'entra-interactive')
+const showPassword = computed(() => form.auth === 'password' || form.auth === 'windows' || form.auth === 'entra-service-principal')
+
+// `default` stands for no SET DATEFORMAT (the session language decides); select items cannot have an empty value.
+const dateFormatItems = computed(() => [
+  { label: t('connection.dateFormatDefault'), value: 'default' },
+  ...(['dmy', 'mdy', 'ymd', 'ydm', 'myd', 'dym'] satisfies DateFormat[]).map(f => ({ label: f, value: f })),
+])
+const dateFormat = computed({
+  get: () => form.dateFormat ?? 'default',
+  set: (v: string) => (form.dateFormat = v === 'default' ? undefined : v as DateFormat),
+})
+
 const folders = computed(() => [...new Set(connections.value.flatMap(c => c.folder ? [c.folder] : []))].sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' })))
 
-// An empty password field keeps the stored password (sent as `undefined`), `''` removes it.
+// An empty password field keeps the stored password (sent as `undefined`), `''` removes it (also when the login needs none).
 function payload(): Partial<ConnectionInput> {
-  const password = clearPassword.value ? '' : form.password || (props.connection?.hasPassword ? undefined : '')
+  const password = clearPassword.value || !showPassword.value ? '' : form.password || (props.connection?.hasPassword ? undefined : '')
   return { ...form, password }
 }
 
@@ -102,10 +140,29 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           <UFormField :label="t('connection.database')" class="col-span-2">
             <UInput v-model="form.database" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
           </UFormField>
-          <UFormField :label="t('connection.user')">
+          <UFormField v-if="authItems.length > 1" :label="t('connection.auth')" class="col-span-2">
+            <USelect v-model="form.auth" :items="authItems" class="w-full" />
+          </UFormField>
+          <UFormField v-if="form.auth === 'windows'" :label="t('connection.domain')" class="col-span-2">
+            <UInput v-model="form.domain" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+          </UFormField>
+          <template v-if="form.auth === 'entra-service-principal'">
+            <UFormField :label="t('connection.tenantId')" required>
+              <UInput v-model="form.tenantId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+            </UFormField>
+            <UFormField :label="t('connection.clientId')" required>
+              <UInput v-model="form.clientId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+            </UFormField>
+          </template>
+          <UFormField
+            v-if="showUser"
+            :label="form.dialect === 'mssql' && form.auth === 'entra-interactive' ? t('connection.account') : t('connection.user')"
+            :help="isEntra ? form.dialect === 'mssql' ? t('connection.accountHelp') : t('connection.entraUserHelp') : undefined"
+            :class="showPassword ? undefined : 'col-span-2'"
+          >
             <UInput v-model="form.user" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
           </UFormField>
-          <UFormField :label="t('connection.password')">
+          <UFormField v-if="showPassword" :label="form.auth === 'entra-service-principal' ? t('connection.clientSecret') : t('connection.password')" :class="showUser ? undefined : 'col-span-2'">
             <UInput
               v-model="form.password"
               type="password"
@@ -115,20 +172,82 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               :placeholder="clearPassword ? t('connection.passwordRemoved') : connection?.hasPassword ? t('connection.passwordUnchanged') : ''"
             />
           </UFormField>
-          <UFormField v-if="connection?.hasPassword" class="col-span-2">
+          <UFormField v-if="showPassword && connection?.hasPassword" class="col-span-2">
             <USwitch v-model="clearPassword" :label="t('connection.clearPassword')" />
+          </UFormField>
+          <UFormField v-if="isEntra" class="col-span-2">
+            <p class="text-sm text-(--ui-text-muted)">
+              {{ t(`connection.entraHelp.${form.auth}`) }}
+            </p>
           </UFormField>
           <UFormField class="col-span-2">
             <USwitch v-model="form.ssl" :label="t('connection.useTls')" />
           </UFormField>
-          <template v-if="form.ssl">
-            <UFormField :label="t('connection.caCert')" :help="t('connection.caCertHelp')" class="col-span-2">
-              <UInput v-model="form.sslCa" class="w-full" :placeholder="t('connection.caCertPlaceholder')" autocorrect="off" autocapitalize="off" :spellcheck="false" :disabled="form.sslInsecure" />
-            </UFormField>
-            <UFormField class="col-span-2" :help="form.sslInsecure ? t('connection.insecureHelp') : undefined">
-              <USwitch v-model="form.sslInsecure" color="warning" :label="t('connection.insecure')" />
-            </UFormField>
-          </template>
+
+          <UCollapsible v-model:open="showAdvanced" class="col-span-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="-ml-2.5"
+              :label="t('connection.advanced')"
+              :trailing-icon="showAdvanced ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            />
+            <template #content>
+              <div class="grid grid-cols-2 gap-3 pt-3">
+                <template v-if="form.auth === 'entra-interactive' || form.auth === 'entra-default'">
+                  <UFormField :label="t('connection.tenantId')" :help="t('connection.tenantIdHelp')">
+                    <UInput v-model="form.tenantId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                  </UFormField>
+                  <UFormField v-if="form.auth === 'entra-interactive'" :label="t('connection.clientId')" :help="t('connection.clientIdHelp')">
+                    <UInput v-model="form.clientId" class="w-full" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                  </UFormField>
+                </template>
+                <UFormField v-if="form.dialect === 'postgres' || form.dialect === 'mysql'" :label="t('connection.socket')" :help="t(`connection.socketHelp.${form.dialect}`)" class="col-span-2">
+                  <UInput v-model="form.socket" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                </UFormField>
+                <UFormField v-if="form.dialect === 'postgres'" :label="t('connection.searchPath')" :help="t('connection.searchPathHelp')" class="col-span-2">
+                  <UInput v-model="form.searchPath" class="w-full" placeholder="&quot;$user&quot;, public" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                </UFormField>
+                <template v-if="form.dialect === 'mssql'">
+                  <UFormField :label="t('connection.instanceName')" :help="t('connection.instanceNameHelp')">
+                    <UInput v-model="form.instanceName" class="w-full" placeholder="SQLEXPRESS" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                  </UFormField>
+                  <UFormField :label="t('connection.connectRetries')" :help="t('connection.connectRetriesHelp')">
+                    <UInput v-model.number="form.connectRetries" type="number" min="0" placeholder="3" class="w-full" />
+                  </UFormField>
+                  <UFormField :label="t('connection.language')" :help="t('connection.languageHelp')">
+                    <UInput v-model="form.language" class="w-full" placeholder="us_english" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                  </UFormField>
+                  <UFormField :label="t('connection.dateFormat')" :help="t('connection.dateFormatHelp')">
+                    <USelect v-model="dateFormat" :items="dateFormatItems" class="w-full" />
+                  </UFormField>
+                  <UFormField class="col-span-2" :help="t('connection.readOnlyIntentHelp')">
+                    <USwitch v-model="form.readOnlyIntent" :label="t('connection.readOnlyIntent')" />
+                  </UFormField>
+                  <UFormField class="col-span-2" :help="t('connection.multiSubnetFailoverHelp')">
+                    <USwitch v-model="form.multiSubnetFailover" :label="t('connection.multiSubnetFailover')" />
+                  </UFormField>
+                </template>
+                <template v-if="form.ssl">
+                  <UFormField :label="t('connection.caCert')" :help="t('connection.caCertHelp')" class="col-span-2">
+                    <UInput v-model="form.sslCa" class="w-full" :placeholder="t('connection.caCertPlaceholder')" autocorrect="off" autocapitalize="off" :spellcheck="false" :disabled="form.sslInsecure" />
+                  </UFormField>
+                  <template v-if="form.dialect === 'mssql'">
+                    <UFormField :label="t('connection.sslServerName')" :help="t('connection.sslServerNameHelp')" class="col-span-2">
+                      <UInput v-model="form.sslServerName" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+                    </UFormField>
+                    <UFormField class="col-span-2" :help="t('connection.sslStrictHelp')">
+                      <USwitch v-model="form.sslStrict" :label="t('connection.sslStrict')" />
+                    </UFormField>
+                  </template>
+                  <UFormField class="col-span-2" :help="form.sslInsecure ? t('connection.insecureHelp') : undefined">
+                    <USwitch v-model="form.sslInsecure" color="warning" :label="t('connection.insecure')" />
+                  </UFormField>
+                </template>
+              </div>
+            </template>
+          </UCollapsible>
         </template>
 
         <template v-else>

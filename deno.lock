@@ -6,6 +6,7 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/streams@^1.0.17": "1.2.0",
     "jsr:@std/tar@0.1": "0.1.10",
+    "npm:@azure/identity@^4.14.0": "4.14.0",
     "npm:@codemirror/autocomplete@^6.20.4": "6.20.4",
     "npm:@codemirror/commands@^6.11.1": "6.11.1",
     "npm:@codemirror/lang-sql@^6.10.0": "6.10.0",
@@ -17,8 +18,8 @@
     "npm:@iconify-json/lucide@^1.2.147": "1.2.147",
     "npm:@lezer/highlight@^1.2.5": "1.2.5",
     "npm:@nuxt/eslint@^1.17.0": "1.17.0_eslint@10.13.0_oxc-parser@0.141.0_rollup@4.65.0",
-    "npm:@nuxt/ui@^4.12.0": "4.12.0_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0__vue@3.5.44__rollup@4.65.0_zod@4.6.7_oxc-parser@0.141.0_rollup@4.65.0",
-    "npm:@nuxtjs/i18n@^10.6.0": "10.6.0_rollup@4.65.0_vue@3.5.44",
+    "npm:@nuxt/ui@^4.12.0": "4.12.0_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0_zod@4.6.7_@azure+identity@4.14.0",
+    "npm:@nuxtjs/i18n@^10.6.0": "10.6.0_@azure+identity@4.14.0",
     "npm:@nuxtjs/mcp-toolkit@~0.24.2": "0.24.2_vue@3.5.44_zod@4.6.7_oxc-parser@0.141.0_rollup@4.65.0",
     "npm:@types/mssql@^12.3.0": "12.3.0",
     "npm:@types/pg-cursor@^2.7.2": "2.7.2",
@@ -32,8 +33,8 @@
     "npm:mssql@^12.7.10": "12.7.10",
     "npm:mysql2@^3.24.6": "3.24.6_@types+node@26.6.5",
     "npm:nuxi@latest": "4.0.1",
-    "npm:nuxt@*": "4.6.2_oxc-parser@0.141.0_rollup@4.65.0",
-    "npm:nuxt@^4.6.2": "4.6.2_oxc-parser@0.141.0_rollup@4.65.0",
+    "npm:nuxt@*": "4.6.2_@azure+identity@4.14.0",
+    "npm:nuxt@^4.6.2": "4.6.2_@azure+identity@4.14.0",
     "npm:pg-cursor@^2.22.1": "2.22.1_pg@8.23.1",
     "npm:pg@^8.23.1": "8.23.1",
     "npm:reka-ui@2.11.0": "2.11.0_vue@3.5.44_typescript@6.0.3",
@@ -1567,8 +1568,6 @@
     "@napi-rs/wasm-runtime@1.2.5_@emnapi+core@1.10.0_@emnapi+runtime@1.10.0": {
       "integrity": "sha512-HshSvXzmBxNzqejd3k/KemgQ3hdREUYFRRrgxOZ+gPljDIsO2SDZrVZMd4Z/HsxudQbE62OVyVFE8z9BCurfjA==",
       "dependencies": [
-        "@emnapi/core@1.10.0",
-        "@emnapi/runtime@1.10.0",
         "@tybys/wasm-util"
       ]
     },
@@ -1661,6 +1660,46 @@
       ],
       "bin": true
     },
+    "@nuxt/devtools@3.4.4_@azure+identity@4.14.0": {
+      "integrity": "sha512-cPwBW+odVCCid6pllN3f93L0hyOCYRXrEZLmCiV2IgBoQ3lskhuu304JDJjv/VvtWB+OVWfHQ38aowX28WybXQ==",
+      "dependencies": [
+        "@nuxt/devtools-kit",
+        "@nuxt/devtools-wizard",
+        "@nuxt/kit@4.6.2_mlly@1.8.2_oxc-parser@0.141.0_rollup@4.65.0",
+        "@vue/devtools-core",
+        "@vue/devtools-kit",
+        "birpc@4.2.0",
+        "consola",
+        "destr",
+        "error-stack-parser-es@2.0.1",
+        "execa",
+        "fast-npm-meta",
+        "get-port-please",
+        "hookable@6.1.2",
+        "image-meta",
+        "is-installed-globally",
+        "launch-editor",
+        "local-pkg",
+        "magicast",
+        "ohash",
+        "package-manager-detector",
+        "pathe",
+        "perfect-debounce",
+        "pkg-types@2.4.0",
+        "semver@7.8.5",
+        "sirv",
+        "structured-clone-es",
+        "tinyexec",
+        "tinyglobby",
+        "unstorage@1.17.6_@azure+identity@4.14.0",
+        "vite@8.3.5_@types+node@26.6.5_esbuild@0.28.2_jiti@2.7.0",
+        "vite-plugin-inspect",
+        "vite-plugin-vue-tracer",
+        "which@6.0.1",
+        "ws"
+      ],
+      "bin": true
+    },
     "@nuxt/devtools@3.4.4_oxc-parser@0.141.0_rollup@4.65.0": {
       "integrity": "sha512-cPwBW+odVCCid6pllN3f93L0hyOCYRXrEZLmCiV2IgBoQ3lskhuu304JDJjv/VvtWB+OVWfHQ38aowX28WybXQ==",
       "dependencies": [
@@ -1692,7 +1731,7 @@
         "structured-clone-es",
         "tinyexec",
         "tinyglobby",
-        "unstorage",
+        "unstorage@1.17.6_db0@0.3.4_ioredis@5.11.1_@types+node@26.6.5_mysql2@3.24.6",
         "vite@8.3.5_@types+node@26.6.5_esbuild@0.28.2_jiti@2.7.0",
         "vite-plugin-inspect",
         "vite-plugin-vue-tracer",
@@ -1755,7 +1794,7 @@
         "unimport@6.5.0_oxc-parser@0.141.0_rollup@4.65.0"
       ]
     },
-    "@nuxt/fonts@0.14.0_oxc-parser@0.141.0_rollup@4.65.0": {
+    "@nuxt/fonts@0.14.0_@azure+identity@4.14.0": {
       "integrity": "sha512-4uXQl9fa5F4ibdgU8zomoOcyMdnwgdem+Pi8JEqeDYI5yPR32Kam6HnuRr47dTb97CstaepAvXPWQUUHMtjsFQ==",
       "dependencies": [
         "@nuxt/devtools-kit",
@@ -1772,7 +1811,7 @@
         "ufo",
         "unifont",
         "unplugin@3.4.0_rolldown@1.2.14_rollup@4.65.0_vite@8.3.5__@types+node@26.6.5__esbuild@0.28.2__jiti@2.7.0",
-        "unstorage"
+        "unstorage@1.17.6_@azure+identity@4.14.0"
       ]
     },
     "@nuxt/icon@2.5.1_oxc-parser@0.141.0_rollup@4.65.0": {
@@ -1794,7 +1833,7 @@
         "ufo"
       ]
     },
-    "@nuxt/kit@4.6.2_confbox@0.2.4_mlly@1.8.2_oxc-parser@0.141.0_rollup@4.65.0": {
+    "@nuxt/kit@4.6.2_confbox@0.2.4_mlly@1.8.2_oxc-parser@0.141.0": {
       "integrity": "sha512-Vn9DJobc30WdR1vrlRcEAFSFy7NV5CWq3o6gxsfrdGb2FmCh0fuDyvbZC30rm2enyiPaOUPafKctFE/ToBjybw==",
       "dependencies": [
         "confbox@0.2.4",
@@ -1860,7 +1899,7 @@
         "rolldown"
       ]
     },
-    "@nuxt/nitro-server@4.6.2_nuxt@4.6.2__oxc-parser@0.141.0__rollup@4.65.0_@types+node@26.6.5_oxc-parser@0.141.0_rolldown@1.2.14_rollup@4.65.0": {
+    "@nuxt/nitro-server@4.6.2_nuxt@4.6.2__@azure+identity@4.14.0_@azure+identity@4.14.0_@types+node@26.6.5_rolldown@1.2.14": {
       "integrity": "sha512-mOiTpoiSG26/0UI4Nxfc4AK76UaCdpjObLPCF6NTDX9wL6Ed4/95AAVZKbEq7qxtNSla/8F+s8NSY6O1wpJ5bA==",
       "dependencies": [
         "@nuxt/kit@4.6.2_mlly@1.8.2_oxc-parser@0.141.0_rollup@4.65.0",
@@ -1880,7 +1919,7 @@
         "my-bad",
         "nitropack",
         "nostics",
-        "nuxt",
+        "nuxt@4.6.2_@azure+identity@4.14.0",
         "ohash",
         "pathe",
         "radix3",
@@ -1889,7 +1928,7 @@
         "ufo",
         "unctx@3.0.1_oxc-parser@0.141.0_rolldown@1.2.14_rollup@4.65.0",
         "unrouting",
-        "unstorage",
+        "unstorage@1.17.6_@azure+identity@4.14.0",
         "vue",
         "vue-bundle-renderer",
         "vue-devtools-stub"
@@ -1917,7 +1956,7 @@
       ],
       "bin": true
     },
-    "@nuxt/ui@4.12.0_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0__vue@3.5.44__rollup@4.65.0_zod@4.6.7_oxc-parser@0.141.0_rollup@4.65.0": {
+    "@nuxt/ui@4.12.0_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0_zod@4.6.7_@azure+identity@4.14.0": {
       "integrity": "sha512-e5g3RiFHTQc+PzBFZogpPLNetAMJDWq+5GPVUK88jIBgm/jnxYqMgbvyhfuLdL7spvyjA5ow5TtvIQVEAs3AMA==",
       "dependencies": [
         "@floating-ui/dom",
@@ -2011,7 +2050,7 @@
         "knitwork",
         "mocked-exports",
         "my-bad",
-        "nuxt",
+        "nuxt@4.6.2_oxc-parser@0.141.0_rollup@4.65.0",
         "pathe",
         "pkg-types@2.4.0",
         "postcss",
@@ -2040,7 +2079,7 @@
         "exsolve",
         "mocked-exports",
         "my-bad",
-        "nuxt",
+        "nuxt@4.6.2_oxc-parser@0.141.0_rollup@4.65.0",
         "pathe",
         "rou3@0.9.2",
         "srvx@1.0.5",
@@ -2059,7 +2098,7 @@
         "semver@7.8.5"
       ]
     },
-    "@nuxtjs/i18n@10.6.0_rollup@4.65.0_vue@3.5.44": {
+    "@nuxtjs/i18n@10.6.0_@azure+identity@4.14.0": {
       "integrity": "sha512-20YXYOcc8cSh/pSpNgj+MHAn11qUbsFR1IBJh6qYtRPVhUUmgqJ1DyMu39MB+uEYYL/fsberL2ByMYrFaROslw==",
       "dependencies": [
         "@intlify/core",
@@ -2069,7 +2108,7 @@
         "@intlify/unplugin-vue-i18n",
         "@intlify/utils@0.14.1",
         "@miyaneee/rollup-plugin-json5",
-        "@nuxt/kit@4.6.2_confbox@0.2.4_mlly@1.8.2_oxc-parser@0.141.0_rollup@4.65.0",
+        "@nuxt/kit@4.6.2_confbox@0.2.4_mlly@1.8.2_oxc-parser@0.141.0",
         "@rollup/plugin-yaml",
         "@vue/compiler-sfc",
         "confbox@0.2.4",
@@ -2088,7 +2127,7 @@
         "unhead",
         "unplugin@3.4.0_rolldown@1.2.14_rollup@4.65.0_vite@8.3.5__@types+node@26.6.5__esbuild@0.28.2__jiti@2.7.0",
         "unrouting",
-        "unstorage",
+        "unstorage@1.17.6_@azure+identity@4.14.0",
         "vue-i18n",
         "vue-router"
       ]
@@ -3299,7 +3338,7 @@
         "tslib"
       ]
     },
-    "@unhead/bundler@3.4.3_oxc-parser@0.141.0_unhead@3.4.3__vite@8.3.5___@types+node@26.6.5___esbuild@0.28.2___jiti@2.7.0__rollup@4.65.0_vite@8.3.5__@types+node@26.6.5__esbuild@0.28.2__jiti@2.7.0_rollup@4.65.0": {
+    "@unhead/bundler@3.4.3_oxc-parser@0.141.0_unhead@3.4.3_vite@8.3.5__@types+node@26.6.5__esbuild@0.28.2__jiti@2.7.0_rollup@4.65.0": {
       "integrity": "sha512-noUTzazRB4fMgO/nluoirrZJXngNbNb3sQzIslA805tKkwakRv2fib4Xe4EdiTuNB7V5XmpUFvfQkKRdBQ9qAA==",
       "dependencies": [
         "magic-string@1.4.3",
@@ -5175,7 +5214,7 @@
         "tiny-inflate"
       ]
     },
-    "fontless@0.2.1_vite@8.3.5__@types+node@26.6.5__esbuild@0.27.7__jiti@2.7.0_@types+node@26.6.5": {
+    "fontless@0.2.1_@azure+identity@4.14.0": {
       "integrity": "sha512-mUWZ8w91/mw2KEcZ6gHNoNNmsAq9Wiw2IypIux5lM03nhXm+WSloXGUNuRETNTLqZexMgpt7Aj/v63qqrsWraQ==",
       "dependencies": [
         "consola",
@@ -5190,11 +5229,11 @@
         "pathe",
         "ufo",
         "unifont",
-        "unstorage",
-        "vite@8.3.5_@types+node@26.6.5_esbuild@0.27.7_jiti@2.7.0"
+        "unstorage@1.17.6_@azure+identity@4.14.0",
+        "vite@8.3.5_@types+node@26.6.5_esbuild@0.28.2_jiti@2.7.0"
       ],
       "optionalPeers": [
-        "vite@8.3.5_@types+node@26.6.5_esbuild@0.27.7_jiti@2.7.0"
+        "vite@8.3.5_@types+node@26.6.5_esbuild@0.28.2_jiti@2.7.0"
       ]
     },
     "foreground-child@3.3.1": {
@@ -6301,7 +6340,7 @@
         "content-type@2.1.0"
       ]
     },
-    "nitropack@2.13.5_oxc-parser@0.141.0": {
+    "nitropack@2.13.5_@azure+identity@4.14.0": {
       "integrity": "sha512-Aq7c7Bd35CZloj1xZm4b4SonDzIDA5FUinMVQu61U6GHq2z8oZXbNiFCJYSPGvLUkkCXNx6Fzc/mS2kjJPgKyA==",
       "dependencies": [
         "@cloudflare/kv-asset-handler",
@@ -6369,7 +6408,7 @@
         "unenv",
         "unimport@6.5.0_oxc-parser@0.141.0_rollup@4.65.0",
         "unplugin-utils",
-        "unstorage",
+        "unstorage@1.17.6_@azure+identity@4.14.0",
         "untyped",
         "unwasm",
         "youch",
@@ -6438,6 +6477,83 @@
     "nuxt-define@1.0.0": {
       "integrity": "sha512-CYZ2WjU+KCyCDVzjYUM4eEpMF0rkPmkpiFrybTqqQCRpUbPt2h3snswWIpFPXTi+osRCY6Og0W/XLAQgDL4FfQ=="
     },
+    "nuxt@4.6.2_@azure+identity@4.14.0": {
+      "integrity": "sha512-KfhAIuHQpxKbTN0ItGpkK0jgzjcOCSOf6FZB3wHk/aZ1OiAMsDvbqua1OGfxuEk3bSlK3X49WyFEL5TwEKm36w==",
+      "dependencies": [
+        "@dxup/nuxt",
+        "@jridgewell/trace-mapping",
+        "@nuxt/cli",
+        "@nuxt/devalue",
+        "@nuxt/devtools@3.4.4_@azure+identity@4.14.0",
+        "@nuxt/kit@4.6.2_mlly@1.8.2_oxc-parser@0.141.0_rollup@4.65.0",
+        "@nuxt/nitro-server",
+        "@nuxt/schema",
+        "@nuxt/telemetry",
+        "@nuxt/vite-builder",
+        "@nuxt/vite-server",
+        "@types/node",
+        "@unhead/vue",
+        "@vue/shared",
+        "chokidar",
+        "clickable-path",
+        "compatx",
+        "consola",
+        "cookie-es@3.1.1",
+        "defu",
+        "destr",
+        "devalue@6.0.3",
+        "errx",
+        "escape-string-regexp@5.0.0",
+        "exsolve",
+        "fetchdts",
+        "fnv1a-64",
+        "hookable@6.1.2",
+        "ignore@7.0.13",
+        "impound",
+        "iron-webcrypto@2.0.0",
+        "jiti",
+        "klona",
+        "knitwork",
+        "magic-string@1.4.3",
+        "my-bad",
+        "nanotar",
+        "nostics",
+        "object-identity",
+        "ofetch",
+        "ohash",
+        "on-change",
+        "oxc-walker@1.1.1_oxc-parser@0.141.0_rolldown@1.2.14",
+        "pathe",
+        "perfect-debounce",
+        "picomatch@4.0.7",
+        "pkg-types@2.4.0",
+        "rolldown",
+        "rolldown-string",
+        "rou3@0.9.2",
+        "scule",
+        "std-env",
+        "tinyglobby",
+        "ufo",
+        "ultrahtml",
+        "uncrypto",
+        "unctx@3.0.1_oxc-parser@0.141.0_rolldown@1.2.14_rollup@4.65.0",
+        "undici",
+        "unhead",
+        "unimport@7.0.2_acorn@8.19.0_oxc-parser@0.141.0_rolldown@1.2.14_rollup@4.65.0",
+        "unplugin@3.4.0_rolldown@1.2.14_rollup@4.65.0_vite@8.3.5__@types+node@26.6.5__esbuild@0.28.2__jiti@2.7.0",
+        "unrouting",
+        "untyped",
+        "verkit",
+        "vue",
+        "vue-bundle-renderer",
+        "vue-component-type-helpers",
+        "vue-router"
+      ],
+      "optionalPeers": [
+        "@types/node"
+      ],
+      "bin": true
+    },
     "nuxt@4.6.2_oxc-parser@0.141.0_rollup@4.65.0": {
       "integrity": "sha512-KfhAIuHQpxKbTN0ItGpkK0jgzjcOCSOf6FZB3wHk/aZ1OiAMsDvbqua1OGfxuEk3bSlK3X49WyFEL5TwEKm36w==",
       "dependencies": [
@@ -6445,7 +6561,7 @@
         "@jridgewell/trace-mapping",
         "@nuxt/cli",
         "@nuxt/devalue",
-        "@nuxt/devtools",
+        "@nuxt/devtools@3.4.4_oxc-parser@0.141.0_rollup@4.65.0",
         "@nuxt/kit@4.6.2_mlly@1.8.2_oxc-parser@0.141.0_rollup@4.65.0",
         "@nuxt/nitro-server",
         "@nuxt/schema",
@@ -8012,6 +8128,27 @@
       ],
       "scripts": true
     },
+    "unstorage@1.17.6_@azure+identity@4.14.0": {
+      "integrity": "sha512-gjKtcmn/KwZuJZO9o2sc0esAQnhmTw0LviDHwevTXbJMYs0dRTp8ZEEWXHU0vTpzbN3cA0yxlTeyXssMp3zDqw==",
+      "dependencies": [
+        "@azure/identity",
+        "anymatch",
+        "chokidar",
+        "db0",
+        "destr",
+        "h3@1.15.11",
+        "ioredis",
+        "lru-cache@11.5.3",
+        "node-fetch-native",
+        "ofetch",
+        "ufo"
+      ],
+      "optionalPeers": [
+        "@azure/identity",
+        "db0",
+        "ioredis"
+      ]
+    },
     "unstorage@1.17.6_db0@0.3.4_ioredis@5.11.1_@types+node@26.6.5_mysql2@3.24.6": {
       "integrity": "sha512-gjKtcmn/KwZuJZO9o2sc0esAQnhmTw0LviDHwevTXbJMYs0dRTp8ZEEWXHU0vTpzbN3cA0yxlTeyXssMp3zDqw==",
       "dependencies": [
@@ -8487,6 +8624,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@azure/identity@^4.14.0",
         "npm:@codemirror/autocomplete@^6.20.4",
         "npm:@codemirror/commands@^6.11.1",
         "npm:@codemirror/lang-sql@^6.10.0",

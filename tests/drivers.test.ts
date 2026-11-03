@@ -241,6 +241,15 @@ for (const c of cases) {
       assertEquals(d, ['2024-01-02'])
       assertMatch(tz[0]!, /^2024-01-0[12]T\d{2}:\d{2}:05[+-]\d{2}:\d{2}$/)
     })
+
+    Deno.test({ name: `${name}: search path`, ...opts }, async () => {
+      const s = await (await loadDriver(name)).connect({ ...c.config, searchPath: 'sales, public' })
+      try {
+        assertEquals(rows(await s.execute('show search_path', { rowLimit: 1 })), [['sales, public']])
+      } finally {
+        await s.close()
+      }
+    })
   }
 
   if (name === 'mssql') {
@@ -248,6 +257,15 @@ for (const c of cases) {
       const r = await (await session()).execute(`declare @x int = 1\nselect @x as a\nGO\nselect 2 as b`, { rowLimit: 10 })
       assertEquals(r.resultSets.map(s => s.rows), [[[1]], [[2]]])
       await assertRejects(() => (session().then(s => s.execute(`select 1\nGO\nselect * from does_not_exist`, { rowLimit: 1 }))), Error, 'Batch 2:')
+    })
+
+    Deno.test({ name: `${name}: session language and date format`, ...opts }, async () => {
+      const s = await (await loadDriver(name)).connect({ ...c.config, language: 'Deutsch', dateFormat: 'ymd', connectRetries: 0, multiSubnetFailover: true })
+      try {
+        assertEquals(rows(await s.execute(`select @@language as lang, date_format from sys.dm_exec_sessions where session_id = @@spid`, { rowLimit: 1 })), [['Deutsch', 'ymd']])
+      } finally {
+        await s.close()
+      }
     })
   }
 

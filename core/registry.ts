@@ -1,15 +1,18 @@
-import { AppError, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
+import { AppError, type ConnectionAuth, type Dialect, type Driver, type DriverInfo, type DriverStatus } from './types.ts'
 
 interface RegistryEntry extends DriverInfo {
   // Driver modules are imported on first use so that e.g. DuckDB's native library is only loaded when needed.
   load: () => Promise<Driver>
 }
 
+const entra: ConnectionAuth[] = ['entra-default', 'entra-interactive', 'entra-service-principal']
+
 const registry: Record<Dialect, RegistryEntry> = {
   postgres: {
     dialect: 'postgres',
     label: 'PostgreSQL',
     defaultPort: 5432,
+    auths: ['password', ...entra],
     capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: true, supportsDatabases: true, locksDatabase: false },
     load: () => import('./drivers/postgres.ts').then(m => m.postgresDriver),
   },
@@ -17,6 +20,7 @@ const registry: Record<Dialect, RegistryEntry> = {
     dialect: 'mysql',
     label: 'MySQL / MariaDB',
     defaultPort: 3306,
+    auths: ['password', ...entra],
     capabilities: { supportsCancel: true, supportsSchemas: false, supportsNetwork: true, supportsDatabases: true, locksDatabase: false },
     load: () => import('./drivers/mysql.ts').then(m => m.mysqlDriver),
   },
@@ -24,18 +28,21 @@ const registry: Record<Dialect, RegistryEntry> = {
     dialect: 'mssql',
     label: 'SQL Server',
     defaultPort: 1433,
+    auths: ['password', 'windows', ...entra],
     capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: true, supportsDatabases: true, locksDatabase: false },
     load: () => import('./drivers/mssql.ts').then(m => m.mssqlDriver),
   },
   duckdb: {
     dialect: 'duckdb',
     label: 'DuckDB',
+    auths: [],
     capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: false, supportsDatabases: false, locksDatabase: true },
     load: () => prepareDuckdb().then(() => import('./drivers/duckdb.ts')).then(m => m.duckdbDriver),
   },
   sqlite: {
     dialect: 'sqlite',
     label: 'SQLite',
+    auths: [],
     capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: false, supportsDatabases: false, locksDatabase: false },
     load: () => import('./drivers/sqlite.ts').then(m => m.sqliteDriver),
   },

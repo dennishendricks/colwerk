@@ -1,4 +1,4 @@
-import { AppError, type ConnectionColor, connectionColors, ConnectionStore, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
+import { AppError, type ConnectionAuth, type ConnectionColor, connectionColors, ConnectionStore, type DateFormat, dateFormats, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
 
 export const store = new ConnectionStore()
 export const workbench = new Workbench(id => store.get(id))
@@ -27,7 +27,8 @@ export function parseConnection(body: unknown): ConnectionInput {
   const b = (body ?? {}) as Record<string, unknown>
   const str = (k: string) => typeof b[k] === 'string' && b[k] !== '' ? b[k] as string : undefined
   const dialect = b.dialect as Dialect
-  if (!drivers.some(d => d.dialect === dialect)) throw createError({ statusCode: 400, message: 'Unknown dialect' })
+  const driver = drivers.find(d => d.dialect === dialect)
+  if (!driver) throw createError({ statusCode: 400, message: 'Unknown dialect' })
   if (!str('name')) throw createError({ statusCode: 400, message: 'Name is required', data: { key: 'nameRequired' } })
   const port = b.port === undefined || b.port === null || b.port === '' ? undefined : Number(b.port)
   if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) {
@@ -35,6 +36,18 @@ export function parseConnection(body: unknown): ConnectionInput {
   }
   const color = str('color') as ConnectionColor | undefined
   if (color !== undefined && !connectionColors.includes(color)) throw createError({ statusCode: 400, message: 'Invalid color' })
+  const auth = (str('auth') ?? driver.auths[0]) as ConnectionAuth | undefined
+  if (auth !== undefined && !driver.auths.includes(auth)) throw createError({ statusCode: 400, message: 'Invalid authentication' })
+  if (auth === 'entra-service-principal' && !(str('tenantId') && str('clientId'))) {
+    throw createError({ statusCode: 400, message: 'Tenant ID and client ID are required', data: { key: 'servicePrincipalRequired' } })
+  }
+  const dateFormat = str('dateFormat') as DateFormat | undefined
+  if (dateFormat !== undefined && !dateFormats.includes(dateFormat)) throw createError({ statusCode: 400, message: 'Invalid date format' })
+  const connectRetries = b.connectRetries === undefined || b.connectRetries === null || b.connectRetries === '' ? undefined : Number(b.connectRetries)
+  if (connectRetries !== undefined && !(Number.isInteger(connectRetries) && connectRetries >= 0 && connectRetries <= 100)) {
+    throw createError({ statusCode: 400, message: 'Invalid number of retries', data: { key: 'invalidRetries' } })
+  }
+  const entra = auth?.startsWith('entra-') ?? false
   return {
     id: str('id') ?? crypto.randomUUID(),
     name: str('name')!,
@@ -46,9 +59,23 @@ export function parseConnection(body: unknown): ConnectionInput {
     user: str('user'),
     // undefined = keep stored password, '' = remove it
     password: typeof b.password === 'string' ? b.password : undefined,
+    auth,
+    domain: auth === 'windows' ? str('domain') : undefined,
+    tenantId: entra ? str('tenantId') : undefined,
+    clientId: entra ? str('clientId') : undefined,
+    socket: str('socket'),
+    searchPath: str('searchPath'),
+    instanceName: str('instanceName'),
+    readOnlyIntent: b.readOnlyIntent === true,
+    multiSubnetFailover: b.multiSubnetFailover === true,
+    connectRetries,
+    language: str('language'),
+    dateFormat,
     ssl: b.ssl === true,
     sslCa: b.ssl === true ? str('sslCa') : undefined,
     sslInsecure: b.ssl === true && b.sslInsecure === true,
+    sslStrict: b.ssl === true && b.sslStrict === true,
+    sslServerName: b.ssl === true ? str('sslServerName') : undefined,
     file: str('file'),
     readOnly: b.readOnly === true,
     color,
