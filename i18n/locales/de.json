@@ -71,7 +71,8 @@
     "previousTab": "Vorheriger Tab",
     "nextTab": "Nächster Tab",
     "help": "Hilfe",
-    "shortcuts": "Tastenkürzel"
+    "shortcuts": "Tastenkürzel",
+    "privacy": "Datenschutzhinweise"
   },
   "tabs": {
     "untitled": "Abfrage {n}"

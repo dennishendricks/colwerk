@@ -71,7 +71,8 @@
     "previousTab": "Previous Tab",
     "nextTab": "Next Tab",
     "help": "Help",
-    "shortcuts": "Keyboard Shortcuts"
+    "shortcuts": "Keyboard Shortcuts",
+    "privacy": "Privacy Notice"
   },
   "tabs": {
     "untitled": "Query {n}"

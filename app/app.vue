@@ -283,13 +283,14 @@ watchEffect(() => {
       'separator',
       ...tabs.value.slice(0, 9).map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
     ]),
-    submenu(t('menu.help'), [item(t('menu.shortcuts'), 'shortcuts')]),
+    submenu(t('menu.help'), [item(t('menu.shortcuts'), 'shortcuts'), 'separator', item(t('menu.privacy'), 'privacy')]),
   ])
 })
 
 defineMenuHandlers({
   mcp: () => (mcpOpen.value = true),
   update: () => checkForUpdate(true),
+  privacy: () => openUrl(privacyUrl),
   'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
   'duplicate-tab': () => duplicateTab(activeTab.value),
   open: openQueryFile,
@@ -359,7 +360,11 @@ defineMenuHandlers({
           />
         </div>
         <div class="border-t border-default px-3 py-1 text-xs text-muted">
-          Colwerk {{ version }}
+          <a :href="websiteUrl" class="hover:text-default" @click.prevent="openUrl(websiteUrl)">Colwerk</a> {{ version }}
+          <!-- In the desktop app it is in the application menu. -->
+          <template v-if="!hasApplicationMenu">
+            · <a :href="privacyUrl" class="hover:text-default" @click.prevent="openUrl(privacyUrl)">{{ t('menu.privacy') }}</a>
+          </template>
         </div>
       </SplitterPanel>
       <SplitterResizeHandle class="w-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary" />

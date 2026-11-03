@@ -67,10 +67,10 @@ if (BrowserWindow) {
   win.addEventListener('menuclick', e => clicked?.(e.detail.id))
   win.bind('applicationMenu', (menu: MenuItem[]) => win.setApplicationMenu(menu))
   win.bind('menuClick', () => new Promise<string>(resolve => (clicked = resolve)))
-  // Release pages from the update check (app/utils/update.ts). Restricted to GitHub URLs without shell
-  // metacharacters, since the page could pass anything.
+  // Release pages from the update check (app/utils/update.ts) and the website (app/utils/open-url.ts).
+  // Restricted to known hosts and URLs without shell metacharacters, since the page could pass anything.
   win.bind('openUrl', (url: string) => {
-    if (/^https:\/\/github\.com\/[\w./-]+$/.test(url)) openInBrowser(url)
+    if (/^https:\/\/(github\.com|colwerk\.d-hendricks\.com)\/[\w./-]*$/.test(url)) openInBrowser(url)
   })
 }
 
