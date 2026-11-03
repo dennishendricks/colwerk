@@ -3,6 +3,7 @@ import Cursor from 'pg-cursor'
 import { splitStatements } from '../sql-split.ts'
 import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
+import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
 
 const OID = { date: 1082, timestamp: 1114, timestamptz: 1184, dateArray: 1182, timestampArray: 1115, timestamptzArray: 1185, textArray: 1009 }
@@ -29,13 +30,17 @@ const DML = new Set(['INSERT', 'UPDATE', 'DELETE', 'MERGE', 'COPY'])
 
 async function clientConfig(c: ConnectionConfig): Promise<pg.ClientConfig> {
   return {
-    host: c.host,
+    // pg connects through the Unix socket in a directory given as host.
+    host: c.socket ?? c.host,
     port: c.port ?? 5432,
     database: c.database,
     user: c.user,
-    password: c.password,
+    // The token is fetched beforehand: the browser login takes longer than the connection timeout.
+    password: isEntra(c) ? await entraToken(c, ENTRA_SCOPE.ossrdbms) : c.password,
     ssl: await tlsOptions(c),
     application_name: 'colwerk',
+    // Spaces and backslashes in startup options are escaped with a backslash.
+    options: c.searchPath ? `-c search_path=${c.searchPath.replace(/[\\ ]/g, '\\$&')}` : undefined,
     connectionTimeoutMillis: 10_000,
     types,
   }

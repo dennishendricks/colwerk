@@ -95,13 +95,21 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       await json(await call('/api/connections/test', { method: 'POST', body: JSON.stringify(pg) }))
     })
 
+    await t.step('rejects logins the driver does not offer and incomplete service principals', async () => {
+      const windows = await call('/api/connections/test', { method: 'POST', body: JSON.stringify({ ...pg, auth: 'windows' }) })
+      assertEquals(windows.status, 400)
+      const sp = await call('/api/connections/test', { method: 'POST', body: JSON.stringify({ ...pg, auth: 'entra-service-principal', tenantId: 't' }) })
+      assertEquals(sp.status, 400)
+      assertEquals((await sp.json()).data.key, 'servicePrincipalRequired')
+    })
+
     const saved = await json(await call('/api/connections', { method: 'POST', body: JSON.stringify({ ...pg, id: undefined, name: 'Local PG' }) }))
 
     await t.step('stores the password encrypted and never returns it', async () => {
       assertEquals(saved.hasPassword, true)
       assertEquals('password' in saved, false)
       const file = await Deno.readTextFile(`${dataDir}/connections.json`)
-      assertEquals(file.includes('"password"'), false)
+      assertEquals(file.includes('"password":'), false)
       assertStringIncludes(file, '"passwordEnc": "v1:')
       if (Deno.build.os !== 'windows') {
         assertEquals((await Deno.stat(`${dataDir}/secret.key`)).mode! & 0o777, 0o600)
@@ -225,6 +233,13 @@ Deno.test({ name: 'api: security and end-to-end flow', ignore: !built, sanitizeR
       await reader.read() // ': connected'
       assertStringIncludes((await reader.read()).value!, '"sql":"-- Why\\nselect 1"')
       await reader.cancel()
+
+      // A browser login is never started for an MCP client.
+      const entra = await json(await call('/api/connections', { method: 'POST', body: JSON.stringify({ name: 'Azure', dialect: 'mssql', host: 'example.database.windows.net', auth: 'entra-interactive' }) }))
+      const denied = await tool('run-query', { connectionId: entra.id, sql: 'select 1' })
+      assertEquals(denied.error, true)
+      assertStringIncludes(denied.text, 'Microsoft Entra sign-in required')
+      await json(await call(`/api/connections/${entra.id}`, { method: 'DELETE' }))
     })
 
     await t.step('cancel aborts a running statement', async () => {

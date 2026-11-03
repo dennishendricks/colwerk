@@ -4,6 +4,7 @@ export { ConnectionStore, type ConnectionInput, type ConnectionSummary } from '.
 export { defaultDataDir } from './data-dir.ts'
 export { addToHistory, type HistoryEntry } from './history.ts'
 export { Workbench } from './workbench.ts'
+export { withoutLogin } from './login.ts'
 export { isReadOnlyStatement, isSelectStatement } from './sql-split.ts'
 export { createExporter, type Exporter, type ExportFormat } from './export.ts'
 export { fileDialog } from './dialog.ts'

@@ -2,6 +2,7 @@ import sql from 'mssql'
 import { lineStart, splitStatements } from '../sql-split.ts'
 import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
+import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
 
 type ColumnMeta = sql.IColumnMetadata[string]
@@ -385,19 +386,30 @@ class MssqlSession implements Session {
 export const mssqlDriver: Driver = {
   async connect(config: ConnectionConfig) {
     const tls = await tlsOptions(config)
+    // Fetched before connecting: the browser login takes longer than the connection timeout.
+    const token = isEntra(config) ? await entraToken(config, ENTRA_SCOPE.mssql) : undefined
     // A pool of exactly one long-lived connection: session state (temp tables, transactions) survives between calls.
     const pool = new sql.ConnectionPool({
       server: config.host ?? 'localhost',
-      port: config.port ?? 1433,
+      port: config.instanceName ? undefined : config.port ?? 1433,
       database: config.database,
       user: config.user,
       password: config.password,
+      domain: config.auth === 'windows' ? config.domain ?? '' : undefined,
+      authentication: token ? { type: 'azure-active-directory-access-token', options: { token } } : undefined,
       connectionTimeout: 10_000,
       requestTimeout: 0,
       options: {
-        encrypt: !!tls,
+        encrypt: tls ? config.sslStrict ? 'strict' : true : false,
         trustServerCertificate: tls ? !tls.rejectUnauthorized : false,
         cryptoCredentialsDetails: tls?.ca ? { ca: tls.ca } : undefined,
+        serverName: tls ? config.sslServerName : undefined,
+        instanceName: config.instanceName,
+        readOnlyIntent: config.readOnlyIntent,
+        multiSubnetFailover: config.multiSubnetFailover,
+        maxRetriesOnTransientErrors: config.connectRetries,
+        language: config.language,
+        dateFormat: config.dateFormat,
         appName: 'colwerk',
       },
       pool: { min: 1, max: 1, idleTimeoutMillis: 2_147_483_647 },

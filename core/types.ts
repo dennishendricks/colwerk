@@ -6,6 +6,20 @@ export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite'
 export const connectionColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const
 export type ConnectionColor = typeof connectionColors[number]
 
+/**
+ * Login of a network connection (default `password`):
+ * - `windows`: SQL Server Windows login over NTLM with `domain`, `user` and `password`
+ * - `entra-default`: Microsoft Entra token from the environment (Azure CLI `az login`, Azure PowerShell, azd, environment variables)
+ * - `entra-interactive`: Microsoft Entra login in the system browser (with MFA); `user` is the account to suggest
+ * - `entra-service-principal`: Microsoft Entra application with `clientId`, `tenantId` and the client secret in `password`
+ */
+export const connectionAuths = ['password', 'windows', 'entra-default', 'entra-interactive', 'entra-service-principal'] as const
+export type ConnectionAuth = typeof connectionAuths[number]
+
+/** SQL Server: order of day, month and year when strings are converted to dates. */
+export const dateFormats = ['mdy', 'dmy', 'ymd', 'ydm', 'myd', 'dym'] as const
+export type DateFormat = typeof dateFormats[number]
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -17,11 +31,39 @@ export interface ConnectionConfig {
   database?: string
   user?: string
   password?: string
+  /** Network databases: how the login is authenticated (see ConnectionAuth); undefined = `password`. */
+  auth?: ConnectionAuth
+  /** SQL Server Windows login: domain of the account. */
+  domain?: string
+  /** Entra: directory (tenant) ID; optional except for service principals. */
+  tenantId?: string
+  /** Entra: application (client) ID; optional except for service principals. */
+  clientId?: string
+  /** PostgreSQL, MySQL: Unix socket (PostgreSQL: its directory; MySQL on Windows: named pipe) instead of host and port. */
+  socket?: string
+  /** PostgreSQL: `search_path` of the session. */
+  searchPath?: string
+  /** SQL Server: named instance, resolved through the SQL Server Browser service instead of the port. */
+  instanceName?: string
+  /** SQL Server: request read-only access (ApplicationIntent=ReadOnly), e.g. for readable Availability Group replicas. */
+  readOnlyIntent?: boolean
+  /** SQL Server: MultiSubnetFailover=True for faster reconnects to Availability Group listeners. */
+  multiSubnetFailover?: boolean
+  /** SQL Server: login retries on transient errors (driver default 3), e.g. while Azure SQL serverless resumes. */
+  connectRetries?: number
+  /** SQL Server: session language (`SET LANGUAGE`), e.g. `Deutsch`. */
+  language?: string
+  /** SQL Server: session date format (`SET DATEFORMAT`). */
+  dateFormat?: DateFormat
   ssl?: boolean
   /** TLS: path to the CA certificate (PEM) the server certificate must chain to, instead of the system CAs (self-signed servers). */
   sslCa?: string
   /** TLS: skip certificate verification (encrypted, but open to man-in-the-middle). */
   sslInsecure?: boolean
+  /** SQL Server TLS: TDS 8.0 strict encryption (TLS before the login handshake, required by some SQL Server 2022 / Azure setups). */
+  sslStrict?: boolean
+  /** SQL Server TLS: host name the server certificate must be issued for, when connecting through an IP address or alias. */
+  sslServerName?: string
   /** DuckDB, SQLite: path to the database file, or `:memory:`. */
   file?: string
   /** DuckDB, SQLite: open the database file read-only. */
@@ -49,6 +91,8 @@ export interface DriverInfo {
   dialect: Dialect
   label: string
   defaultPort?: number
+  /** Logins the driver supports (network databases only); the first is the default. */
+  auths: ConnectionAuth[]
   capabilities: DriverCapabilities
 }
 

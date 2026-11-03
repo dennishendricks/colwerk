@@ -3,6 +3,7 @@ import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeC
 import { splitStatements } from '../sql-split.ts'
 import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
+import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
 
 const ER_QUERY_INTERRUPTED = 1317
@@ -23,12 +24,17 @@ const typeCast: TypeCast = (field, next) => {
 }
 
 async function options(c: ConnectionConfig): Promise<ConnectionOptions> {
+  const entra = isEntra(c)
   return {
     host: c.host,
     port: c.port ?? 3306,
+    socketPath: c.socket,
     database: c.database,
     user: c.user,
-    password: c.password,
+    // The token is fetched beforehand: the browser login takes longer than the connection timeout.
+    password: entra ? await entraToken(c, ENTRA_SCOPE.ossrdbms) : c.password,
+    // Azure Database for MySQL takes the token in clear text (inside TLS, which Azure enforces).
+    enableCleartextPlugin: entra,
     ssl: await tlsOptions(c),
     connectTimeout: 10_000,
     supportBigNumbers: true,
