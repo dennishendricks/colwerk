@@ -1,6 +1,3 @@
-// Desktop app: the launcher opens URLs in the default browser through a binding (see launcher/main.ts).
-const openUrlBinding = (window as { bindings?: { openUrl?(url: string): Promise<void> } }).bindings?.openUrl
-
 /**
  * Compares the app version with the latest GitHub release of the repository from package.json and offers
  * the release page if it is newer. Offline, without a release or with a private repository the request
@@ -25,7 +22,7 @@ export async function checkForUpdate(manual = false) {
       duration: 0,
       actions: [{
         label: t('update.download'),
-        onClick: () => (openUrlBinding ? openUrlBinding(release.html_url) : window.open(release.html_url, '_blank')),
+        onClick: () => openUrl(release.html_url),
       }],
     })
   } catch (e) {
