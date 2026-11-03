@@ -77,7 +77,8 @@ export default defineNuxtConfig({
   },
   typescript: { strict: true },
   telemetry: false,
-  eslint: { config: { stylistic: { braceStyle: '1tbs' } } },
+  // Formatting is done by `deno fmt`.
+  eslint: { config: { stylistic: false } },
   // No routes per language. The system language applies on every start, unless one was chosen in the
   // application menu (app/plugins/locale.ts); the module's cookie would pin the first detected language.
   i18n: {
