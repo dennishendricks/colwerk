@@ -1,0 +1,35 @@
+name: deno.lock
+
+# Dependabot updates only package.json. This workflow updates deno.lock in its npm PRs and then starts the CI,
+# because a push with GITHUB_TOKEN triggers no workflows.
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  update:
+    if: github.actor == 'dependabot[bot]' && startsWith(github.head_ref, 'dependabot/npm_and_yarn/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+      # Without --allow-scripts: no package code runs while the token can push.
+      - run: deno install
+      - name: Commit deno.lock and start CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git diff --quiet deno.lock && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Update deno.lock' deno.lock
+          git push
+          gh workflow run ci.yml --ref "$GITHUB_HEAD_REF"

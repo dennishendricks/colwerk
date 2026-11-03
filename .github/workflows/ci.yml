@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Started by deno-lock.yml after it commits deno.lock to a Dependabot PR.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+          cache: true
+      - run: deno install --frozen --allow-scripts
+      - run: deno fmt --check
+      - run: deno task lint
+      - run: deno task typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      # Started first so the databases initialize while Deno installs and builds.
+      - run: docker compose up -d --quiet-pull postgres mariadb mssql
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+          cache: true
+      - run: deno install --frozen --allow-scripts
+      # Builds `.output` and `dist/colwerk`, which enable the API and binary tests.
+      - run: deno task compile
+      - run: docker compose up -d --wait postgres mariadb mssql && docker compose run --rm mssql-init
+      - run: deno task test
