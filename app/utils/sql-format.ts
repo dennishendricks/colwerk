@@ -1,7 +1,7 @@
 import { format, type SqlLanguage } from 'sql-formatter'
 import { maskLiterals, type SplitDialect } from './sql-split.ts'
 
-const LANGUAGES: Record<SplitDialect, SqlLanguage> = { postgres: 'postgresql', duckdb: 'duckdb', mysql: 'mysql', mssql: 'transactsql' }
+const LANGUAGES: Record<SplitDialect, SqlLanguage> = { postgres: 'postgresql', duckdb: 'duckdb', mysql: 'mysql', mssql: 'transactsql', sqlite: 'sqlite' }
 const INDENT = '    '
 const JOIN = /^\s*(?:(?:natural|cross|inner|left|right|full|outer)\s+)*join\b/i
 const WITH = /^\s*with(?:\s+recursive)?\s*$/i

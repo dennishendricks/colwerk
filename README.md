@@ -1,6 +1,6 @@
 # Colwerk
 
-A lightweight SQL editor and database client for the desktop. Supports PostgreSQL, MySQL/MariaDB, Microsoft SQL Server and DuckDB.
+A lightweight SQL editor and database client for the desktop. Supports PostgreSQL, MySQL/MariaDB, Microsoft SQL Server, DuckDB and SQLite.
 
 Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro, packaged with Deno (`deno desktop`, `deno compile`).
 
@@ -72,7 +72,9 @@ Native libraries (currently DuckDB) are loaded via `Deno.dlopen`, not as Node-AP
 ## Known limitations
 
 - MSSQL `DECIMAL`/`MONEY` lose precision beyond ~15 digits (tedious returns JS numbers).
-- Postgres/DuckDB scripts commit each statement individually unless they contain their own `BEGIN`.
+- Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
+- SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the background; outside a transaction its changes are committed.
+- SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
 
 ## License
 

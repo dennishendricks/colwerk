@@ -1,5 +1,5 @@
 // Contract tests every driver must pass. Network databases come from docker-compose.yml and are
-// skipped when not reachable; DuckDB runs in memory.
+// skipped when not reachable; DuckDB and SQLite run in memory.
 import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
 import { loadDriver } from '../core/registry.ts'
 import { type ConnectionConfig, DbError, type QueryResult, type Session } from '../core/types.ts'
@@ -118,6 +118,30 @@ const cases: Case[] = [
     routines: ['create or replace macro sales.colwerk_add_so(a) as a + 1'],
     dropRoutines: ['drop macro if exists sales.colwerk_add_so'],
   },
+  {
+    config: { id: 'sqlite-test', name: 'sqlite', dialect: 'sqlite', file: ':memory:' },
+    setup: [
+      'create table customers (id integer primary key, email text unique)',
+      'create table orders (id integer primary key, customer_id integer references customers(id), total decimal(12,2))',
+      'create index orders_customer_idx on orders(customer_id)',
+      'create view order_totals as select customer_id, sum(total) as total from orders group by 1',
+      'insert into customers with recursive s(i) as (select 1 union all select i + 1 from s where i < 200) select i, i from s',
+      'insert into orders with recursive s(i) as (select 1 union all select i + 1 from s where i < 50000) select i, 1 + i % 200, i * 1.37 from s',
+    ],
+    // No decimal or timestamp types: such values are stored as text (or as a lossy REAL).
+    values: `select 9007199254740993 as big, '12345678901234567890.123' as dec, '2024-01-02T03:04:05.123456' as ts, x'deadbeef' as bin, null as n`,
+    ts: '2024-01-02T03:04:05.123456',
+    schema: 'main',
+    customersSchema: 'main',
+    sleep: 'with recursive c(x) as (select 1 union all select x + 1 from c where x < 100000000) select count(*) from c',
+    createTemp: 'create temp table t (x int)',
+    insertSeven: 'insert into t with recursive s(i) as (select 1 union all select i + 1 from s where i < 7) select i from s',
+    multi: 'select 1 as a; select 2 as b',
+    // No comments on tables and columns, no stored routines.
+    annotate: ['analyze'],
+    routines: [],
+    dropRoutines: [],
+  },
 ]
 
 for (const c of cases) {
@@ -200,7 +224,7 @@ for (const c of cases) {
     await s.execute('commit', { rowLimit: 1 })
     assertEquals(await s.transactionState(), 'idle')
     // Postgres aborts the transaction on any error, DuckDB only on runtime errors (not on binder errors);
-    // MySQL and SQL Server keep it usable after this error.
+    // MySQL, SQL Server and SQLite keep it usable after this error.
     await s.execute(begin, { rowLimit: 1 })
     await assertRejects(() => s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 }))
     assertEquals(await s.transactionState(), name === 'postgres' || name === 'duckdb' ? 'failed' : 'open')
@@ -279,7 +303,7 @@ for (const c of cases) {
     const tables = await s.introspect({ kind: 'tables', schema: c.schema })
     const orders = tables.find(t => t.name === 'orders')!
     assertEquals(orders.kind, 'table')
-    assertEquals(orders.comment, 'Orders')
+    assertEquals(orders.comment, name === 'sqlite' ? null : 'Orders')
     assertEquals(orders.partitioning, null)
     // Statistics are approximate: InnoDB samples pages.
     assert(orders.rowEstimate! > 25_000 && orders.rowEstimate! < 100_000, `rowEstimate: ${orders.rowEstimate}`)
@@ -294,7 +318,7 @@ for (const c of cases) {
     assertEquals(cols.customer_id!.references, { schema: c.customersSchema, table: 'customers', column: 'id' })
     assertEquals(cols.customer_id!.indexes, ['orders_customer_idx'])
     assertMatch(cols.total!.type, /^(numeric|decimal)\(12,\s?2\)$/i)
-    assertEquals(cols.total!.comment, 'Order total')
+    assertEquals(cols.total!.comment, name === 'sqlite' ? null : 'Order total')
     assertEquals(cols.id!.comment, null)
   })
 
@@ -305,7 +329,8 @@ for (const c of cases) {
     assertEquals(indexes.find(i => i.name === 'orders_customer_idx'), { name: 'orders_customer_idx', columns: ['customer_id'], unique: false, primary: false })
 
     for (const stmt of c.routines) await s.execute(stmt, { rowLimit: 1 })
-    try {
+    if (name === 'sqlite') assertEquals(await s.introspect({ kind: 'routines', schema: c.schema }), [])
+    else try {
       const routines = await s.introspect({ kind: 'routines', schema: c.schema })
       assertEquals(routines.find(r => r.name === 'colwerk_add_so'), { name: 'colwerk_add_so', kind: 'function' })
       if (name !== 'duckdb') assertEquals(routines.find(r => r.name === 'colwerk_touch_so')?.kind, 'procedure')

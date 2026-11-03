@@ -36,10 +36,11 @@ Deno.test({ name: 'binary: every driver connects and queries', ignore: !built, s
     }
 
     const duckdb: ConnectionConfig = { id: 'duck', name: 'duck', dialect: 'duckdb', file: ':memory:' }
-    for (const config of [...Object.values(testConnections), duckdb]) {
+    const sqlite: ConnectionConfig = { id: 'sqlite', name: 'sqlite', dialect: 'sqlite', file: ':memory:' }
+    for (const config of [...Object.values(testConnections), duckdb, sqlite]) {
       await t.step({
         name: config.dialect,
-        ignore: config.dialect !== 'duckdb' && !(await reachable(config)),
+        ignore: !!config.host && !(await reachable(config)),
         fn: async () => {
           // Downloads DuckDB's native library into the temporary data directory.
           if (config.dialect === 'duckdb') await call('/api/drivers/duckdb/install', {})

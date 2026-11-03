@@ -21,7 +21,7 @@ export default defineMcpTool({
   description: `Lists the database connections configured in Colwerk, with their databases and whether they are reachable.
 
 WHEN TO USE: Always call this first. Every other tool needs a connectionId from this list.
-Write SQL in the dialect given in "dialect": postgres (PostgreSQL), mysql (MySQL/MariaDB), mssql (SQL Server, T-SQL), duckdb (DuckDB).
+Write SQL in the dialect given in "dialect": postgres (PostgreSQL), mysql (MySQL/MariaDB), mssql (SQL Server, T-SQL), duckdb (DuckDB), sqlite (SQLite).
 Names are not unique; identify a connection by connectionId.`,
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler() {
