@@ -74,10 +74,10 @@ function showPlan(analyze = false) {
   explain(props.tab, editor.value?.runnableSql().sql ?? '', analyze)
 }
 
-// SQL Server has no plan with runtime statistics without executing the statement as usual.
+// SQL Server and SQLite have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
   { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-  ...driver.value?.dialect === 'mssql'
+  ...driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite'
     ? []
     : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }],
 ])

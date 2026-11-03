@@ -2,7 +2,7 @@
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
-import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect } from '@codemirror/lang-sql'
+import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect, SQLite } from '@codemirror/lang-sql'
 import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
 import { crosshairCursor, Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder, rectangularSelection, tooltips } from '@codemirror/view'
@@ -20,7 +20,7 @@ const emit = defineEmits<{ run: [], explain: [] }>()
 const model = defineModel<string>({ required: true })
 
 // DuckDB's grammar is close to PostgreSQL's.
-const DIALECTS: Record<Dialect, SQLDialect> = { postgres: PostgreSQL, duckdb: PostgreSQL, mysql: MySQL, mssql: MSSQL }
+const DIALECTS: Record<Dialect, SQLDialect> = { postgres: PostgreSQL, duckdb: PostgreSQL, mysql: MySQL, mssql: MSSQL, sqlite: SQLite }
 
 const highlight = HighlightStyle.define([
   { tag: tags.keyword, color: 'var(--sql-keyword)', fontWeight: '600' },

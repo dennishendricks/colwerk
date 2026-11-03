@@ -1,6 +1,6 @@
 import { loadDriver } from './registry.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
-import { AppError, type ConnectionConfig, DbError, type IntrospectRequest, type IntrospectResult, type QueryResult, type RowSink, type Session } from './types.ts'
+import { AppError, type CellValue, type ConnectionConfig, DbError, type IntrospectRequest, type IntrospectResult, type QueryResult, type RowSink, type Session } from './types.ts'
 
 // Error codes meaning the connection itself is gone; the session is dropped and reopened on next use.
 const CONNECTION_LOST = new Set(['ECONNRESET', 'EPIPE', 'ETIMEDOUT', 'ESOCKET', 'ECONNCLOSED', 'PROTOCOL_CONNECTION_LOST', '57P01', '08006', '08003'])
@@ -55,7 +55,7 @@ export class Workbench {
 
   /**
    * The execution plan of exactly one statement as text, in the tab's session (same session state as `execute`).
-   * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server.
+   * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server or SQLite.
    */
   async explain(tabId: string, connectionId: string, sql: string, analyze: boolean, timeoutSeconds: number, database?: string): Promise<{ plan: string, durationMs: number }> {
     const { dialect } = await this.resolveConfig(connectionId)
@@ -63,7 +63,7 @@ export class Workbench {
     const ranges = splitStatements(sql, dialect)
     if (ranges.length !== 1) throw new AppError('explainSingle', 'Only a single statement can be explained.')
     const statement = sql.slice(ranges[0]!.from, ranges[0]!.to)
-    if (analyze && (dialect === 'mssql' || !isReadOnlyStatement(statement, dialect))) {
+    if (analyze && (dialect === 'mssql' || dialect === 'sqlite' || !isReadOnlyStatement(statement, dialect))) {
       throw new AppError('analyzeReadOnly', 'ANALYZE executes the statement and is only available for read-only statements.')
     }
     return this.runTab(tabId, connectionId, database, async (s) => {
@@ -84,11 +84,19 @@ export class Workbench {
           postgres: analyze ? 'explain (analyze, buffers, format text)' : 'explain (format text)',
           duckdb: analyze ? 'explain analyze' : 'explain',
           mysql: analyze ? 'analyze format=json' : 'explain format=json',
+          sqlite: 'explain query plan',
         }[dialect]
         result = await run(`${prefix} ${statement}`)
       }
-      // The plan is in the last column (Postgres: one row per line, DuckDB: explain_value, MySQL: one JSON document).
-      const plan = result.resultSets.map(set => set.rows.map(r => String(r.at(-1))).join('\n')).join('\n\n')
+      // The plan is in the last column (Postgres: one row per line, DuckDB: explain_value, MySQL: one JSON document,
+      // SQLite: one row per step, indented below its parent step).
+      const depth = new Map<unknown, number>()
+      const line = (r: CellValue[]) => {
+        if (dialect !== 'sqlite') return String(r.at(-1))
+        depth.set(r[0], (depth.get(r[1]) ?? -1) + 1)
+        return `${'  '.repeat(depth.get(r[0])!)}${r.at(-1)}`
+      }
+      const plan = result.resultSets.map(set => set.rows.map(line).join('\n')).join('\n\n')
       return { plan: dialect === 'mysql' ? JSON.stringify(JSON.parse(plan), null, 2) : plan, durationMs: performance.now() - started }
     })
   }

@@ -1,6 +1,6 @@
 // Runtime-agnostic contracts shared by drivers, the server layer and (type-only) the UI.
 
-export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb'
+export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite'
 
 /** Marking colors for connections, e.g. red for production. */
 export const connectionColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const
@@ -22,9 +22,9 @@ export interface ConnectionConfig {
   sslCa?: string
   /** TLS: skip certificate verification (encrypted, but open to man-in-the-middle). */
   sslInsecure?: boolean
-  /** DuckDB: path to the database file, or `:memory:`. */
+  /** DuckDB, SQLite: path to the database file, or `:memory:`. */
   file?: string
-  /** DuckDB: open the database file read-only. */
+  /** DuckDB, SQLite: open the database file read-only. */
   readOnly?: boolean
   /** Marks the connection in the UI (connection list, tabs, query toolbar). */
   color?: ConnectionColor
@@ -37,7 +37,7 @@ export interface DriverCapabilities {
   supportsCancel: boolean
   /** The database has a schema level between database and tables. */
   supportsSchemas: boolean
-  /** Connections need host/port/user (false for embedded databases such as DuckDB). */
+  /** Connections need host/port/user (false for embedded databases such as DuckDB and SQLite). */
   supportsNetwork: boolean
   /** The server holds several databases a connection can switch between (the configured one is the default). */
   supportsDatabases: boolean

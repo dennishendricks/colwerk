@@ -23,6 +23,16 @@ Deno.test('mssql brackets and GO batches', () => {
   assertEquals(texts(sql, 'mssql'), ['select [a;b] from t', 'create view v as select 1', 'select 2'])
 })
 
+Deno.test('sqlite brackets, backticks and trigger bodies', () => {
+  const sql = `select [a;b], \`c;d\` from t;
+create trigger tr after insert on t begin
+  update t set x = case when new.x > 0 then 1 end;
+  delete from u;
+end;
+select 2`
+  assertEquals(texts(sql, 'sqlite'), ['select [a;b], `c;d` from t', sql.slice(sql.indexOf('create'), sql.lastIndexOf(';')), 'select 2'])
+})
+
 Deno.test('statement under cursor', () => {
   const sql = 'select 1;\nselect 2;\n\n'
   assertEquals(statementAt(sql, 'postgres', 3), { from: 0, to: 8 })

@@ -33,6 +33,12 @@ const registry: Record<Dialect, RegistryEntry> = {
     capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: false, supportsDatabases: false, locksDatabase: true },
     load: () => prepareDuckdb().then(() => import('./drivers/duckdb.ts')).then(m => m.duckdbDriver),
   },
+  sqlite: {
+    dialect: 'sqlite',
+    label: 'SQLite',
+    capabilities: { supportsCancel: true, supportsSchemas: true, supportsNetwork: false, supportsDatabases: false, locksDatabase: false },
+    load: () => import('./drivers/sqlite.ts').then(m => m.sqliteDriver),
+  },
 }
 
 /**

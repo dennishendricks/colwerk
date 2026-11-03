@@ -33,12 +33,14 @@ export function quoteIdent(name: string, dialect: Dialect): string {
 }
 
 // Opens a transaction that is never committed: closing the session rolls back whatever the statement
-// changed. Second line of defence behind `isSelectStatement`, which is a text heuristic.
+// changed (SQLite: the session's connection refuses writes). Second line of defence behind `isSelectStatement`,
+// which is a text heuristic.
 const GUARD: Record<Dialect, string> = {
   postgres: 'begin read only',
   mysql: 'start transaction read only',
   mssql: 'set implicit_transactions on',
   duckdb: 'begin transaction',
+  sqlite: 'pragma query_only = on',
 }
 
 /** Runs one SELECT/WITH statement in a session of its own, closed afterwards. */

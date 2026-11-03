@@ -1,4 +1,4 @@
-export type SplitDialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb'
+export type SplitDialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite'
 
 export interface StatementRange {
   from: number
@@ -14,8 +14,8 @@ export interface SplitOptions {
 
 /**
  * Splits a script into statement ranges at `;` outside of strings, quoted identifiers and comments.
- * Handles dollar quoting (postgres, duckdb), backslash escapes and backticks (mysql),
- * brackets and `GO` batch separators on their own line (mssql).
+ * Handles dollar quoting (postgres, duckdb), backslash escapes (mysql), backticks (mysql, sqlite),
+ * brackets (mssql, sqlite), `GO` batch separators on their own line (mssql) and trigger bodies (sqlite).
  * Ranges are trimmed and exclude the delimiter; empty statements are dropped.
  */
 export function splitStatements(sql: string, dialect: SplitDialect, { semicolons = true, blankLines = false }: SplitOptions = {}): StatementRange[] {
@@ -37,7 +37,7 @@ export function splitStatements(sql: string, dialect: SplitDialect, { semicolons
     const end = literalEnd(sql, dialect, i)
     if (end !== undefined) {
       i = end
-    } else if (ch === ';' && semicolons) {
+    } else if (ch === ';' && semicolons && !(dialect === 'sqlite' && inTriggerBody(sql.slice(start, i)))) {
       push(i)
       start = ++i
     } else if (dialect === 'mssql' && (ch === 'G' || ch === 'g') && isGoLine(sql, i)) {
@@ -107,14 +107,23 @@ function literalEnd(sql: string, dialect: SplitDialect, i: number): number | und
   }
   if (ch === '\'') return quoted('\'', dialect === 'mysql')
   if (ch === '"') return quoted('"', dialect === 'mysql')
-  if (ch === '`' && dialect === 'mysql') return quoted('`', false)
-  if (ch === '[' && dialect === 'mssql') return quoted(']', false)
+  if (ch === '`' && (dialect === 'mysql' || dialect === 'sqlite')) return quoted('`', false)
+  if (ch === '[' && (dialect === 'mssql' || dialect === 'sqlite')) return quoted(']', false)
   if (ch === '$' && (dialect === 'postgres' || dialect === 'duckdb')) {
     const tag = /^\$[A-Za-z_]?\w*\$/.exec(sql.slice(i))?.[0]
     if (!tag) return
     const end = sql.indexOf(tag, i + tag.length)
     return end === -1 ? n : end + tag.length
   }
+}
+
+/** SQLite: `text`, a statement up to a `;`, is a CREATE TRIGGER whose BEGIN … END body is still open. */
+function inTriggerBody(text: string): boolean {
+  const code = maskLiterals(text, 'sqlite').toLowerCase()
+  if (!/^\s*create\s+(temp\s+|temporary\s+)?trigger\b/.test(code)) return false
+  // CASE … END may appear in the body as well.
+  const words = code.match(/\b(begin|case|end)\b/g) ?? []
+  return words.filter(w => w !== 'end').length > words.filter(w => w === 'end').length
 }
 
 function isGoLine(sql: string, i: number): boolean {
