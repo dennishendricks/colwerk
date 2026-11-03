@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    versioning-strategy: 'increase'
+    assignees:
+      - 'dennishendricks'
+    groups:
+      npm-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: 'docker-compose'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    assignees:
+      - 'dennishendricks'
+    groups:
+      docker-compose-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    assignees:
+      - 'dennishendricks'
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
