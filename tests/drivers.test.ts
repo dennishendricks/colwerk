@@ -232,6 +232,14 @@ for (const c of cases) {
     assertEquals(await s.transactionState(), 'idle')
   })
 
+  if (name === 'duckdb') {
+    Deno.test({ name: `${name}: an unsupported column type leaves the session usable`, ...opts }, async () => {
+      const s = await session()
+      await assertRejects(() => s.execute('select 42::VARIANT as v', { rowLimit: 1 }), Error, 'Unsupported DuckDB type')
+      assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 1 })), [[1]])
+    })
+  }
+
   if (name === 'postgres') {
     Deno.test({ name: `${name}: date and timestamp arrays keep the unified string form`, ...opts }, async () => {
       const [[ts, d, tz]] = rows(await (await session()).execute(

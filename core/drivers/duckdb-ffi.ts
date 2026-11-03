@@ -170,7 +170,13 @@ export class Connection {
         c.duckdb_destroy_result(result)
         throw new DbError(message)
       }
-      return new Result(prepared, result)
+      // An open result blocks the connection (DuckDB 2.0), so it is destroyed if a column type is unsupported.
+      try {
+        return new Result(prepared, result)
+      } catch (e) {
+        c.duckdb_destroy_result(result)
+        throw e
+      }
     } catch (e) {
       c.duckdb_destroy_prepare(prepared)
       throw e
