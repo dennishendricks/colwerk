@@ -288,7 +288,7 @@ const status = computed(() => {
       </div>
     </div>
 
-    <SplitterGroup direction="vertical" auto-save-id="dbm-query-panel" class="min-h-0 flex-1">
+    <SplitterGroup direction="vertical" auto-save-id="colwerk-query-panel" class="min-h-0 flex-1">
       <SplitterPanel :default-size="40" :min-size="10" class="overflow-hidden">
         <LazySqlEditor
           ref="editor"

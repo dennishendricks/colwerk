@@ -15,7 +15,7 @@ import { toHex } from '../values.ts'
 const LIBRARY: Record<string, string> = { darwin: 'libduckdb.dylib', linux: 'libduckdb.so', win32: 'duckdb.dll' }
 
 function libraryPath(): string {
-  const path = (globalThis as { dbmDuckdbLibrary?: string }).dbmDuckdbLibrary
+  const path = (globalThis as { colwerkDuckdbLibrary?: string }).colwerkDuckdbLibrary
   if (path) return path
   // Resolved from the working directory (dev server and tests run in the project root), since Nitro's bundles
   // do not keep `import.meta.url`.

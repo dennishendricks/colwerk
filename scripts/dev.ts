@@ -9,7 +9,7 @@ console.log(`\n  Open: ${appUrl(port, token)}\n`)
 
 const child = new Deno.Command(Deno.execPath(), {
   args: ['run', '-A', 'npm:nuxt', 'dev', '--host', '127.0.0.1', '--port', String(port)],
-  env: { DBM_TOKEN: token, COLWERK_MCP_TOKEN: (await mcpToken({ create: true }))! },
+  env: { COLWERK_TOKEN: token, COLWERK_MCP_TOKEN: (await mcpToken({ create: true }))! },
   stdin: 'inherit',
   stdout: 'inherit',
   stderr: 'inherit',

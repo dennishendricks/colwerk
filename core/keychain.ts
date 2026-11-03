@@ -80,7 +80,7 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-public static class DbmCred {
+public static class ColwerkCred {
   [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
   struct CREDENTIAL {
     public int Flags; public int Type; public string TargetName; public string Comment;
@@ -123,13 +123,13 @@ function windows(target: string): Keychain {
   }
   return {
     async get() {
-      const r = await powershell(`$s = [DbmCred]::Read('${target}'); if ($null -eq $s) { exit 3 }; [Console]::Out.Write($s)`)
+      const r = await powershell(`$s = [ColwerkCred]::Read('${target}'); if ($null -eq $s) { exit 3 }; [Console]::Out.Write($s)`)
       if (r.code === 3) return undefined
       if (r.code !== 0) throw failed(r)
       return r.stdout.trim()
     },
     async set(secret) {
-      const r = await powershell(`[DbmCred]::Write('${target}', [Console]::In.ReadToEnd().Trim())`, secret)
+      const r = await powershell(`[ColwerkCred]::Write('${target}', [Console]::In.ReadToEnd().Trim())`, secret)
       if (r.code !== 0) throw failed(r)
     },
   }

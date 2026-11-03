@@ -8,7 +8,7 @@ import { keychain, KeychainUnavailable } from './keychain.ts'
 //
 // MCP clients authenticate with their own token (`Authorization: Bearer`), separate from the UI's
 // per-launch session token. It is created on first start and kept, so a client configuration stays
-// valid. Stored like the encryption key: in the OS keychain, otherwise (or with DBM_KEYCHAIN=off)
+// valid. Stored like the encryption key: in the OS keychain, otherwise (or with COLWERK_KEYCHAIN=off)
 // in `mcp-token` (mode 0600) next to the data. COLWERK_MCP_TOKEN overrides both.
 
 async function readOptional(file: string): Promise<string | undefined> {
@@ -24,7 +24,7 @@ async function readOptional(file: string): Promise<string | undefined> {
 export async function mcpToken({ create = false, dir = defaultDataDir() } = {}): Promise<string | undefined> {
   if (process.env.COLWERK_MCP_TOKEN) return process.env.COLWERK_MCP_TOKEN
   const fresh = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
-  if (process.env.DBM_KEYCHAIN !== 'off') {
+  if (process.env.COLWERK_KEYCHAIN !== 'off') {
     const secrets = keychain(dir, 'mcp')
     try {
       const stored = await secrets.get()

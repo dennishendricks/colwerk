@@ -2,7 +2,7 @@
 // the npm package of the build target. On request (`installDriver()` in core/registry.ts) the package is
 // downloaded from the npm registry, checked against the integrity hash fixed at build time, and its
 // `libduckdb.{dylib,so}` / `duckdb.dll` is unpacked into the data directory. core/drivers/duckdb-ffi.ts loads
-// it from the path in `globalThis.dbmDuckdbLibrary`.
+// it from the path in `globalThis.colwerkDuckdbLibrary`.
 import { basename, join } from 'node:path'
 import { UntarStream } from 'jsr:@std/tar@0.1/untar-stream'
 import { defaultDataDir } from '../core/data-dir.ts'
@@ -64,5 +64,5 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
     }
   }
 
-  return { dbmDuckdbLibrary: library, dbmDuckdb: { installed, install } }
+  return { colwerkDuckdbLibrary: library, colwerkDuckdb: { installed, install } }
 }

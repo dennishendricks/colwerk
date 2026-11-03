@@ -327,7 +327,7 @@ defineMenuHandlers({
     </div>
 
     <!-- Sizes are remembered per browser (localStorage) via auto-save-id. -->
-    <SplitterGroup v-else direction="horizontal" auto-save-id="dbm-layout" class="h-full">
+    <SplitterGroup v-else direction="horizontal" auto-save-id="colwerk-layout" class="h-full">
       <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible class="flex flex-col bg-muted/40">
         <div class="space-y-1 p-2">
           <div class="flex gap-1">

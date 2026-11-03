@@ -83,8 +83,8 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           <UInput v-model="form.name" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
         </UFormField>
         <UFormField :label="t('connection.folder')" :help="t('connection.folderHelp')">
-          <UInput v-model="form.folder" class="w-full" list="dbm-folders" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
-          <datalist id="dbm-folders">
+          <UInput v-model="form.folder" class="w-full" list="colwerk-folders" autocomplete="off" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+          <datalist id="colwerk-folders">
             <option v-for="f in folders" :key="f" :value="f" />
           </datalist>
         </UFormField>

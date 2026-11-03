@@ -11,7 +11,7 @@ const built = await Deno.stat(binary).then(() => true, () => false)
 Deno.test({ name: 'binary: every driver connects and queries', ignore: !built, sanitizeResources: false, sanitizeOps: false }, async (t) => {
   const server = new Deno.Command(binary, {
     // Without PATH the launcher finds no browser to open.
-    env: { PATH: '', DBM_DATA_DIR: await Deno.makeTempDir(), DBM_KEYCHAIN: 'off' },
+    env: { PATH: '', COLWERK_DATA_DIR: await Deno.makeTempDir(), COLWERK_KEYCHAIN: 'off' },
     stdout: 'piped',
     stderr: 'null',
   }).spawn()
@@ -29,7 +29,7 @@ Deno.test({ name: 'binary: every driver connects and queries', ignore: !built, s
     }
     const [, base, token] = match
     const call = async (path: string, body: object) => {
-      const res = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-dbm-token': token! }, body: JSON.stringify(body) })
+      const res = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-colwerk-token': token! }, body: JSON.stringify(body) })
       const json = await res.json()
       if (!res.ok) throw new Error(`${path}: ${res.status} ${JSON.stringify(json)}`)
       return json
