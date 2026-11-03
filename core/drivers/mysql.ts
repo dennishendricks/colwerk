@@ -1,5 +1,6 @@
 import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
+import { mysqlGeometryToText } from '../geometry.ts'
 import { splitStatements } from '../sql-split.ts'
 import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
@@ -19,6 +20,10 @@ const typeCast: TypeCast = (field, next) => {
   if (field.type === 'DATETIME' || field.type === 'DATETIME2') {
     const v = field.string()
     return v === null ? null : sqlTimestampToIso(v)
+  }
+  if (field.type === 'GEOMETRY') {
+    const v = field.buffer()
+    return v === null ? null : mysqlGeometryToText(v)
   }
   return next()
 }

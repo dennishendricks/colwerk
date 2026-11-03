@@ -46,6 +46,7 @@ watch(open, (isOpen) => {
     sslServerName: c?.sslServerName ?? '',
     file: c?.file ?? '',
     readOnly: c?.readOnly ?? false,
+    v1Storage: c?.v1Storage ?? false,
     color: c?.color,
     confirmWrites: c?.confirmWrites ?? false,
   })
@@ -259,6 +260,9 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           </UFormField>
           <UFormField class="col-span-2">
             <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
+          </UFormField>
+          <UFormField v-if="form.dialect === 'duckdb' && form.file && form.file !== ':memory:'" class="col-span-2" :help="t('connection.v1StorageHelp')">
+            <USwitch v-model="form.v1Storage" :label="t('connection.v1Storage')" />
           </UFormField>
         </template>
 

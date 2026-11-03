@@ -75,6 +75,7 @@ Native libraries (currently DuckDB) are loaded via `Deno.dlopen`, not as Node-AP
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
 - SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the background; outside a transaction its changes are committed.
 - SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
+- Geometries of SQL Server (`geometry`, `geography`) and SpatiaLite use their own binary formats and are shown as hex; DuckDB, PostGIS and MySQL/MariaDB geometries are shown as WKT.
 
 ## License
 

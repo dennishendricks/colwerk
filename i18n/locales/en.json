@@ -156,6 +156,8 @@
     "fileHelp": "Absolute path or :memory:",
     "browse": "Browse …",
     "readOnly": "Open read-only",
+    "v1Storage": "Create a new file compatible with DuckDB 1.x",
+    "v1StorageHelp": "Only applies when the file does not exist yet. DuckDB 1.x cannot open files in the format of DuckDB 2.",
     "color": "Color",
     "colorHelp": "Marks the connection in the list, in tabs and in the toolbar, e.g. red for production.",
     "noColor": "None",
