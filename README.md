@@ -40,7 +40,7 @@ Next to each package, the unpacked app is written as `.zip` with the same name.
 
 Windows and Linux builds are self-extracting, xz-compressed bundles. A `.dmg` can only be built on a macOS host. DuckDB's native library is not part of the packages; the app downloads it on first use (see [Native libraries](#native-libraries)).
 
-`LICENSE` and `THIRD_PARTY_LICENSES.txt` are embedded in every build and also written to `dist/` for the release. The third-party list covers the Deno runtime and the npm packages that end up in the client and server bundles (recorded during `nuxt build` by a plugin in `nuxt.config.ts`) plus those Nitro copies to `.output/server/node_modules` (`scripts/licenses.ts`).
+`LICENSE` and `THIRD_PARTY_LICENSES.txt` are embedded in every build and also written to `dist/` for the release. The third-party list covers the Deno runtime and the npm packages that end up in the client and server bundles (recorded during `nuxt build` by a plugin in `nuxt.config.ts`, see `scripts/licenses.ts`). Nitro bundles the server dependencies too (`noExternals`), so the record covers them.
 
 ## Releases
 

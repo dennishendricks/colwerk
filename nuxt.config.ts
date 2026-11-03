@@ -17,8 +17,29 @@ const recordBundledPackages = {
   },
 }
 
+// `pg-pool` requires `pg`, which resolves to pg's ESM wrapper and is then read before its initialization.
+const pgCommonJs = {
+  name: 'colwerk:pg-commonjs',
+  resolveId(this: { resolve(id: string, importer?: string, options?: { skipSelf: boolean }): Promise<unknown> }, id: string, importer?: string) {
+    if (id === 'pg') return this.resolve('pg/lib/index.js', importer, { skipSelf: true })
+  },
+}
+
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/i18n', '@nuxtjs/mcp-toolkit'],
+  $production: {
+    nitro: {
+      // Bundles the server dependencies instead of copying them to `.output/server/node_modules`, so the
+      // bundled-packages record covers them too. Not in dev, where Nitro would also bundle its dev tooling.
+      noExternals: true,
+      // Optional dependency of `pg`, only loaded through `pg.native`, which the app does not use.
+      virtual: { 'pg-native': 'export default {}' },
+      // `require()` of a module with a default and named exports (e.g. `buffer`, unenv's `debug`) has to return
+      // the default export, as in Node; Nitro's 'auto' returns the namespace there.
+      commonJS: { requireReturnsDefault: 'preferred' },
+      rollupConfig: { plugins: [pgCommonJs] },
+    },
+  },
   ssr: false,
   devtools: { enabled: false },
   app: { head: { title: 'Colwerk', link: [{ rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' }] } },

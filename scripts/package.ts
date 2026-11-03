@@ -1,8 +1,8 @@
 // `deno task compile` / `deno task desktop [--all-targets] [--keep-output]`: builds the Nuxt app and packages `.output` with the launcher.
 //
-// Only `.output` is embedded: Nitro has traced the server dependencies into `.output/server/node_modules`,
-// and `.output/deno.json` makes Deno resolve npm packages from there (BYONM) instead of the project's
-// full node_modules.
+// Only `.output` is embedded: Nitro bundles the server dependencies into `.output/server` (`noExternals` in
+// nuxt.config.ts), and `.output/deno.json` keeps Deno from resolving npm packages from the project's full
+// node_modules.
 import { basename, dirname, extname, resolve } from 'node:path'
 import { writeThirdPartyLicenses } from './licenses.ts'
 
