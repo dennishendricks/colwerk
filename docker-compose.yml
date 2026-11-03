@@ -28,7 +28,7 @@ services:
       retries: 30
 
   mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2025-latest
     platform: linux/amd64 # no arm64 image; runs via Rosetta/QEMU on Apple Silicon
     environment:
       ACCEPT_EULA: 'Y'
@@ -40,7 +40,7 @@ services:
       retries: 40
 
   mssql-init:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2025-latest
     platform: linux/amd64
     depends_on:
       mssql: { condition: service_healthy }
