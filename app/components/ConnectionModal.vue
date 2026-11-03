@@ -37,7 +37,7 @@ watch(open, (isOpen) => {
 }, { immediate: true })
 
 const driver = computed(() => drivers.value.find(d => d.dialect === form.dialect))
-const dialectItems = computed(() => drivers.value.map(d => ({ label: d.label, value: d.dialect })))
+const dialectItems = computed(() => drivers.value.map(d => ({ label: d.label, value: d.dialect })).sort((a, b) => a.label.localeCompare(b.label)))
 const folders = computed(() => [...new Set(connections.value.flatMap(c => c.folder ? [c.folder] : []))].sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' })))
 
 // An empty password field keeps the stored password (sent as `undefined`), `''` removes it.
