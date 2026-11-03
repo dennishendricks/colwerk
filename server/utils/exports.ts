@@ -7,7 +7,12 @@ import { AppError, createExporter, type ExportFormat, type RowSink } from '#core
 const running = new Map<AbortController, string>()
 
 /** Runs `produce` into the file at `path`; resolves once it is written completely. */
-export async function writeExport(tabId: string, format: ExportFormat, path: string, produce: (sink: RowSink) => Promise<void>): Promise<void> {
+export async function writeExport(
+  tabId: string,
+  format: ExportFormat,
+  path: string,
+  produce: (sink: RowSink) => Promise<void>,
+): Promise<void> {
   const aborted = new AbortController()
   running.set(aborted, tabId)
   const part = `${path}.part`

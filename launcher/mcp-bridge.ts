@@ -26,7 +26,11 @@ async function forward(line: string): Promise<void> {
     if (!instance || !current) throw new Error(NOT_RUNNING)
     const res = await fetch(`http://127.0.0.1:${instance.port}/mcp`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${current}` },
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        authorization: `Bearer ${current}`,
+      },
       body: line,
     }).catch(() => {
       throw new Error(NOT_RUNNING)
@@ -36,10 +40,12 @@ async function forward(line: string): Promise<void> {
     // Notifications get 202 without body; replies come as JSON or as server-sent events.
     if (!body) return
     if (!res.headers.get('content-type')?.includes('text/event-stream')) return await send(JSON.parse(body))
-    for (const data of body.split('\n').filter(l => l.startsWith('data:'))) await send(JSON.parse(data.slice(5)))
+    for (const data of body.split('\n').filter((l) => l.startsWith('data:'))) await send(JSON.parse(data.slice(5)))
   } catch (e) {
     token = undefined
-    if (message.id !== undefined) await send({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: (e as Error).message } })
+    if (message.id !== undefined) {
+      await send({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: (e as Error).message } })
+    }
   }
 }
 
@@ -50,7 +56,7 @@ export async function runBridge(): Promise<void> {
   for await (const chunk of Deno.stdin.readable.pipeThrough(new TextDecoderStream())) {
     const lines = (buffer + chunk).split('\n')
     buffer = lines.pop()!
-    for (const line of lines.filter(l => l.trim())) {
+    for (const line of lines.filter((l) => l.trim())) {
       const p = forward(line).catch(() => {})
       pending.add(p)
       p.finally(() => pending.delete(p))

@@ -31,13 +31,15 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
     if (!res.ok || !res.body) throw new Error(`${manifest.tarball}: HTTP ${res.status}`)
     const total = Number(res.headers.get('content-length'))
     let received = 0
-    const counted = res.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        received += chunk.length
-        if (total) onProgress(received / total)
-        controller.enqueue(chunk)
-      },
-    }))
+    const counted = res.body.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          received += chunk.length
+          if (total) onProgress(received / total)
+          controller.enqueue(chunk)
+        },
+      }),
+    )
     const tgz = await new Response(counted).bytes()
     const hash = new Uint8Array(await crypto.subtle.digest('SHA-512', tgz))
     if (`sha512-${btoa(String.fromCharCode(...hash))}` !== manifest.integrity) throw new Error('checksum mismatch')
@@ -46,7 +48,9 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
     const tmp = `${dir}.${crypto.randomUUID()}.tmp`
     await Deno.mkdir(tmp, { recursive: true })
     try {
-      const entries = ReadableStream.from([tgz]).pipeThrough(new DecompressionStream('gzip')).pipeThrough(new UntarStream())
+      const entries = ReadableStream.from([tgz]).pipeThrough(new DecompressionStream('gzip')).pipeThrough(
+        new UntarStream(),
+      )
       for await (const entry of entries) {
         const name = basename(entry.path)
         if (entry.readable && name === file) await Deno.writeFile(join(tmp, name), entry.readable)
@@ -60,7 +64,9 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
       await Deno.remove(tmp, { recursive: true }).catch(() => {})
     }
     for await (const entry of Deno.readDir(root)) {
-      if (entry.name.startsWith('duckdb-') && join(root, entry.name) !== dir) await Deno.remove(join(root, entry.name), { recursive: true }).catch(() => {})
+      if (entry.name.startsWith('duckdb-') && join(root, entry.name) !== dir) {
+        await Deno.remove(join(root, entry.name), { recursive: true }).catch(() => {})
+      }
     }
   }
 

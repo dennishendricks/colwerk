@@ -2,15 +2,40 @@ import pg from 'pg'
 import Cursor from 'pg-cursor'
 import { hexEwkbToText } from '../geometry.ts'
 import { splitStatements } from '../sql-split.ts'
-import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import {
+  AppError,
+  type CellValue,
+  type ColumnInfo,
+  type ConnectionConfig,
+  DbError,
+  type Driver,
+  type IntrospectRequest,
+  type IntrospectResult,
+  type QueryResult,
+  type ResultColumn,
+  type ResultSet,
+  type RowSink,
+  type Session,
+  type TableInfo,
+  type TransactionState,
+} from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
 
-const OID = { date: 1082, timestamp: 1114, timestamptz: 1184, dateArray: 1182, timestampArray: 1115, timestamptzArray: 1185, textArray: 1009 }
+const OID = {
+  date: 1082,
+  timestamp: 1114,
+  timestamptz: 1184,
+  dateArray: 1182,
+  timestampArray: 1115,
+  timestamptzArray: 1185,
+  textArray: 1009,
+}
 
 type Nested = string | null | Nested[]
-const mapNested = (v: Nested, fn: (s: string) => string): Nested => Array.isArray(v) ? v.map(x => mapNested(x, fn)) : v === null ? null : fn(v)
+const mapNested = (v: Nested, fn: (s: string) => string): Nested =>
+  Array.isArray(v) ? v.map((x) => mapNested(x, fn)) : v === null ? null : fn(v)
 // Date/timestamp arrays are parsed as text arrays, not into JS Date (which would apply the local zone).
 const parseTextArray = pg.types.getTypeParser(OID.textArray) as (v: string) => Nested
 
@@ -18,7 +43,9 @@ const types: pg.CustomTypesConfig = {
   getTypeParser: ((oid: number, format?: 'text' | 'binary') => {
     if (oid === OID.timestamp || oid === OID.timestamptz) return sqlTimestampToIso
     if (oid === OID.date) return (v: string) => v
-    if (oid === OID.timestampArray || oid === OID.timestamptzArray) return (v: string) => mapNested(parseTextArray(v), sqlTimestampToIso)
+    if (oid === OID.timestampArray || oid === OID.timestamptzArray) {
+      return (v: string) => mapNested(parseTextArray(v), sqlTimestampToIso)
+    }
     if (oid === OID.dateArray) return parseTextArray
     return pg.types.getTypeParser(oid, format)
   }) as pg.CustomTypesConfig['getTypeParser'],
@@ -29,8 +56,8 @@ const types: pg.CustomTypesConfig = {
 const GEOMETRY = /(^|\.)(geometry|geography)$/
 
 function convertRows(columns: ResultColumn[], rows: unknown[][]): CellValue[][] {
-  const geometry = columns.map(c => GEOMETRY.test(c.type))
-  return rows.map(r => r.map((v, i) => geometry[i] && typeof v === 'string' ? hexEwkbToText(v) : normalizeValue(v)))
+  const geometry = columns.map((c) => GEOMETRY.test(c.type))
+  return rows.map((r) => r.map((v, i) => geometry[i] && typeof v === 'string' ? hexEwkbToText(v) : normalizeValue(v)))
 }
 
 // Status byte of the last ReadyForQuery message.
@@ -58,7 +85,7 @@ async function clientConfig(c: ConnectionConfig): Promise<pg.ClientConfig> {
 
 function wrap(e: unknown): DbError {
   if (e instanceof DbError) return e
-  const err = e as { message?: string, code?: string, position?: string }
+  const err = e as { message?: string; code?: string; position?: string }
   const pos = err.position ? ` (position ${err.position})` : ''
   // pg reports a 1-based character position within the statement that was sent.
   return new DbError(`${err.message ?? String(e)}${pos}`, err.code, err.position ? Number(err.position) - 1 : undefined)
@@ -115,7 +142,9 @@ const sqlFor = (v: number) => ({
     order by a.attnum`,
   indexes: `
     select ic.relname as name,
-      array(select pg_get_indexdef(i.indexrelid, k, true) from generate_series(1, i.${v >= 110000 ? 'indnkeyatts' : 'indnatts'}) k) as columns,
+      array(select pg_get_indexdef(i.indexrelid, k, true) from generate_series(1, i.${
+    v >= 110000 ? 'indnkeyatts' : 'indnatts'
+  }) k) as columns,
       i.indisunique as "unique", i.indisprimary as "primary"
     from pg_index i
     join pg_class ic on ic.oid = i.indexrelid
@@ -125,7 +154,9 @@ const sqlFor = (v: number) => ({
     order by i.indisprimary desc, ic.relname`,
   // Overloads appear once; functions of extensions are left out.
   routines: `
-    select p.proname as name, ${v >= 110000 ? `case p.prokind when 'p' then 'procedure' else 'function' end` : `'function'`} as kind
+    select p.proname as name, ${
+    v >= 110000 ? `case p.prokind when 'p' then 'procedure' else 'function' end` : `'function'`
+  } as kind
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = $1 and ${isRoutine(v)}
       and not exists (select 1 from pg_depend d
@@ -147,7 +178,11 @@ const sqlFor = (v: number) => ({
     select format(E'create table %I.%I (\\n    %s\\n);', n.nspname, c.relname, (
         select string_agg(line, E',\\n    ' order by grp, ord) from (
           select 0 as grp, a.attnum::int as ord, format('%I %s', a.attname, format_type(a.atttypid, a.atttypmod))
-            || case ${v >= 120000 ? `when a.attgenerated = 's' then format(' generated always as (%s) stored', pg_get_expr(d.adbin, d.adrelid))` : ''}
+            || case ${
+    v >= 120000
+      ? `when a.attgenerated = 's' then format(' generated always as (%s) stored', pg_get_expr(d.adbin, d.adrelid))`
+      : ''
+  }
                     when d.adbin is not null then ' default ' || pg_get_expr(d.adbin, d.adrelid) else '' end
             || ${v >= 100000 ? IDENTITY : `''`}
             || case when a.attnotnull then ' not null' else '' end as line
@@ -192,8 +227,11 @@ class PostgresSession implements Session {
         if (fields.length) {
           const truncated = read.length > rowLimit
           const rows = truncated ? read.slice(0, rowLimit) : read
-          await this.resolveTypeNames(fields.map(f => f.dataTypeID))
-          const columns = fields.map(f => ({ name: f.name, type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID) }))
+          await this.resolveTypeNames(fields.map((f) => f.dataTypeID))
+          const columns = fields.map((f) => ({
+            name: f.name,
+            type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID),
+          }))
           resultSets.push({ columns, rows: convertRows(columns, rows), truncated })
         } else if (result.command && DML.has(result.command)) {
           affectedRows = (affectedRows ?? 0) + (result.rowCount ?? 0)
@@ -205,14 +243,19 @@ class PostgresSession implements Session {
         throw err
       }
     }
-    return { resultSets, affectedRows: resultSets.length ? undefined : affectedRows, durationMs: performance.now() - started }
+    return {
+      resultSets,
+      affectedRows: resultSets.length ? undefined : affectedRows,
+      durationMs: performance.now() - started,
+    }
   }
 
   async stream(sql: string, sink: RowSink): Promise<void> {
     const cursor = this.client.query(new Cursor<unknown[]>(sql, undefined, { rowMode: 'array' }))
-    const read = () => new Promise<{ rows: unknown[][], result: pg.QueryResult }>((resolve, reject) => {
-      cursor.read(STREAM_BATCH, (err, rows, result) => err ? reject(err) : resolve({ rows, result }))
-    })
+    const read = () =>
+      new Promise<{ rows: unknown[][]; result: pg.QueryResult }>((resolve, reject) => {
+        cursor.read(STREAM_BATCH, (err, rows, result) => err ? reject(err) : resolve({ rows, result }))
+      })
     try {
       let columns: ResultColumn[] | undefined
       for (;;) {
@@ -220,7 +263,10 @@ class PostgresSession implements Session {
         if (!columns) {
           // Type names come from the cache only: the client is blocked by the open cursor. Columns of a
           // query run before in this session (the usual case for an export) are always cached.
-          columns = (result.fields ?? []).map(f => ({ name: f.name, type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID) }))
+          columns = (result.fields ?? []).map((f) => ({
+            name: f.name,
+            type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID),
+          }))
           if (columns.length) sink.columns(columns)
         }
         if (!rows.length) break
@@ -229,13 +275,13 @@ class PostgresSession implements Session {
     } catch (e) {
       throw wrap(e)
     } finally {
-      await new Promise(resolve => cursor.close(resolve))
+      await new Promise((resolve) => cursor.close(resolve))
     }
   }
 
   private readCursor(sql: string, maxRows: number) {
     const cursor = this.client.query(new Cursor<unknown[]>(sql, undefined, { rowMode: 'array' }))
-    return new Promise<{ rows: unknown[][], result: pg.QueryResult }>((resolve, reject) => {
+    return new Promise<{ rows: unknown[][]; result: pg.QueryResult }>((resolve, reject) => {
       cursor.read(maxRows, (err, rows, result) => {
         cursor.close(() => err ? reject(err) : resolve({ rows, result }))
       })
@@ -243,10 +289,12 @@ class PostgresSession implements Session {
   }
 
   private async resolveTypeNames(oids: number[]) {
-    const missing = [...new Set(oids)].filter(o => !this.typeNames.has(o))
+    const missing = [...new Set(oids)].filter((o) => !this.typeNames.has(o))
     if (!missing.length) return
-    const res = await this.client.query<{ oid: number, name: string }>(
-      'select oid::int as oid, format_type(oid, null) as name from pg_type where oid = any ($1)', [missing])
+    const res = await this.client.query<{ oid: number; name: string }>(
+      'select oid::int as oid, format_type(oid, null) as name from pg_type where oid = any ($1)',
+      [missing],
+    )
     for (const r of res.rows) this.typeNames.set(r.oid, r.name)
   }
 
@@ -276,15 +324,23 @@ class PostgresSession implements Session {
       }
       if (req.kind === 'tables') {
         const res = await this.client.query<Omit<TableInfo, 'schema'>>(SQL.tables, [req.schema])
-        return res.rows.map(r => ({ schema: req.schema, ...r })) as IntrospectResult<R>
+        return res.rows.map((r) => ({ schema: req.schema, ...r })) as IntrospectResult<R>
       }
-      if (req.kind === 'indexes') return (await this.client.query(SQL.indexes, [req.schema, req.table])).rows as IntrospectResult<R>
-      if (req.kind === 'routines') return (await this.client.query(SQL.routines, [req.schema])).rows as IntrospectResult<R>
+      if (req.kind === 'indexes') {
+        return (await this.client.query(SQL.indexes, [req.schema, req.table])).rows as IntrospectResult<R>
+      }
+      if (req.kind === 'routines') {
+        return (await this.client.query(SQL.routines, [req.schema])).rows as IntrospectResult<R>
+      }
       if (req.kind === 'ddl') {
         const { rows } = await this.client.query<{ ddl: string }>(DDL[req.object], [req.schema, req.name])
-        if (!rows.length) throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, { params: { name: `${req.schema}.${req.name}` } })
+        if (!rows.length) {
+          throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, {
+            params: { name: `${req.schema}.${req.name}` },
+          })
+        }
         // pg_get_functiondef ends without a semicolon; overloads come one after another.
-        return rows.map(r => r.ddl.trimEnd().replace(/;?$/, ';')).join('\n\n') as IntrospectResult<R>
+        return rows.map((r) => r.ddl.trimEnd().replace(/;?$/, ';')).join('\n\n') as IntrospectResult<R>
       }
       const res = await this.client.query(SQL.columns, [req.schema, req.table])
       return res.rows.map((r): ColumnInfo => ({
@@ -311,8 +367,9 @@ export const postgresDriver: Driver = {
     const client = new pg.Client(await clientConfig(config))
     try {
       await client.connect()
-      const { rows } = await client.query<{ pid: number, version: number }>(
-        `select pg_backend_pid() as pid, current_setting('server_version_num')::int as version`)
+      const { rows } = await client.query<{ pid: number; version: number }>(
+        `select pg_backend_pid() as pid, current_setting('server_version_num')::int as version`,
+      )
       // An idle connection may be dropped by the server; surface it on the next call instead of crashing.
       client.on('error', () => {})
       return new PostgresSession(client, config, rows[0]!.pid, rows[0]!.version)

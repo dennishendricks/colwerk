@@ -8,7 +8,12 @@ import { reachable, testConnections } from './helpers.ts'
 const binary = `dist/colwerk${Deno.build.os === 'windows' ? '.exe' : ''}`
 const built = await Deno.stat(binary).then(() => true, () => false)
 
-Deno.test({ name: 'binary: every driver connects and queries', ignore: !built, sanitizeResources: false, sanitizeOps: false }, async (t) => {
+Deno.test({
+  name: 'binary: every driver connects and queries',
+  ignore: !built,
+  sanitizeResources: false,
+  sanitizeOps: false,
+}, async (t) => {
   const server = new Deno.Command(binary, {
     // Without PATH the launcher finds no browser to open.
     env: { PATH: '', COLWERK_DATA_DIR: await Deno.makeTempDir(), COLWERK_KEYCHAIN: 'off' },
@@ -29,7 +34,11 @@ Deno.test({ name: 'binary: every driver connects and queries', ignore: !built, s
     }
     const [, base, token] = match
     const call = async (path: string, body: object) => {
-      const res = await fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-colwerk-token': token! }, body: JSON.stringify(body) })
+      const res = await fetch(base + path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-colwerk-token': token! },
+        body: JSON.stringify(body),
+      })
       const json = await res.json()
       if (!res.ok) throw new Error(`${path}: ${res.status} ${JSON.stringify(json)}`)
       return json
@@ -46,7 +55,10 @@ Deno.test({ name: 'binary: every driver connects and queries', ignore: !built, s
           if (config.dialect === 'duckdb') await call('/api/drivers/duckdb/install', {})
           const saved = await call('/api/connections', { ...config, id: undefined })
           await call(`/api/connections/${saved.id}/introspect`, { request: { kind: 'schemas' } })
-          const { resultSets } = await call(`/api/tabs/${config.dialect}/execute`, { connectionId: saved.id, sql: 'select 1 as a' })
+          const { resultSets } = await call(`/api/tabs/${config.dialect}/execute`, {
+            connectionId: saved.id,
+            sql: 'select 1 as a',
+          })
           assertEquals(resultSets[0].rows, [[1]])
         },
       })

@@ -22,13 +22,19 @@ const fetcher = $fetch.create({
   },
 }) as (url: string, options?: object) => Promise<unknown>
 
-export function api<T = unknown>(url: string, options?: { method?: 'GET' | 'POST' | 'DELETE', body?: unknown }): Promise<T> {
+export function api<T = unknown>(
+  url: string,
+  options?: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown },
+): Promise<T> {
   return fetcher(url, options) as Promise<T>
 }
 
 /** The error's text; errors of Colwerk itself (`key` from the server, see server/utils/colwerk.ts) in the UI's language. */
 export function errorMessage(e: unknown): string {
-  const err = e as { data?: { message?: string, data?: { key?: string, params?: Record<string, unknown> } }, message?: string }
+  const err = e as {
+    data?: { message?: string; data?: { key?: string; params?: Record<string, unknown> } }
+    message?: string
+  }
   const { key, params } = err.data?.data ?? {}
   const { t, te } = useNuxtApp().$i18n
   if (key && te(`errors.${key}`)) return t(`errors.${key}`, params ?? {})
@@ -50,13 +56,15 @@ export async function subscribe(url: string, onEvent: (event: string, data: stri
         const blocks = buffer.split('\n\n')
         buffer = blocks.pop()!
         for (const block of blocks) {
-          const field = (name: string) => block.split('\n').filter(l => l.startsWith(`${name}:`)).map(l => l.slice(name.length + 1).trimStart()).join('\n')
+          const field = (name: string) =>
+            block.split('\n').filter((l) => l.startsWith(`${name}:`)).map((l) => l.slice(name.length + 1).trimStart())
+              .join('\n')
           onEvent(field('event'), field('data'))
         }
       }
     } catch {
       // Server restarted or connection dropped: try again below.
     }
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise((resolve) => setTimeout(resolve, 2000))
   }
 }

@@ -33,7 +33,11 @@ const RESULT = { struct: ['u64', 'u64', 'u64', 'pointer', 'pointer', 'pointer'] 
 // so the event loop keeps running and `duckdb_interrupt` can reach them.
 const SYMBOLS = {
   duckdb_create_instance_cache: { parameters: [], result: 'pointer' },
-  duckdb_get_or_create_from_cache: { parameters: ['pointer', 'buffer', 'buffer', 'pointer', 'buffer'], result: 'i32', nonblocking: true },
+  duckdb_get_or_create_from_cache: {
+    parameters: ['pointer', 'buffer', 'buffer', 'pointer', 'buffer'],
+    result: 'i32',
+    nonblocking: true,
+  },
   duckdb_create_config: { parameters: ['buffer'], result: 'i32' },
   duckdb_set_config: { parameters: ['pointer', 'buffer', 'buffer'], result: 'i32' },
   duckdb_destroy_config: { parameters: ['buffer'], result: 'void' },
@@ -90,18 +94,26 @@ const SYMBOLS = {
 
 // core/ is also type-checked by Nuxt, which does not know Deno's types, so the FFI API used here is typed locally.
 type Pointer = object | null
-type Param<T> = T extends 'pointer' ? Pointer : T extends 'u64' ? bigint : T extends 'buffer' ? ArrayBufferView : Uint8Array
-type Return<T> = T extends 'pointer' ? Pointer : T extends 'void' ? undefined : T extends 'u64' ? number | bigint : number
+type Param<T> = T extends 'pointer' ? Pointer
+  : T extends 'u64' ? bigint
+  : T extends 'buffer' ? ArrayBufferView
+  : Uint8Array
+type Return<T> = T extends 'pointer' ? Pointer
+  : T extends 'void' ? undefined
+  : T extends 'u64' ? number | bigint
+  : number
 type Params<P extends readonly unknown[]> = { -readonly [I in keyof P]: Param<P[I]> }
 type Symbols = {
-  [K in keyof typeof SYMBOLS]: (...args: Params<typeof SYMBOLS[K]['parameters']>) =>
-  typeof SYMBOLS[K] extends { nonblocking: true } ? Promise<Return<typeof SYMBOLS[K]['result']>> : Return<typeof SYMBOLS[K]['result']>
+  [K in keyof typeof SYMBOLS]: (
+    ...args: Params<typeof SYMBOLS[K]['parameters']>
+  ) => typeof SYMBOLS[K] extends { nonblocking: true } ? Promise<Return<typeof SYMBOLS[K]['result']>>
+    : Return<typeof SYMBOLS[K]['result']>
 }
 const { Deno } = globalThis as unknown as {
   Deno: {
     dlopen(path: string, symbols: typeof SYMBOLS): { symbols: Symbols }
-    UnsafePointer: { create(value: bigint): Pointer, value(p: Pointer): number | bigint }
-    UnsafePointerView: { getCString(p: object): string, getArrayBuffer(p: object, byteLength: number): ArrayBuffer }
+    UnsafePointer: { create(value: bigint): Pointer; value(p: Pointer): number | bigint }
+    UnsafePointerView: { getCString(p: object): string; getArrayBuffer(p: object, byteLength: number): ArrayBuffer }
   }
 }
 
@@ -127,7 +139,7 @@ const slotOf = (p: Pointer) => BigUint64Array.of(BigInt(Deno.UnsafePointer.value
 
 // One cache per access mode: switching a connection to read-only would otherwise collide with the
 // read-write instance while it is still open.
-const caches: { readWrite?: Pointer, readOnly?: Pointer } = {}
+const caches: { readWrite?: Pointer; readOnly?: Pointer } = {}
 
 /**
  * Opens a connection to the database at `path`. Every connection holds its own database handle from the
@@ -136,7 +148,9 @@ const caches: { readWrite?: Pointer, readOnly?: Pointer } = {}
 export async function connect(path: string, readOnly: boolean, v1Storage: boolean): Promise<Connection> {
   const c = capi()
   if (v1Storage && !readOnly && !path.startsWith(':memory:') && !existsSync(path)) await createV1(path)
-  const cache = readOnly ? caches.readOnly ??= c.duckdb_create_instance_cache() : caches.readWrite ??= c.duckdb_create_instance_cache()
+  const cache = readOnly
+    ? caches.readOnly ??= c.duckdb_create_instance_cache()
+    : caches.readWrite ??= c.duckdb_create_instance_cache()
   const config = slot()
   c.duckdb_create_config(config)
   const db = slot()
@@ -225,7 +239,7 @@ export class Connection {
 const QUERY_RESULT = 3
 
 export class Result {
-  readonly columns: { name: string, type: string }[] = []
+  readonly columns: { name: string; type: string }[] = []
   private decoders: Decoder[] = []
 
   constructor(private prepared: BigUint64Array, private result: Uint8Array) {
@@ -264,7 +278,7 @@ export class Result {
       const count = Number(c.duckdb_data_chunk_get_size(chunk))
       if (!count) return undefined
       const columns = this.decoders.map((decode, i) => decode(c.duckdb_data_chunk_get_vector(chunk, BigInt(i)), count))
-      return Array.from({ length: count }, (_, row) => columns.map(read => read(row)))
+      return Array.from({ length: count }, (_, row) => columns.map((read) => read(row)))
     } finally {
       c.duckdb_destroy_data_chunk(slotOf(chunk))
     }
@@ -281,14 +295,51 @@ export class Result {
 
 /** Reads the value of a row from a vector with `count` rows. */
 type Decoder = (vector: Pointer, count: number) => (row: number) => CellValue
-interface Described { name: string, decode: Decoder }
+interface Described {
+  name: string
+  decode: Decoder
+}
 
 const T = {
-  BOOLEAN: 1, TINYINT: 2, SMALLINT: 3, INTEGER: 4, BIGINT: 5, UTINYINT: 6, USMALLINT: 7, UINTEGER: 8, UBIGINT: 9,
-  FLOAT: 10, DOUBLE: 11, TIMESTAMP: 12, DATE: 13, TIME: 14, INTERVAL: 15, HUGEINT: 16, VARCHAR: 17, BLOB: 18,
-  DECIMAL: 19, TIMESTAMP_S: 20, TIMESTAMP_MS: 21, TIMESTAMP_NS: 22, ENUM: 23, LIST: 24, STRUCT: 25, MAP: 26,
-  UUID: 27, UNION: 28, BIT: 29, TIME_TZ: 30, TIMESTAMP_TZ: 31, UHUGEINT: 32, ARRAY: 33, BIGNUM: 35, SQLNULL: 36,
-  TIME_NS: 39, GEOMETRY: 40, VARIANT: 41, TIMESTAMP_TZ_NS: 42,
+  BOOLEAN: 1,
+  TINYINT: 2,
+  SMALLINT: 3,
+  INTEGER: 4,
+  BIGINT: 5,
+  UTINYINT: 6,
+  USMALLINT: 7,
+  UINTEGER: 8,
+  UBIGINT: 9,
+  FLOAT: 10,
+  DOUBLE: 11,
+  TIMESTAMP: 12,
+  DATE: 13,
+  TIME: 14,
+  INTERVAL: 15,
+  HUGEINT: 16,
+  VARCHAR: 17,
+  BLOB: 18,
+  DECIMAL: 19,
+  TIMESTAMP_S: 20,
+  TIMESTAMP_MS: 21,
+  TIMESTAMP_NS: 22,
+  ENUM: 23,
+  LIST: 24,
+  STRUCT: 25,
+  MAP: 26,
+  UUID: 27,
+  UNION: 28,
+  BIT: 29,
+  TIME_TZ: 30,
+  TIMESTAMP_TZ: 31,
+  UHUGEINT: 32,
+  ARRAY: 33,
+  BIGNUM: 35,
+  SQLNULL: 36,
+  TIME_NS: 39,
+  GEOMETRY: 40,
+  VARIANT: 41,
+  TIMESTAMP_TZ_NS: 42,
 } as const
 
 function describe(type: Pointer): Described {
@@ -310,40 +361,73 @@ function describeType(type: Pointer): Described {
   const c = capi()
   const id = c.duckdb_get_type_id(type)
   switch (id) {
-    case T.BOOLEAN: return { name: 'BOOLEAN', decode: fixed(1, (v, o) => v.getUint8(o) !== 0) }
-    case T.TINYINT: return { name: 'TINYINT', decode: fixed(1, (v, o) => v.getInt8(o)) }
-    case T.SMALLINT: return { name: 'SMALLINT', decode: fixed(2, (v, o) => v.getInt16(o, true)) }
-    case T.INTEGER: return { name: 'INTEGER', decode: fixed(4, (v, o) => v.getInt32(o, true)) }
-    case T.BIGINT: return { name: 'BIGINT', decode: fixed(8, (v, o) => String(v.getBigInt64(o, true))) }
-    case T.UTINYINT: return { name: 'UTINYINT', decode: fixed(1, (v, o) => v.getUint8(o)) }
-    case T.USMALLINT: return { name: 'USMALLINT', decode: fixed(2, (v, o) => v.getUint16(o, true)) }
-    case T.UINTEGER: return { name: 'UINTEGER', decode: fixed(4, (v, o) => v.getUint32(o, true)) }
-    case T.UBIGINT: return { name: 'UBIGINT', decode: fixed(8, (v, o) => String(v.getBigUint64(o, true))) }
-    case T.HUGEINT: return { name: 'HUGEINT', decode: fixed(16, (v, o) => String(int128(v, o, true))) }
-    case T.UHUGEINT: return { name: 'UHUGEINT', decode: fixed(16, (v, o) => String(int128(v, o, false))) }
-    case T.FLOAT: return { name: 'FLOAT', decode: fixed(4, (v, o) => jsonNumber(v.getFloat32(o, true))) }
-    case T.DOUBLE: return { name: 'DOUBLE', decode: fixed(8, (v, o) => jsonNumber(v.getFloat64(o, true))) }
-    case T.VARCHAR: return { name: 'VARCHAR', decode: fixed(16, (v, o) => decoder.decode(bytes(v, o))) }
-    case T.BLOB: return { name: 'BLOB', decode: fixed(16, (v, o) => toHex(bytes(v, o))) }
-    case T.BIT: return { name: 'BIT', decode: fixed(16, (v, o) => bit(bytes(v, o))) }
-    case T.BIGNUM: return { name: 'BIGNUM', decode: fixed(16, (v, o) => bignum(bytes(v, o))) }
+    case T.BOOLEAN:
+      return { name: 'BOOLEAN', decode: fixed(1, (v, o) => v.getUint8(o) !== 0) }
+    case T.TINYINT:
+      return { name: 'TINYINT', decode: fixed(1, (v, o) => v.getInt8(o)) }
+    case T.SMALLINT:
+      return { name: 'SMALLINT', decode: fixed(2, (v, o) => v.getInt16(o, true)) }
+    case T.INTEGER:
+      return { name: 'INTEGER', decode: fixed(4, (v, o) => v.getInt32(o, true)) }
+    case T.BIGINT:
+      return { name: 'BIGINT', decode: fixed(8, (v, o) => String(v.getBigInt64(o, true))) }
+    case T.UTINYINT:
+      return { name: 'UTINYINT', decode: fixed(1, (v, o) => v.getUint8(o)) }
+    case T.USMALLINT:
+      return { name: 'USMALLINT', decode: fixed(2, (v, o) => v.getUint16(o, true)) }
+    case T.UINTEGER:
+      return { name: 'UINTEGER', decode: fixed(4, (v, o) => v.getUint32(o, true)) }
+    case T.UBIGINT:
+      return { name: 'UBIGINT', decode: fixed(8, (v, o) => String(v.getBigUint64(o, true))) }
+    case T.HUGEINT:
+      return { name: 'HUGEINT', decode: fixed(16, (v, o) => String(int128(v, o, true))) }
+    case T.UHUGEINT:
+      return { name: 'UHUGEINT', decode: fixed(16, (v, o) => String(int128(v, o, false))) }
+    case T.FLOAT:
+      return { name: 'FLOAT', decode: fixed(4, (v, o) => jsonNumber(v.getFloat32(o, true))) }
+    case T.DOUBLE:
+      return { name: 'DOUBLE', decode: fixed(8, (v, o) => jsonNumber(v.getFloat64(o, true))) }
+    case T.VARCHAR:
+      return { name: 'VARCHAR', decode: fixed(16, (v, o) => decoder.decode(bytes(v, o))) }
+    case T.BLOB:
+      return { name: 'BLOB', decode: fixed(16, (v, o) => toHex(bytes(v, o))) }
+    case T.BIT:
+      return { name: 'BIT', decode: fixed(16, (v, o) => bit(bytes(v, o))) }
+    case T.BIGNUM:
+      return { name: 'BIGNUM', decode: fixed(16, (v, o) => bignum(bytes(v, o))) }
     case T.GEOMETRY: {
       const crs = owned(c.duckdb_geometry_type_get_crs(type))
       return { name: crs ? `GEOMETRY('${crs}')` : 'GEOMETRY', decode: fixed(16, (v, o) => wkbToText(bytes(v, o))) }
     }
-    case T.VARIANT: return { name: 'VARIANT', decode: variant }
-    case T.DATE: return { name: 'DATE', decode: fixed(4, (v, o) => date(v.getInt32(o, true))) }
-    case T.TIME: return { name: 'TIME', decode: fixed(8, (v, o) => time(v.getBigInt64(o, true), 6)) }
-    case T.TIME_NS: return { name: 'TIME_NS', decode: fixed(8, (v, o) => time(v.getBigInt64(o, true), 9)) }
-    case T.TIME_TZ: return { name: 'TIME WITH TIME ZONE', decode: fixed(8, timeTz) }
-    case T.TIMESTAMP: return { name: 'TIMESTAMP', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 6, '')) }
-    case T.TIMESTAMP_S: return { name: 'TIMESTAMP_S', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 0, '')) }
-    case T.TIMESTAMP_MS: return { name: 'TIMESTAMP_MS', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 3, '')) }
-    case T.TIMESTAMP_NS: return { name: 'TIMESTAMP_NS', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 9, '')) }
-    case T.TIMESTAMP_TZ: return { name: 'TIMESTAMP WITH TIME ZONE', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 6, '+00:00')) }
-    case T.TIMESTAMP_TZ_NS: return { name: 'TIMESTAMPTZ_NS', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 9, '+00:00')) }
-    case T.INTERVAL: return { name: 'INTERVAL', decode: fixed(16, interval) }
-    case T.UUID: return { name: 'UUID', decode: fixed(16, uuid) }
+    case T.VARIANT:
+      return { name: 'VARIANT', decode: variant }
+    case T.DATE:
+      return { name: 'DATE', decode: fixed(4, (v, o) => date(v.getInt32(o, true))) }
+    case T.TIME:
+      return { name: 'TIME', decode: fixed(8, (v, o) => time(v.getBigInt64(o, true), 6)) }
+    case T.TIME_NS:
+      return { name: 'TIME_NS', decode: fixed(8, (v, o) => time(v.getBigInt64(o, true), 9)) }
+    case T.TIME_TZ:
+      return { name: 'TIME WITH TIME ZONE', decode: fixed(8, timeTz) }
+    case T.TIMESTAMP:
+      return { name: 'TIMESTAMP', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 6, '')) }
+    case T.TIMESTAMP_S:
+      return { name: 'TIMESTAMP_S', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 0, '')) }
+    case T.TIMESTAMP_MS:
+      return { name: 'TIMESTAMP_MS', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 3, '')) }
+    case T.TIMESTAMP_NS:
+      return { name: 'TIMESTAMP_NS', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 9, '')) }
+    case T.TIMESTAMP_TZ:
+      return {
+        name: 'TIMESTAMP WITH TIME ZONE',
+        decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 6, '+00:00')),
+      }
+    case T.TIMESTAMP_TZ_NS:
+      return { name: 'TIMESTAMPTZ_NS', decode: fixed(8, (v, o) => timestamp(v.getBigInt64(o, true), 9, '+00:00')) }
+    case T.INTERVAL:
+      return { name: 'INTERVAL', decode: fixed(16, interval) }
+    case T.UUID:
+      return { name: 'UUID', decode: fixed(16, uuid) }
     case T.DECIMAL: {
       const width = c.duckdb_decimal_width(type)
       const scale = c.duckdb_decimal_scale(type)
@@ -351,9 +435,15 @@ function describeType(type: Pointer): Described {
       return { name: `DECIMAL(${width},${scale})`, decode: fixed(size, (v, o) => decimal(read(v, o), scale)) }
     }
     case T.ENUM: {
-      const values = Array.from({ length: c.duckdb_enum_dictionary_size(type) }, (_, i) => owned(c.duckdb_enum_dictionary_value(type, BigInt(i))))
+      const values = Array.from(
+        { length: c.duckdb_enum_dictionary_size(type) },
+        (_, i) => owned(c.duckdb_enum_dictionary_value(type, BigInt(i))),
+      )
       const [size, read] = INTEGERS[c.duckdb_enum_internal_type(type)]!
-      return { name: `ENUM(${values.map(v => `'${v.replaceAll('\'', '\'\'')}'`).join(', ')})`, decode: fixed(size, (v, o) => values[Number(read(v, o))]!) }
+      return {
+        name: `ENUM(${values.map((v) => `'${v.replaceAll("'", "''")}'`).join(', ')})`,
+        decode: fixed(size, (v, o) => values[Number(read(v, o))]!),
+      }
     }
     case T.LIST: {
       const child = describeChild(c.duckdb_list_type_child_type(type))
@@ -363,7 +453,10 @@ function describeType(type: Pointer): Described {
     case T.MAP: {
       const key = describeChild(c.duckdb_map_type_key_type(type))
       const value = describeChild(c.duckdb_map_type_value_type(type))
-      return { name: `MAP(${key.name}, ${value.name})`, decode: list(struct([['key', key.decode], ['value', value.decode]])) }
+      return {
+        name: `MAP(${key.name}, ${value.name})`,
+        decode: list(struct([['key', key.decode], ['value', value.decode]])),
+      }
     }
     case T.ARRAY: {
       const child = describeChild(c.duckdb_array_type_child_type(type))
@@ -371,18 +464,38 @@ function describeType(type: Pointer): Described {
       return { name: `${child.name}[${size}]`, decode: array(child.decode, size) }
     }
     case T.STRUCT: {
-      const fields = Array.from({ length: Number(c.duckdb_struct_type_child_count(type)) }, (_, i) =>
-        [owned(c.duckdb_struct_type_child_name(type, BigInt(i))), describeChild(c.duckdb_struct_type_child_type(type, BigInt(i)))] as const)
-      return { name: `STRUCT(${fields.map(([n, d]) => `"${n}" ${d.name}`).join(', ')})`, decode: struct(fields.map(([n, d]) => [n, d.decode])) }
+      const fields = Array.from(
+        { length: Number(c.duckdb_struct_type_child_count(type)) },
+        (_, i) =>
+          [
+            owned(c.duckdb_struct_type_child_name(type, BigInt(i))),
+            describeChild(c.duckdb_struct_type_child_type(type, BigInt(i))),
+          ] as const,
+      )
+      return {
+        name: `STRUCT(${fields.map(([n, d]) => `"${n}" ${d.name}`).join(', ')})`,
+        decode: struct(fields.map(([n, d]) => [n, d.decode])),
+      }
     }
     // A struct of the tag (UTINYINT) and one child per member; like @duckdb/node-api { tag, value }.
     case T.UNION: {
-      const members = Array.from({ length: Number(c.duckdb_union_type_member_count(type)) }, (_, i) =>
-        [owned(c.duckdb_union_type_member_name(type, BigInt(i))), describeChild(c.duckdb_union_type_member_type(type, BigInt(i)))] as const)
-      return { name: `UNION(${members.map(([n, d]) => `"${n}" ${d.name}`).join(', ')})`, decode: union(members.map(([n, d]) => [n, d.decode])) }
+      const members = Array.from(
+        { length: Number(c.duckdb_union_type_member_count(type)) },
+        (_, i) =>
+          [
+            owned(c.duckdb_union_type_member_name(type, BigInt(i))),
+            describeChild(c.duckdb_union_type_member_type(type, BigInt(i))),
+          ] as const,
+      )
+      return {
+        name: `UNION(${members.map(([n, d]) => `"${n}" ${d.name}`).join(', ')})`,
+        decode: union(members.map(([n, d]) => [n, d.decode])),
+      }
     }
-    case T.SQLNULL: return { name: 'NULL', decode: () => () => null }
-    default: throw new DbError(`Unsupported DuckDB type (id ${id})`)
+    case T.SQLNULL:
+      return { name: 'NULL', decode: () => () => null }
+    default:
+      throw new DbError(`Unsupported DuckDB type (id ${id})`)
   }
 }
 
@@ -406,14 +519,14 @@ function validity(vector: Pointer, count: number): (row: number) => boolean {
   const p = capi().duckdb_vector_get_validity(vector)
   if (!p || !count) return () => true
   const mask = new Uint32Array(Deno.UnsafePointerView.getArrayBuffer(p, Math.ceil(count / 64) * 8))
-  return row => ((mask[row >>> 5]! >>> (row & 31)) & 1) === 1
+  return (row) => ((mask[row >>> 5]! >>> (row & 31)) & 1) === 1
 }
 
 function fixed(size: number, read: (v: DataView, offset: number) => CellValue): Decoder {
   return (vector, count) => {
     const data = view(capi().duckdb_vector_get_data(vector), count * size)
     const valid = validity(vector, count)
-    return row => valid(row) ? read(data, row * size) : null
+    return (row) => valid(row) ? read(data, row * size) : null
   }
 }
 
@@ -435,15 +548,17 @@ function array(child: Decoder, size: number): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
     const read = child(capi().duckdb_array_vector_get_child(vector), count * size)
-    return row => valid(row) ? Array.from({ length: size }, (_, i) => read(row * size + i)) : null
+    return (row) => valid(row) ? Array.from({ length: size }, (_, i) => read(row * size + i)) : null
   }
 }
 
 function struct(fields: (readonly [string, Decoder])[]): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
-    const reads = fields.map(([name, decode], i) => [name, decode(capi().duckdb_struct_vector_get_child(vector, BigInt(i)), count)] as const)
-    return row => valid(row) ? Object.fromEntries(reads.map(([name, read]) => [name, read(row)])) : null
+    const reads = fields.map(([name, decode], i) =>
+      [name, decode(capi().duckdb_struct_vector_get_child(vector, BigInt(i)), count)] as const
+    )
+    return (row) => valid(row) ? Object.fromEntries(reads.map(([name, read]) => [name, read(row)])) : null
   }
 }
 
@@ -451,7 +566,9 @@ function union(members: (readonly [string, Decoder])[]): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
     const tag = fixed(1, (v, o) => v.getUint8(o))(capi().duckdb_struct_vector_get_child(vector, 0n), count)
-    const reads = members.map(([, decode], i) => decode(capi().duckdb_struct_vector_get_child(vector, BigInt(i + 1)), count))
+    const reads = members.map(([, decode], i) =>
+      decode(capi().duckdb_struct_vector_get_child(vector, BigInt(i + 1)), count)
+    )
     return (row) => {
       if (!valid(row)) return null
       const t = tag(row) as number
@@ -462,7 +579,12 @@ function union(members: (readonly [string, Decoder])[]): Decoder {
 
 // VARIANT is physically STRUCT(keys VARCHAR[], children STRUCT(keys_index UINTEGER, values_index UINTEGER)[],
 // values STRUCT(type_id UTINYINT, byte_offset UINTEGER)[], data BLOB); value 0 of a row is its root.
-interface VariantRow { keys: string[], children: { key: number | null, value: number }[], values: { type: number, offset: number }[], data: DataView }
+interface VariantRow {
+  keys: string[]
+  children: { key: number | null; value: number }[]
+  values: { type: number; offset: number }[]
+  data: DataView
+}
 
 const u8 = (v: DataView, o: number) => v.getUint8(o)
 const u32 = (v: DataView, o: number) => v.getUint32(o, true)
@@ -475,7 +597,9 @@ const VARIANT_LISTS = [
 function variant(vector: Pointer, count: number): (row: number) => CellValue {
   const c = capi()
   const valid = validity(vector, count)
-  const [keys, children, values] = VARIANT_LISTS.map((decode, i) => decode(c.duckdb_struct_vector_get_child(vector, BigInt(i)), count))
+  const [keys, children, values] = VARIANT_LISTS.map((decode, i) =>
+    decode(c.duckdb_struct_vector_get_child(vector, BigInt(i)), count)
+  )
   const data = view(c.duckdb_vector_get_data(c.duckdb_struct_vector_get_child(vector, 3n)), count * 16)
   return (row) => {
     if (!valid(row)) return null
@@ -496,7 +620,7 @@ function variantValue(r: VariantRow, i: number): CellValue {
   let o = offset
   const varint = () => {
     let n = 0
-    for (let factor = 1; ; factor *= 128) {
+    for (let factor = 1;; factor *= 128) {
       const b = d.getUint8(o++)
       n += (b & 0x7F) * factor
       if (b < 0x80) return n
@@ -513,47 +637,85 @@ function variantValue(r: VariantRow, i: number): CellValue {
     return r.children.slice(first, first + n)
   }
   switch (type) {
-    case 0: return null
-    case 1: return true
-    case 2: return false
-    case 3: return d.getInt8(o)
-    case 4: return d.getInt16(o, true)
-    case 5: return d.getInt32(o, true)
-    case 6: return String(d.getBigInt64(o, true))
-    case 7: return String(int128(d, o, true))
-    case 8: return d.getUint8(o)
-    case 9: return d.getUint16(o, true)
-    case 10: return d.getUint32(o, true)
-    case 11: return String(d.getBigUint64(o, true))
-    case 12: return String(int128(d, o, false))
-    case 13: return jsonNumber(d.getFloat32(o, true))
-    case 14: return jsonNumber(d.getFloat64(o, true))
+    case 0:
+      return null
+    case 1:
+      return true
+    case 2:
+      return false
+    case 3:
+      return d.getInt8(o)
+    case 4:
+      return d.getInt16(o, true)
+    case 5:
+      return d.getInt32(o, true)
+    case 6:
+      return String(d.getBigInt64(o, true))
+    case 7:
+      return String(int128(d, o, true))
+    case 8:
+      return d.getUint8(o)
+    case 9:
+      return d.getUint16(o, true)
+    case 10:
+      return d.getUint32(o, true)
+    case 11:
+      return String(d.getBigUint64(o, true))
+    case 12:
+      return String(int128(d, o, false))
+    case 13:
+      return jsonNumber(d.getFloat32(o, true))
+    case 14:
+      return jsonNumber(d.getFloat64(o, true))
     // Width and scale, then an INTEGER, BIGINT or HUGEINT depending on the width.
     case 15: {
       const width = varint()
       const scale = varint()
-      return decimal(width <= 9 ? BigInt(d.getInt32(o, true)) : width <= 18 ? d.getBigInt64(o, true) : int128(d, o, true), scale)
+      return decimal(
+        width <= 9 ? BigInt(d.getInt32(o, true)) : width <= 18 ? d.getBigInt64(o, true) : int128(d, o, true),
+        scale,
+      )
     }
-    case 16: return decoder.decode(blob())
-    case 17: return toHex(blob())
-    case 18: return uuid(d, o)
-    case 19: return date(d.getInt32(o, true))
-    case 20: return time(d.getBigInt64(o, true), 6)
-    case 21: return time(d.getBigInt64(o, true), 9)
-    case 22: return timestamp(d.getBigInt64(o, true), 0, '')
-    case 23: return timestamp(d.getBigInt64(o, true), 3, '')
-    case 24: return timestamp(d.getBigInt64(o, true), 6, '')
-    case 25: return timestamp(d.getBigInt64(o, true), 9, '')
-    case 26: return timeTz(d, o)
-    case 27: return timestamp(d.getBigInt64(o, true), 6, '+00:00')
-    case 28: return interval(d, o)
-    case 29: return Object.fromEntries(nested().map(ch => [r.keys[ch.key!]!, variantValue(r, ch.value)]))
-    case 30: return nested().map(ch => variantValue(r, ch.value))
-    case 31: return bignum(blob())
-    case 32: return bit(blob())
-    case 33: return wkbToText(blob())
-    case 34: return timestamp(d.getBigInt64(o, true), 9, '+00:00')
-    default: throw new DbError(`Unsupported VARIANT type (id ${type})`)
+    case 16:
+      return decoder.decode(blob())
+    case 17:
+      return toHex(blob())
+    case 18:
+      return uuid(d, o)
+    case 19:
+      return date(d.getInt32(o, true))
+    case 20:
+      return time(d.getBigInt64(o, true), 6)
+    case 21:
+      return time(d.getBigInt64(o, true), 9)
+    case 22:
+      return timestamp(d.getBigInt64(o, true), 0, '')
+    case 23:
+      return timestamp(d.getBigInt64(o, true), 3, '')
+    case 24:
+      return timestamp(d.getBigInt64(o, true), 6, '')
+    case 25:
+      return timestamp(d.getBigInt64(o, true), 9, '')
+    case 26:
+      return timeTz(d, o)
+    case 27:
+      return timestamp(d.getBigInt64(o, true), 6, '+00:00')
+    case 28:
+      return interval(d, o)
+    case 29:
+      return Object.fromEntries(nested().map((ch) => [r.keys[ch.key!]!, variantValue(r, ch.value)]))
+    case 30:
+      return nested().map((ch) => variantValue(r, ch.value))
+    case 31:
+      return bignum(blob())
+    case 32:
+      return bit(blob())
+    case 33:
+      return wkbToText(blob())
+    case 34:
+      return timestamp(d.getBigInt64(o, true), 9, '+00:00')
+    default:
+      throw new DbError(`Unsupported VARIANT type (id ${type})`)
   }
 }
 
@@ -561,7 +723,9 @@ function variantValue(r: VariantRow, i: number): CellValue {
 function bytes(v: DataView, o: number): Uint8Array {
   const length = v.getUint32(o, true)
   if (length <= 12) return new Uint8Array(v.buffer, v.byteOffset + o + 4, length)
-  return new Uint8Array(Deno.UnsafePointerView.getArrayBuffer(Deno.UnsafePointer.create(v.getBigUint64(o + 8, true))!, length))
+  return new Uint8Array(
+    Deno.UnsafePointerView.getArrayBuffer(Deno.UnsafePointer.create(v.getBigUint64(o + 8, true))!, length),
+  )
 }
 
 function int128(v: DataView, o: number, signed: boolean): bigint {
@@ -578,12 +742,13 @@ function bignum(b: Uint8Array): string {
 
 /** First byte: number of padding bits before the value. */
 function bit(b: Uint8Array): string {
-  return Array.from(b.subarray(1), x => x.toString(2).padStart(8, '0')).join('').slice(b[0])
+  return Array.from(b.subarray(1), (x) => x.toString(2).padStart(8, '0')).join('').slice(b[0])
 }
 
 /** HUGEINT with the sign bit flipped, so that UUIDs sort as unsigned. */
 function uuid(v: DataView, o: number): string {
-  const hex = (v.getBigUint64(o + 8, true) ^ (1n << 63n)).toString(16).padStart(16, '0') + v.getBigUint64(o, true).toString(16).padStart(16, '0')
+  const hex = (v.getBigUint64(o + 8, true) ^ (1n << 63n)).toString(16).padStart(16, '0') +
+    v.getBigUint64(o, true).toString(16).padStart(16, '0')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
@@ -634,7 +799,9 @@ function time(value: bigint, digits: number): string {
   const unit = 10n ** BigInt(digits)
   const seconds = Number(value / unit)
   const fraction = String(value % unit).padStart(digits, '0').replace(/0+$/, '')
-  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}${fraction ? `.${fraction}` : ''}`
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}${
+    fraction ? `.${fraction}` : ''
+  }`
 }
 
 const TIMESTAMP_INFINITY = 2n ** 63n - 1n

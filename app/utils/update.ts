@@ -9,10 +9,19 @@ export async function checkForUpdate(manual = false) {
   const toast = useToast()
   const { t } = useNuxtApp().$i18n
   try {
-    const release = await $fetch<{ tag_name: string, html_url: string }>(`https://api.github.com/repos/${repository}/releases/latest`)
+    const release = await $fetch<{ tag_name: string; html_url: string }>(
+      `https://api.github.com/repos/${repository}/releases/latest`,
+    )
     const latest = release.tag_name.replace(/^v/, '')
     if (latest.localeCompare(version, undefined, { numeric: true }) <= 0) {
-      if (manual) toast.add({ title: t('update.upToDate'), description: t('update.installed', { version }), color: 'success', icon: 'i-lucide-check' })
+      if (manual) {
+        toast.add({
+          title: t('update.upToDate'),
+          description: t('update.installed', { version }),
+          color: 'success',
+          icon: 'i-lucide-check',
+        })
+      }
       return
     }
     toast.add({
@@ -27,6 +36,13 @@ export async function checkForUpdate(manual = false) {
     })
   } catch (e) {
     // No connection, no release or repository not public: no update hint.
-    if (manual) toast.add({ title: t('update.failed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    if (manual) {
+      toast.add({
+        title: t('update.failed'),
+        description: errorMessage(e),
+        color: 'error',
+        icon: 'i-lucide-circle-alert',
+      })
+    }
   }
 }

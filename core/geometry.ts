@@ -3,7 +3,16 @@ import { toHex } from './values.ts'
 // Geometries arrive as WKB (DuckDB), EWKB (PostGIS) or a 4-byte SRID followed by WKB (MySQL) and are shown as
 // ISO WKT, with a PostGIS-style `SRID=…;` prefix when the value carries an SRID.
 
-const TYPES = ['', 'POINT', 'LINESTRING', 'POLYGON', 'MULTIPOINT', 'MULTILINESTRING', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION']
+const TYPES = [
+  '',
+  'POINT',
+  'LINESTRING',
+  'POLYGON',
+  'MULTIPOINT',
+  'MULTILINESTRING',
+  'MULTIPOLYGON',
+  'GEOMETRYCOLLECTION',
+]
 const EWKB_Z = 0x80000000
 const EWKB_M = 0x40000000
 const EWKB_SRID = 0x20000000
@@ -55,7 +64,7 @@ export function wkbToText(bytes: Uint8Array, srid = 0): string {
 
 /** PostGIS: hex-encoded EWKB, as `geometry` and `geography` are sent in text format. */
 export function hexEwkbToText(hex: string): string {
-  return wkbToText(Uint8Array.from(hex.match(/../g) ?? [], h => Number.parseInt(h, 16)))
+  return wkbToText(Uint8Array.from(hex.match(/../g) ?? [], (h) => Number.parseInt(h, 16)))
 }
 
 /** MySQL/MariaDB: the SRID (4 bytes, little-endian) followed by WKB. */

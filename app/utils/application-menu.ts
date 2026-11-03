@@ -1,12 +1,14 @@
 // Desktop app only: the native application menu (macOS menu bar), set and answered through the launcher
 // (see launcher/main.ts). In the browser there is no such menu and these functions do nothing.
 export type ApplicationMenuItem =
-  | { item: { label: string, id: string, accelerator?: string, enabled: boolean } }
-  | { submenu: { label: string, items: ApplicationMenuItem[] } }
+  | { item: { label: string; id: string; accelerator?: string; enabled: boolean } }
+  | { submenu: { label: string; items: ApplicationMenuItem[] } }
   | { role: { role: string } }
   | 'separator'
 
-const bindings = (window as { bindings?: { applicationMenu?(menu: ApplicationMenuItem[]): Promise<void>, menuClick?(): Promise<string> } }).bindings
+const bindings = (window as {
+  bindings?: { applicationMenu?(menu: ApplicationMenuItem[]): Promise<void>; menuClick?(): Promise<string> }
+}).bindings
 
 export const hasApplicationMenu = !!bindings?.applicationMenu
 

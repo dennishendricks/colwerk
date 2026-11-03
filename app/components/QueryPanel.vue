@@ -13,9 +13,11 @@ const { t, locale } = useI18n()
 
 const editor = useTemplateRef('editor')
 const driver = computed(() => driverOf(props.tab.connectionId))
-const connectionItems = computed(() => connections.value.map(c => ({ label: c.name, value: c.id })))
-const connection = computed(() => connections.value.find(c => c.id === props.tab.connectionId))
-const schemaTarget = computed(() => props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined)
+const connectionItems = computed(() => connections.value.map((c) => ({ label: c.name, value: c.id })))
+const connection = computed(() => connections.value.find((c) => c.id === props.tab.connectionId))
+const schemaTarget = computed(() =>
+  props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined
+)
 
 // Autocomplete needs at least the tables of the default schema.
 watch(schemaTarget, async (t) => {
@@ -41,17 +43,18 @@ async function preloadColumns() {
   const s = state(target)
   for (const ref of referencedTables(props.tab.sql, dialect).slice(0, 20)) {
     const schema = ref.schema ?? defaultSchema(target)
-    if (!schema || !s.schemas?.some(x => x.name === schema)) continue
+    if (!schema || !s.schemas?.some((x) => x.name === schema)) continue
     if (!s.tables[schema]) await loadTables(target, schema)
     // Unquoted names may differ in case from the catalog.
     const tables = s.tables[schema] ?? []
-    const table = tables.find(t => t.name === ref.name) ?? tables.find(t => t.name.toLowerCase() === ref.name.toLowerCase())
+    const table = tables.find((t) => t.name === ref.name) ??
+      tables.find((t) => t.name.toLowerCase() === ref.name.toLowerCase())
     if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(target, schema, table.name)
   }
 }
 
 // SQL that waits for confirmation because the connection asks before writes.
-const pending = ref<{ sql: string, from: number }>()
+const pending = ref<{ sql: string; from: number }>()
 
 function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
@@ -67,7 +70,7 @@ function confirmRun() {
 // isReadOnlyStatement is false for any script with several statements, so check them one by one:
 // a script of SELECTs runs without asking, a single write in it asks.
 function mayWrite(sql: string, dialect: Dialect) {
-  return splitStatements(sql, dialect).some(r => !isReadOnlyStatement(sql.slice(r.from, r.to), dialect))
+  return splitStatements(sql, dialect).some((r) => !isReadOnlyStatement(sql.slice(r.from, r.to), dialect))
 }
 
 function showPlan(analyze = false) {
@@ -88,7 +91,9 @@ async function copyPlan() {
 }
 
 const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
-const resultItems = computed(() => props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? [])
+const resultItems = computed(() =>
+  props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? []
+)
 
 const toast = useToast()
 const exportFormat = ref<'csv' | 'parquet'>('csv')
@@ -112,11 +117,20 @@ watch(canExportFull, (ok) => {
 // Without truncation the shown rows are the full result, so there is no need to run the statement again.
 async function download() {
   try {
-    const path = await exportResult(props.tab, exportFormat.value, exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated)
+    const path = await exportResult(
+      props.tab,
+      exportFormat.value,
+      exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated,
+    )
     if (path) toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
     else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
   } catch (e) {
-    toast.add({ title: t('query.exportFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({
+      title: t('query.exportFailed'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
   }
 }
 
@@ -128,7 +142,12 @@ async function format() {
     props.tab.sql = formatSql(props.tab.sql, driver.value?.dialect ?? 'postgres')
     editor.value?.focus()
   } catch (e) {
-    toast.add({ title: t('query.formatFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({
+      title: t('query.formatFailed'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
   }
 }
 
@@ -138,8 +157,9 @@ const busy = computed(() => props.tab.running || !!props.tab.exporting)
 const active = computed(() => props.tab.id === activeTabId.value)
 defineShortcuts(computed(() => active.value ? { meta_shift_f: { usingInput: true, handler: format } } : {}))
 // Application menu (desktop app); app.vue builds the menu and enables the items.
-defineMenuHandlers(() => active.value
-  ? {
+defineMenuHandlers(() =>
+  active.value
+    ? {
       run: execute,
       explain: () => showPlan(),
       cancel: () => cancel(props.tab),
@@ -148,7 +168,8 @@ defineMenuHandlers(() => active.value
       rollback: () => run(props.tab, 'ROLLBACK'),
       export: download,
     }
-  : {})
+    : {}
+)
 
 // Ctrl+C cancels like in a terminal. On macOS the key has no other use; elsewhere it is copy, so it
 // only cancels when nothing is selected that it would copy.
@@ -202,11 +223,19 @@ const status = computed(() => {
   if (!r) return ''
   const time = formatTime(r.durationMs)
   const set = shown.value
-  if (!set) return `${t('common.rowsAffected', { n: (r.affectedRows ?? 0).toLocaleString(locale.value) }, r.affectedRows ?? 0)} · ${time}`
+  if (!set) {
+    return `${
+      t('common.rowsAffected', { n: (r.affectedRows ?? 0).toLocaleString(locale.value) }, r.affectedRows ?? 0)
+    } · ${time}`
+  }
   const filtered = grid.value?.filteredCount
   const n = (value: number) => value.toLocaleString(locale.value)
-  const rows = filtered === undefined ? n(set.rows.length) : t('query.filteredOf', { filtered: n(filtered), rows: n(set.rows.length) })
-  return `${t('common.rows', { n: rows }, set.rows.length)}${set.truncated ? ` – ${t('query.truncated', { limit: n(props.tab.rowLimit) })}` : ''} · ${time}`
+  const rows = filtered === undefined
+    ? n(set.rows.length)
+    : t('query.filteredOf', { filtered: n(filtered), rows: n(set.rows.length) })
+  return `${t('common.rows', { n: rows }, set.rows.length)}${
+    set.truncated ? ` – ${t('query.truncated', { limit: n(props.tab.rowLimit) })}` : ''
+  } · ${time}`
 })
 </script>
 
@@ -238,7 +267,8 @@ const status = computed(() => {
           @click="execute"
         />
         <UDropdownMenu :items="planItems">
-          <UButton icon="i-lucide-chevron-down" :aria-label="t('query.moreOptions')" :disabled="!tab.connectionId || busy" />
+          <UButton icon="i-lucide-chevron-down" :aria-label="t('query.moreOptions')"
+            :disabled="!tab.connectionId || busy" />
         </UDropdownMenu>
       </UFieldGroup>
       <UButton
@@ -277,14 +307,18 @@ const status = computed(() => {
           :ui="{ label: '@max-4xl:hidden' }"
         />
         <!-- A failed transaction can only be rolled back (Postgres turns COMMIT into ROLLBACK). -->
-        <UButton v-if="tab.transaction === 'open'" size="sm" color="neutral" variant="soft" label="Commit" class="shrink-0" :disabled="busy" @click="run(tab, 'COMMIT')" />
-        <UButton size="sm" color="neutral" variant="soft" label="Rollback" class="shrink-0" :disabled="busy" @click="run(tab, 'ROLLBACK')" />
+        <UButton v-if="tab.transaction === 'open'" size="sm" color="neutral" variant="soft" label="Commit"
+          class="shrink-0" :disabled="busy" @click="run(tab, 'COMMIT')" />
+        <UButton size="sm" color="neutral" variant="soft" label="Rollback" class="shrink-0" :disabled="busy"
+          @click="run(tab, 'ROLLBACK')" />
       </template>
       <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted">
         <span>{{ t('query.limit') }}</span>
-        <UInputNumber v-model="tab.rowLimit" :min="1" :max="100000" :step="100" :step-snapping="false" size="sm" class="w-32" />
+        <UInputNumber v-model="tab.rowLimit" :min="1" :max="100000" :step="100" :step-snapping="false" size="sm"
+          class="w-32" />
         <span>{{ t('query.timeout') }}</span>
-        <UInputNumber v-model="tab.timeout" :min="1" :max="86400" :step="10" :step-snapping="false" size="sm" class="w-28" />
+        <UInputNumber v-model="tab.timeout" :min="1" :max="86400" :step="10" :step-snapping="false" size="sm"
+          class="w-28" />
       </div>
     </div>
 
@@ -333,7 +367,8 @@ const status = computed(() => {
             :class="!busy && resultItems.length > 1 ? '' : 'ml-auto'"
           >
             <template v-if="filter" #trailing>
-              <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1" :title="t('query.clearFilter')" @click="filter = ''" />
+              <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1"
+                :title="t('query.clearFilter')" @click="filter = ''" />
             </template>
           </UInput>
           <UButton
@@ -358,13 +393,16 @@ const status = computed(() => {
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
           <pre v-else-if="tab.plan" class="h-full overflow-auto p-3 font-mono text-xs">{{ tab.plan.text }}</pre>
-          <LazyResultGrid v-else-if="shown?.columns.length" ref="grid" :key="tab.resultIndex" v-model:filter="filter" :result="shown" />
+          <LazyResultGrid v-else-if="shown?.columns.length" ref="grid" :key="tab.resultIndex" v-model:filter="filter"
+            :result="shown" />
         </div>
-        <div v-if="!tab.error && shown?.columns.length" class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
+        <div v-if="!tab.error && shown?.columns.length"
+          class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
           <span>{{ t('query.export') }}</span>
           <USelect v-model="exportFormat" :items="formatItems" size="xs" class="w-28" />
           <USelect v-if="shown.truncated" v-model="exportScope" :items="scopeItems" size="xs" class="w-72" />
-          <UButton icon="i-lucide-download" size="xs" variant="soft" :label="t('query.saveAs')" :loading="!!tab.exporting" :disabled="tab.running" @click="download" />
+          <UButton icon="i-lucide-download" size="xs" variant="soft" :label="t('query.saveAs')"
+            :loading="!!tab.exporting" :disabled="tab.running" @click="download" />
         </div>
       </SplitterPanel>
     </SplitterGroup>

@@ -14,8 +14,8 @@ const loadError = ref<string>()
 const modalOpen = ref(false)
 const editing = ref<ConnectionSummary>()
 
-const activeTab = computed(() => tabs.value.find(t => t.id === activeTabId.value))
-const activeConnection = computed(() => connections.value.find(c => c.id === activeConnectionId.value))
+const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value))
+const activeConnection = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))
 const locksDatabase = computed(() => !!driverOf(activeConnectionId.value)?.capabilities.locksDatabase)
 const togglingConnection = ref(false)
 // Disconnecting waits for confirmation while a tab of the connection has an open transaction.
@@ -25,7 +25,9 @@ const confirmingDisconnect = ref(false)
 async function toggleConnection(confirmed = false) {
   const connection = activeConnection.value
   if (!connection) return
-  if (!connection.disconnected && !confirmed && tabs.value.some(t => t.connectionId === connection.id && t.transaction)) {
+  if (
+    !connection.disconnected && !confirmed && tabs.value.some((t) => t.connectionId === connection.id && t.transaction)
+  ) {
     confirmingDisconnect.value = true
     return
   }
@@ -37,7 +39,7 @@ async function toggleConnection(confirmed = false) {
     togglingConnection.value = false
   }
 }
-const colorOf = (connectionId?: string) => connections.value.find(c => c.id === connectionId)?.color
+const colorOf = (connectionId?: string) => connections.value.find((c) => c.id === connectionId)?.color
 
 let listening = false
 
@@ -49,7 +51,7 @@ async function init() {
       await restoreTabs()
       // The sidebar opens on the connection and database of the restored active tab.
       const restored = activeTab.value
-      if (restored?.connectionId && connections.value.some(c => c.id === restored.connectionId)) {
+      if (restored?.connectionId && connections.value.some((c) => c.id === restored.connectionId)) {
         activeConnectionId.value = restored.connectionId
         // After the watcher that resets the database on a connection change.
         await nextTick()
@@ -74,7 +76,7 @@ const { version } = useRuntimeConfig().public
 // Queries prepared by an MCP client (tool open-query) open in a new tab, without running.
 function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
-  const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string, sql: string, title?: string }
+  const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string; sql: string; title?: string }
   openInNewTab(connectionId, sql, title)
 }
 
@@ -109,7 +111,7 @@ const mcpOpen = ref(false)
 const historyOpen = ref(false)
 // Tab that waits for confirmation because it still contains a query or an open transaction.
 const closing = ref<string>()
-const closingTab = computed(() => tabs.value.find(t => t.id === closing.value))
+const closingTab = computed(() => tabs.value.find((t) => t.id === closing.value))
 
 function requestClose(tab?: QueryTab) {
   if (!tab) return
@@ -148,7 +150,12 @@ function commitRename(tab: QueryTab) {
 function duplicateTab(tab?: QueryTab) {
   if (!tab) return
   const copy = addTab(tab.connectionId, tab.database)
-  Object.assign(copy, { title: t('app.copySuffix', { title: tab.title }), sql: tab.sql, rowLimit: tab.rowLimit, timeout: tab.timeout })
+  Object.assign(copy, {
+    title: t('app.copySuffix', { title: tab.title }),
+    sql: tab.sql,
+    rowLimit: tab.rowLimit,
+    timeout: tab.timeout,
+  })
 }
 
 const toast = useToast()
@@ -157,7 +164,12 @@ async function openQueryFile() {
   try {
     await openFile(activeConnectionId.value, activeDatabase.value)
   } catch (e) {
-    toast.add({ title: t('app.openFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({
+      title: t('app.openFailed'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
   }
 }
 
@@ -167,7 +179,12 @@ async function save(tab?: QueryTab, saveAs = false) {
     const path = await saveFile(tab, saveAs)
     if (path) toast.add({ title: t('common.saved'), description: path, color: 'success', icon: 'i-lucide-check' })
   } catch (e) {
-    toast.add({ title: t('app.saveFailed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({
+      title: t('app.saveFailed'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
   }
 }
 
@@ -178,7 +195,7 @@ function selectTab(index: number) {
 
 // Wraps around at both ends.
 function cycleTab(step: number) {
-  const index = tabs.value.findIndex(t => t.id === activeTabId.value)
+  const index = tabs.value.findIndex((t) => t.id === activeTabId.value)
   const tab = tabs.value[(index + step + tabs.value.length) % tabs.value.length]
   if (tab) activeTabId.value = tab.id
 }
@@ -192,7 +209,9 @@ defineShortcuts({
   meta_s: { usingInput: true, handler: () => save(activeTab.value) },
   meta_shift_s: { usingInput: true, handler: () => save(activeTab.value, true) },
   meta_b: { usingInput: true, handler: toggleSidebar },
-  ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, { usingInput: true, handler: () => selectTab(i) }])),
+  ...Object.fromEntries(
+    Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, { usingInput: true, handler: () => selectTab(i) }]),
+  ),
   '?': () => (shortcutsOpen.value = !shortcutsOpen.value),
 })
 
@@ -216,12 +235,19 @@ watchEffect(() => {
   const tab = activeTab.value
   const busy = !!tab && (tab.running || !!tab.exporting)
   const shown = tab?.result?.resultSets[tab.resultIndex]
-  const item = (label: string, id: string, enabled = true, accelerator?: string): ApplicationMenuItem => ({ item: { label, id, enabled, accelerator } })
+  const item = (label: string, id: string, enabled = true, accelerator?: string): ApplicationMenuItem => ({
+    item: { label, id, enabled, accelerator },
+  })
   const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ submenu: { label, items } })
   const role = (role: string): ApplicationMenuItem => ({ role: { role } })
   setApplicationMenu([
     // macOS replaces the label of the first menu with the app name.
-    submenu('Colwerk', [item(t('menu.setupMcp'), 'mcp'), item(t('menu.checkUpdates'), 'update'), 'separator', role('quit')]),
+    submenu('Colwerk', [
+      item(t('menu.setupMcp'), 'mcp'),
+      item(t('menu.checkUpdates'), 'update'),
+      'separator',
+      role('quit'),
+    ]),
     submenu(t('menu.file'), [
       item(t('menu.newTab'), 'new-tab', true, 'CmdOrCtrl+T'),
       item(t('menu.duplicateTab'), 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
@@ -255,7 +281,11 @@ watchEffect(() => {
     submenu(t('menu.query'), [
       item(t('menu.run'), 'run', !!tab?.connectionId && !tab.exporting),
       item(t('menu.explain'), 'explain', !!tab?.connectionId && !busy, 'CmdOrCtrl+E'),
-      item(t('menu.cancel'), 'cancel', busy && tab?.exporting !== 'cancelled' && !!driverOf(tab?.connectionId)?.capabilities.supportsCancel),
+      item(
+        t('menu.cancel'),
+        'cancel',
+        busy && tab?.exporting !== 'cancelled' && !!driverOf(tab?.connectionId)?.capabilities.supportsCancel,
+      ),
       'separator',
       // A failed transaction can only be rolled back.
       item('Commit', 'commit', tab?.transaction === 'open' && !busy),
@@ -273,7 +303,7 @@ watchEffect(() => {
       item(t('menu.designDark'), 'design-dark', colorMode.preference !== 'dark'),
       'separator',
       // Each language under its own name, so it can be found in a language one cannot read.
-      ...locales.value.map(l => item(l.name!, `locale-${l.code}`, l.code !== locale.value)),
+      ...locales.value.map((l) => item(l.name!, `locale-${l.code}`, l.code !== locale.value)),
     ]),
     submenu(t('menu.window'), [
       role('minimize'),
@@ -281,7 +311,9 @@ watchEffect(() => {
       item(t('menu.previousTab'), 'previous-tab', tabs.value.length > 1),
       item(t('menu.nextTab'), 'next-tab', tabs.value.length > 1),
       'separator',
-      ...tabs.value.slice(0, 9).map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
+      ...tabs.value.slice(0, 9).map((t, i) =>
+        item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)
+      ),
     ]),
     submenu(t('menu.help'), [item(t('menu.shortcuts'), 'shortcuts'), 'separator', item(t('menu.privacy'), 'privacy')]),
   ])
@@ -304,7 +336,7 @@ defineMenuHandlers({
   'design-system': () => (colorMode.preference = 'system'),
   'design-light': () => (colorMode.preference = 'light'),
   'design-dark': () => (colorMode.preference = 'dark'),
-  ...Object.fromEntries(locales.value.map(l => [`locale-${l.code}`, () => {
+  ...Object.fromEntries(locales.value.map((l) => [`locale-${l.code}`, () => {
     chosenLocale.value = l.code
     return setLocale(l.code)
   }])),
@@ -330,7 +362,8 @@ defineMenuHandlers({
 
     <!-- Sizes are remembered per browser (localStorage) via auto-save-id. -->
     <SplitterGroup v-else direction="horizontal" auto-save-id="colwerk-layout" class="h-full">
-      <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible class="flex flex-col bg-muted/40">
+      <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible
+        class="flex flex-col bg-muted/40">
         <div class="space-y-1 p-2">
           <div class="flex gap-1">
             <div class="min-w-0 flex-1">
@@ -388,8 +421,11 @@ defineMenuHandlers({
             @click="activeTabId = tab.id"
           >
             <UIcon v-if="tab.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-            <UIcon v-else-if="tab.transaction" name="i-lucide-triangle-alert" :class="tab.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5" :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')" />
-            <span v-if="colorOf(tab.connectionId)" class="size-2 shrink-0 rounded-full" :class="connectionColorClasses[colorOf(tab.connectionId)!].bg" />
+            <UIcon v-else-if="tab.transaction" name="i-lucide-triangle-alert"
+              :class="tab.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5"
+              :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')" />
+            <span v-if="colorOf(tab.connectionId)" class="size-2 shrink-0 rounded-full"
+              :class="connectionColorClasses[colorOf(tab.connectionId)!].bg" />
             <input
               v-if="renaming === tab.id"
               ref="rename-input"
@@ -401,13 +437,18 @@ defineMenuHandlers({
               @keydown.escape="renaming = undefined"
               @blur="commitRename(tab)"
             >
-            <span v-else class="max-w-60 truncate" :title="tab.path ?? tab.title" @dblclick="startRename(tab, $event)">{{ tab.title }}</span>
-            <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" :title="t('app.closeTab')" @click.stop="requestClose(tab)" />
+            <span v-else class="max-w-60 truncate" :title="tab.path ?? tab.title"
+              @dblclick="startRename(tab, $event)">{{ tab.title }}</span>
+            <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" :title="t('app.closeTab')"
+              @click.stop="requestClose(tab)" />
           </div>
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" :title="t('app.newTab')" @click="addTab(activeConnectionId, activeDatabase)" />
-          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto" :title="t('app.history')" @click="historyOpen = true" />
+          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" :title="t('app.newTab')"
+            @click="addTab(activeConnectionId, activeDatabase)" />
+          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto"
+            :title="t('app.history')" @click="historyOpen = true" />
           <!-- In the desktop app it is in the application menu. -->
-          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral" :title="t('app.setupMcp')" @click="mcpOpen = true" />
+          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral"
+            :title="t('app.setupMcp')" @click="mcpOpen = true" />
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
             size="xs"
@@ -416,13 +457,15 @@ defineMenuHandlers({
             :title="colorMode.preference !== 'system' ? t('app.systemDesign') : isDark ? t('app.lightDesign') : t('app.darkDesign')"
             @click="colorMode.preference = colorMode.preference !== 'system' ? 'system' : isDark ? 'light' : 'dark'"
           />
-          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" :title="t('app.shortcuts')" @click="shortcutsOpen = true" />
+          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" :title="t('app.shortcuts')"
+            @click="shortcutsOpen = true" />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
           <QueryPanel v-for="tab in tabs" v-show="tab.id === activeTabId" :key="tab.id" :tab="tab" />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
-            <UButton icon="i-lucide-plus" :label="t('app.newTab')" variant="soft" @click="addTab(activeConnectionId, activeDatabase)" />
+            <UButton icon="i-lucide-plus" :label="t('app.newTab')" variant="soft"
+              @click="addTab(activeConnectionId, activeDatabase)" />
           </div>
         </div>
       </SplitterPanel>
@@ -431,7 +474,8 @@ defineMenuHandlers({
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
-    <LazyHistoryModal v-model:open="historyOpen" :connection-id="activeTab?.connectionId ?? activeConnectionId" @select="e => openInNewTab(e.connectionId, e.sql)" />
+    <LazyHistoryModal v-model:open="historyOpen" :connection-id="activeTab?.connectionId ?? activeConnectionId"
+      @select="e => openInNewTab(e.connectionId, e.sql)" />
     <UModal
       :open="!!closing"
       :title="t('app.closeTabTitle')"

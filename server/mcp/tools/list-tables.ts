@@ -16,15 +16,18 @@ rowEstimate comes from the catalog statistics and may be outdated; it is null fo
   async handler({ connectionId, schema, filter }) {
     await connectionOf(connectionId)
     const schemas = await dbCall(() => workbench.introspect(connectionId, { kind: 'schemas' }))
-    if (!schemas.some(s => s.name === schema)) {
-      throw createError({ statusCode: 404, message: `Schema '${schema}' not found. Call list-schemas for valid names.` })
+    if (!schemas.some((s) => s.name === schema)) {
+      throw createError({
+        statusCode: 404,
+        message: `Schema '${schema}' not found. Call list-schemas for valid names.`,
+      })
     }
     const tables = await dbCall(() => workbench.introspect(connectionId, { kind: 'tables', schema }))
     const needle = filter?.toLowerCase()
     return {
       tables: tables
-        .filter(t => !needle || t.name.toLowerCase().includes(needle))
-        .map(t => ({ name: t.name, type: t.kind, rowEstimate: t.rowEstimate, comment: t.comment })),
+        .filter((t) => !needle || t.name.toLowerCase().includes(needle))
+        .map((t) => ({ name: t.name, type: t.kind, rowEstimate: t.rowEstimate, comment: t.comment })),
     }
   },
 })

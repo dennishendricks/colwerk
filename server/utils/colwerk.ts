@@ -1,7 +1,20 @@
-import { AppError, type ConnectionAuth, type ConnectionColor, connectionColors, ConnectionStore, type DateFormat, dateFormats, DbError, drivers, Workbench, type ConnectionInput, type Dialect } from '#core'
+import {
+  AppError,
+  type ConnectionAuth,
+  type ConnectionColor,
+  connectionColors,
+  type ConnectionInput,
+  ConnectionStore,
+  type DateFormat,
+  dateFormats,
+  DbError,
+  type Dialect,
+  drivers,
+  Workbench,
+} from '#core'
 
 export const store = new ConnectionStore()
-export const workbench = new Workbench(id => store.get(id))
+export const workbench = new Workbench((id) => store.get(id))
 
 /**
  * Maps database errors to 400 with the driver message; everything else stays a 500. Errors of Colwerk
@@ -11,7 +24,18 @@ export async function dbCall<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (e) {
-    if (e instanceof DbError) throw createError({ statusCode: 400, message: e.message, data: { code: e.code, position: e.position, transaction: e.transaction, ...e instanceof AppError && { key: e.key, params: e.params } } })
+    if (e instanceof DbError) {
+      throw createError({
+        statusCode: 400,
+        message: e.message,
+        data: {
+          code: e.code,
+          position: e.position,
+          transaction: e.transaction,
+          ...e instanceof AppError && { key: e.key, params: e.params },
+        },
+      })
+    }
     throw e
   }
 }
@@ -27,7 +51,7 @@ export function parseConnection(body: unknown): ConnectionInput {
   const b = (body ?? {}) as Record<string, unknown>
   const str = (k: string) => typeof b[k] === 'string' && b[k] !== '' ? b[k] as string : undefined
   const dialect = b.dialect as Dialect
-  const driver = drivers.find(d => d.dialect === dialect)
+  const driver = drivers.find((d) => d.dialect === dialect)
   if (!driver) throw createError({ statusCode: 400, message: 'Unknown dialect' })
   if (!str('name')) throw createError({ statusCode: 400, message: 'Name is required', data: { key: 'nameRequired' } })
   const port = b.port === undefined || b.port === null || b.port === '' ? undefined : Number(b.port)
@@ -35,16 +59,30 @@ export function parseConnection(body: unknown): ConnectionInput {
     throw createError({ statusCode: 400, message: 'Invalid port', data: { key: 'invalidPort' } })
   }
   const color = str('color') as ConnectionColor | undefined
-  if (color !== undefined && !connectionColors.includes(color)) throw createError({ statusCode: 400, message: 'Invalid color' })
+  if (color !== undefined && !connectionColors.includes(color)) {
+    throw createError({ statusCode: 400, message: 'Invalid color' })
+  }
   const auth = (str('auth') ?? driver.auths[0]) as ConnectionAuth | undefined
-  if (auth !== undefined && !driver.auths.includes(auth)) throw createError({ statusCode: 400, message: 'Invalid authentication' })
+  if (auth !== undefined && !driver.auths.includes(auth)) {
+    throw createError({ statusCode: 400, message: 'Invalid authentication' })
+  }
   if (auth === 'entra-service-principal' && !(str('tenantId') && str('clientId'))) {
-    throw createError({ statusCode: 400, message: 'Tenant ID and client ID are required', data: { key: 'servicePrincipalRequired' } })
+    throw createError({
+      statusCode: 400,
+      message: 'Tenant ID and client ID are required',
+      data: { key: 'servicePrincipalRequired' },
+    })
   }
   const dateFormat = str('dateFormat') as DateFormat | undefined
-  if (dateFormat !== undefined && !dateFormats.includes(dateFormat)) throw createError({ statusCode: 400, message: 'Invalid date format' })
-  const connectRetries = b.connectRetries === undefined || b.connectRetries === null || b.connectRetries === '' ? undefined : Number(b.connectRetries)
-  if (connectRetries !== undefined && !(Number.isInteger(connectRetries) && connectRetries >= 0 && connectRetries <= 100)) {
+  if (dateFormat !== undefined && !dateFormats.includes(dateFormat)) {
+    throw createError({ statusCode: 400, message: 'Invalid date format' })
+  }
+  const connectRetries = b.connectRetries === undefined || b.connectRetries === null || b.connectRetries === ''
+    ? undefined
+    : Number(b.connectRetries)
+  if (
+    connectRetries !== undefined && !(Number.isInteger(connectRetries) && connectRetries >= 0 && connectRetries <= 100)
+  ) {
     throw createError({ statusCode: 400, message: 'Invalid number of retries', data: { key: 'invalidRetries' } })
   }
   const entra = auth?.startsWith('entra-') ?? false

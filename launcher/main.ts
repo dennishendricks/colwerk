@@ -5,16 +5,26 @@
 // or, for the self-hosted binary, in the default browser. With the argument `mcp` it runs the stdio
 // bridge for MCP clients instead (see mcp-bridge.ts).
 import { mcpToken } from '../core/mcp-token.ts'
-import { appUrl, createToken, freePort, onExit, openInBrowser, readWindowBounds, removeInstance, writeInstance, writeWindowBounds } from './common.ts'
+import {
+  appUrl,
+  createToken,
+  freePort,
+  onExit,
+  openInBrowser,
+  readWindowBounds,
+  removeInstance,
+  writeInstance,
+  writeWindowBounds,
+} from './common.ts'
 import { duckdbGlobals } from './native.ts'
 
 // Only available inside `deno desktop` binaries; not part of the default type libraries.
 type MenuItem =
-  | { item: { label: string, id?: string, accelerator?: string, enabled: boolean } }
-  | { submenu: { label: string, items: MenuItem[] } }
+  | { item: { label: string; id?: string; accelerator?: string; enabled: boolean } }
+  | { submenu: { label: string; items: MenuItem[] } }
   | { role: { role: string } }
   | 'separator'
-type BrowserWindowCtor = new (options: { title?: string, width?: number, height?: number, x?: number, y?: number }) => {
+type BrowserWindowCtor = new (options: { title?: string; width?: number; height?: number; x?: number; y?: number }) => {
   bind(name: string, handler: (...args: never[]) => unknown): void
   showContextMenu(x: number, y: number, menu: MenuItem[]): void
   setApplicationMenu(menu: MenuItem[]): void
@@ -59,14 +69,14 @@ if (BrowserWindow) {
   win.bind('contextMenu', (x: number, y: number, menu: MenuItem[]) => {
     choose?.(null)
     win.showContextMenu(x, y, menu)
-    return new Promise<string | null>(resolve => (choose = resolve))
+    return new Promise<string | null>((resolve) => (choose = resolve))
   })
   // Application menu (app/utils/application-menu.ts): the page defines it, including the enabled state of
   // its items, and waits for clicks through `menuClick`, which resolves with the id of the next chosen item.
   let clicked: ((id: string) => void) | undefined
-  win.addEventListener('menuclick', e => clicked?.(e.detail.id))
+  win.addEventListener('menuclick', (e) => clicked?.(e.detail.id))
   win.bind('applicationMenu', (menu: MenuItem[]) => win.setApplicationMenu(menu))
-  win.bind('menuClick', () => new Promise<string>(resolve => (clicked = resolve)))
+  win.bind('menuClick', () => new Promise<string>((resolve) => (clicked = resolve)))
   // Release pages from the update check (app/utils/update.ts) and the website (app/utils/open-url.ts).
   // Restricted to known hosts and URLs without shell metacharacters, since the page could pass anything.
   win.bind('openUrl', (url: string) => {
@@ -89,8 +99,8 @@ await import('../server/index.mjs')
 
 // The MCP endpoint answers 401 until the token is read; the middleware reads the variable per request.
 mcpToken({ create: true }).then(
-  t => Deno.env.set('COLWERK_MCP_TOKEN', t!),
-  e => console.error(`MCP not available: ${(e as Error).message}`),
+  (t) => Deno.env.set('COLWERK_MCP_TOKEN', t!),
+  (e) => console.error(`MCP not available: ${(e as Error).message}`),
 )
 writeInstance(port)
 onExit(() => removeInstance(port))

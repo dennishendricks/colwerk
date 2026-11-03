@@ -1,6 +1,26 @@
 import sql from 'mssql'
 import { lineStart, splitStatements } from '../sql-split.ts'
-import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, type DatabaseInfo, DbError, type Driver, type IndexInfo, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RoutineInfo, type RowSink, type SchemaInfo, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import {
+  AppError,
+  type CellValue,
+  type ColumnInfo,
+  type ConnectionConfig,
+  type DatabaseInfo,
+  DbError,
+  type Driver,
+  type IndexInfo,
+  type IntrospectRequest,
+  type IntrospectResult,
+  type QueryResult,
+  type ResultColumn,
+  type ResultSet,
+  type RoutineInfo,
+  type RowSink,
+  type SchemaInfo,
+  type Session,
+  type TableInfo,
+  type TransactionState,
+} from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
 import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
@@ -10,7 +30,7 @@ type ColumnMeta = sql.IColumnMetadata[string]
 /** `batch`: the text that was sent, to turn the line number into a position (first non-blank character of the line). */
 function wrap(e: unknown, batch?: string): DbError {
   if (e instanceof DbError) return e
-  const err = e as { message?: string, code?: string, number?: number, lineNumber?: number, procName?: string }
+  const err = e as { message?: string; code?: string; number?: number; lineNumber?: number; procName?: string }
   const line = err.lineNumber ? ` (line ${err.lineNumber})` : ''
   let position: number | undefined
   // Inside a procedure the line refers to the procedure's source, not to the batch.
@@ -18,7 +38,11 @@ function wrap(e: unknown, batch?: string): DbError {
     const start = lineStart(batch, err.lineNumber)
     position = start + /^[ \t]*/.exec(batch.slice(start))![0].length
   }
-  return new DbError(`${err.message ?? String(e)}${line}`, err.code ?? (err.number ? String(err.number) : undefined), position)
+  return new DbError(
+    `${err.message ?? String(e)}${line}`,
+    err.code ?? (err.number ? String(err.number) : undefined),
+    position,
+  )
 }
 
 function typeName(col: ColumnMeta): string {
@@ -57,9 +81,10 @@ const COLUMN_TYPE = `
 
 // Ordered string aggregate of `expr` over `from` (from/where clause), as a scalar subquery. `string_agg ... within group`
 // exists from SQL Server 2017 on; older servers concatenate with `for xml path` and cut off the leading separator.
-const listAgg = (stringAgg: boolean, expr: string, sep: string, order: string, from: string) => stringAgg
-  ? `(select string_agg(${expr}, ${sep}) within group (order by ${order}) ${from})`
-  : `stuff((select ${sep} + ${expr} ${from} order by ${order} for xml path(''), type).value('.', 'nvarchar(max)'), 1, len(${sep} + '.') - 1, '')`
+const listAgg = (stringAgg: boolean, expr: string, sep: string, order: string, from: string) =>
+  stringAgg
+    ? `(select string_agg(${expr}, ${sep}) within group (order by ${order}) ${from})`
+    : `stuff((select ${sep} + ${expr} ${from} order by ${order} for xml path(''), type).value('.', 'nvarchar(max)'), 1, len(${sep} + '.') - 1, '')`
 
 const sqlFor = (stringAgg: boolean) => {
   const agg = (expr: string, sep: string, order: string, from: string) => listAgg(stringAgg, expr, sep, order, from)
@@ -107,18 +132,32 @@ const sqlFor = (stringAgg: boolean) => {
       join sys.columns rc on rc.object_id = f.referenced_object_id and rc.column_id = f.referenced_column_id
       where f.parent_object_id = c.object_id and f.parent_column_id = c.column_id) fk
     outer apply (
-      select ${agg('i.name', 'char(10)', 'i.name', `
+      select ${
+      agg(
+        'i.name',
+        'char(10)',
+        'i.name',
+        `
       from sys.index_columns ic
       join sys.indexes i on i.object_id = ic.object_id and i.index_id = ic.index_id
       where ic.object_id = c.object_id and ic.column_id = c.column_id
-        and i.is_primary_key = 0 and i.name is not null`)} as idx) ix
+        and i.is_primary_key = 0 and i.name is not null`,
+      )
+    } as idx) ix
     where c.object_id = object_id(quotename(@schema) + '.' + quotename(@table))
     order by c.column_id`,
     indexes: `
     select i.name, i.is_unique as [unique], i.is_primary_key as [primary],
-      ${agg('c.name', 'char(10)', 'ic.key_ordinal', `
+      ${
+      agg(
+        'c.name',
+        'char(10)',
+        'ic.key_ordinal',
+        `
          from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
-        where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`)} as cols
+        where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`,
+      )
+    } as cols
     from sys.indexes i
     where i.object_id = object_id(quotename(@schema) + '.' + quotename(@table)) and i.type > 0 and i.is_hypothetical = 0
     order by i.is_primary_key desc, i.name`,
@@ -132,7 +171,12 @@ const sqlFor = (stringAgg: boolean) => {
     tableDdl: `
     declare @id int = object_id(quotename(@schema) + '.' + quotename(@name), 'U');
     declare @table nvarchar(max) = quotename(@schema) + '.' + quotename(@name);
-    select 'create table ' + @table + ' (' + char(10) + ${agg(`cast('    ' + line as nvarchar(max))`, `',' + char(10)`, 'grp, ord', `from (
+    select 'create table ' + @table + ' (' + char(10) + ${
+      agg(
+        `cast('    ' + line as nvarchar(max))`,
+        `',' + char(10)`,
+        'grp, ord',
+        `from (
           select 0 as grp, c.column_id as ord, quotename(c.name) + ' ' + ${COLUMN_TYPE}
             + case when ic.object_id is not null
                 then ' identity(' + cast(ic.seed_value as varchar) + ', ' + cast(ic.increment_value as varchar) + ')' else '' end
@@ -146,36 +190,73 @@ const sqlFor = (stringAgg: boolean) => {
           select 1, case k.type when 'PK' then 0 else 1 end, 'constraint ' + quotename(k.name) + case k.type when 'PK' then ' primary key' else ' unique' end
             + ' (' + cols.list + ')'
           from sys.key_constraints k
-          cross apply (select ${agg('quotename(c.name)', `', '`, 'ic.key_ordinal', `
+          cross apply (select ${
+          agg(
+            'quotename(c.name)',
+            `', '`,
+            'ic.key_ordinal',
+            `
             from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
-            where ic.object_id = k.parent_object_id and ic.index_id = k.unique_index_id`)} as list) cols
+            where ic.object_id = k.parent_object_id and ic.index_id = k.unique_index_id`,
+          )
+        } as list) cols
           where k.parent_object_id = @id
           union all
           select 2, 0, 'constraint ' + quotename(f.name) + ' foreign key (' + cols.list + ') references '
             + quotename(schema_name(r.schema_id)) + '.' + quotename(r.name) + ' (' + cols.refs + ')'
           from sys.foreign_keys f
           join sys.objects r on r.object_id = f.referenced_object_id
-          cross apply (select ${agg('quotename(c.name)', `', '`, 'fc.constraint_column_id', `
+          cross apply (select ${
+          agg(
+            'quotename(c.name)',
+            `', '`,
+            'fc.constraint_column_id',
+            `
             from sys.foreign_key_columns fc
             join sys.columns c on c.object_id = fc.parent_object_id and c.column_id = fc.parent_column_id
-            where fc.constraint_object_id = f.object_id`)} as list,
-              ${agg('quotename(rc.name)', `', '`, 'fc.constraint_column_id', `
+            where fc.constraint_object_id = f.object_id`,
+          )
+        } as list,
+              ${
+          agg(
+            'quotename(rc.name)',
+            `', '`,
+            'fc.constraint_column_id',
+            `
             from sys.foreign_key_columns fc
             join sys.columns rc on rc.object_id = fc.referenced_object_id and rc.column_id = fc.referenced_column_id
-            where fc.constraint_object_id = f.object_id`)} as refs) cols
+            where fc.constraint_object_id = f.object_id`,
+          )
+        } as refs) cols
           where f.parent_object_id = @id
           union all
           select 3, 0, 'constraint ' + quotename(ch.name) + ' check ' + ch.definition
           from sys.check_constraints ch where ch.parent_object_id = @id
-        ) lines`)} + char(10) + ');'
-      + coalesce(${agg(`cast(char(10) + char(10) + 'create ' + case when i.is_unique = 1 then 'unique ' else '' end
-            + 'index ' + quotename(i.name) + ' on ' + @table + ' (' + cols.list + ');' as nvarchar(max))`, `''`, 'i.name', `
+        ) lines`,
+      )
+    } + char(10) + ');'
+      + coalesce(${
+      agg(
+        `cast(char(10) + char(10) + 'create ' + case when i.is_unique = 1 then 'unique ' else '' end
+            + 'index ' + quotename(i.name) + ' on ' + @table + ' (' + cols.list + ');' as nvarchar(max))`,
+        `''`,
+        'i.name',
+        `
           from sys.indexes i
-          cross apply (select ${agg('quotename(c.name)', `', '`, 'ic.key_ordinal', `
+          cross apply (select ${
+          agg(
+            'quotename(c.name)',
+            `', '`,
+            'ic.key_ordinal',
+            `
             from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
-            where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`)} as list) cols
+            where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`,
+          )
+        } as list) cols
           where i.object_id = @id and i.type > 0 and i.is_hypothetical = 0
-            and i.is_primary_key = 0 and i.is_unique_constraint = 0`)}, '') as ddl
+            and i.is_primary_key = 0 and i.is_unique_constraint = 0`,
+      )
+    }, '') as ddl
     where @id is not null`,
   }
 }
@@ -210,12 +291,18 @@ class MssqlSession implements Session {
         throw err
       }
     }
-    return { resultSets, affectedRows: resultSets.length ? undefined : affectedRows, durationMs: performance.now() - started }
+    return {
+      resultSets,
+      affectedRows: resultSets.length ? undefined : affectedRows,
+      durationMs: performance.now() - started,
+    }
   }
 
   /** Runs one batch, appends its result sets and resolves with the affected rows. */
   private runBatch(text: string, rowLimit: number, resultSets: ResultSet[]): Promise<number | undefined> {
-    if (this.stopReason === 'cancel') return Promise.reject(new AppError('cancelled', 'Query was cancelled', { code: 'ECANCEL' }))
+    if (this.stopReason === 'cancel') {
+      return Promise.reject(new AppError('cancelled', 'Query was cancelled', { code: 'ECANCEL' }))
+    }
     const request = new sql.Request(this.pool)
     request.stream = true
     request.arrayRowMode = true
@@ -224,13 +311,13 @@ class MssqlSession implements Session {
     // Cancelling would also drop the statements after the truncated one, so batches with several
     // statements read the rest and discard it. Statements are counted at `;`, which is optional in T-SQL.
     const single = splitStatements(text, 'mssql').length <= 1
-    const sets: { columns: ResultColumn[], rows: unknown[][], truncated: boolean }[] = []
+    const sets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean }[] = []
     let affectedRows: number | undefined
     let error: unknown
 
     return new Promise<number | undefined>((resolve, reject) => {
       request.on('recordset', (cols: ColumnMeta[]) => {
-        sets.push({ columns: cols.map(c => ({ name: c.name, type: typeName(c) })), rows: [], truncated: false })
+        sets.push({ columns: cols.map((c) => ({ name: c.name, type: typeName(c) })), rows: [], truncated: false })
       })
       request.on('row', (row: unknown[]) => {
         const set = sets.at(-1)!
@@ -252,7 +339,7 @@ class MssqlSession implements Session {
         this.current = null
         if (error) return reject(wrap(error, text))
         for (const s of sets) {
-          resultSets.push({ ...s, rows: s.rows.map(r => r.map((v, i) => cell(v, s.columns[i]!.type))) })
+          resultSets.push({ ...s, rows: s.rows.map((r) => r.map((v, i) => cell(v, s.columns[i]!.type))) })
         }
         resolve(affectedRows)
       })
@@ -276,7 +363,7 @@ class MssqlSession implements Session {
     // Pauses the request until the sink has taken the batch; a failing sink cancels the request.
     const flush = () => {
       if (!batch.length || failed) return
-      const rows = batch.map(r => r.map((v, i) => cell(v, types![i]!)))
+      const rows = batch.map((r) => r.map((v, i) => cell(v, types![i]!)))
       batch = []
       request.pause()
       pending = sink.rows(rows).then(() => void request.resume(), (e) => {
@@ -292,8 +379,8 @@ class MssqlSession implements Session {
         // Only the first result set is streamed; later ones are drained.
         active = !types
         if (!active) return
-        const columns = cols.map(c => ({ name: c.name, type: typeName(c) }))
-        types = columns.map(c => c.type)
+        const columns = cols.map((c) => ({ name: c.name, type: typeName(c) }))
+        types = columns.map((c) => c.type)
         sink.columns(columns)
       })
       request.on('row', (row: unknown[]) => {
@@ -332,25 +419,39 @@ class MssqlSession implements Session {
     const SQL = this.SQL
     try {
       const request = this.pool.request()
-      if (req.kind === 'databases') return [...(await request.query<DatabaseInfo>(SQL.databases)).recordset] as IntrospectResult<R>
-      if (req.kind === 'schemas') return [...(await request.query<SchemaInfo>(SQL.schemas)).recordset] as IntrospectResult<R>
+      if (req.kind === 'databases') {
+        return [...(await request.query<DatabaseInfo>(SQL.databases)).recordset] as IntrospectResult<R>
+      }
+      if (req.kind === 'schemas') {
+        return [...(await request.query<SchemaInfo>(SQL.schemas)).recordset] as IntrospectResult<R>
+      }
       request.input('schema', sql.NVarChar, req.schema)
       if (req.kind === 'tables') {
         // sum() of bigint arrives as string.
-        const { recordset } = await request.query<Omit<TableInfo, 'schema' | 'rowEstimate'> & { row_estimate: string | null }>(SQL.tables)
+        const { recordset } = await request.query<
+          Omit<TableInfo, 'schema' | 'rowEstimate'> & { row_estimate: string | null }
+        >(SQL.tables)
         return recordset.map(({ row_estimate, ...r }): TableInfo => ({
           schema: req.schema,
           ...r,
           rowEstimate: row_estimate === null ? null : Number(row_estimate),
         })) as IntrospectResult<R>
       }
-      if (req.kind === 'routines') return [...(await request.query<RoutineInfo>(SQL.routines)).recordset] as IntrospectResult<R>
+      if (req.kind === 'routines') {
+        return [...(await request.query<RoutineInfo>(SQL.routines)).recordset] as IntrospectResult<R>
+      }
       if (req.kind === 'ddl') {
         request.input('name', sql.NVarChar, req.name)
-        const { recordset } = await request.query<{ ddl: string | null }>(req.object === 'table' ? SQL.tableDdl : SQL.definition)
+        const { recordset } = await request.query<{ ddl: string | null }>(
+          req.object === 'table' ? SQL.tableDdl : SQL.definition,
+        )
         // Null for missing objects and for definitions created `with encryption`.
         const ddl = recordset[0]?.ddl
-        if (!ddl) throw new AppError('definitionUnavailable', `Definition of ${req.schema}.${req.name} not available`, { params: { name: `${req.schema}.${req.name}` } })
+        if (!ddl) {
+          throw new AppError('definitionUnavailable', `Definition of ${req.schema}.${req.name} not available`, {
+            params: { name: `${req.schema}.${req.name}` },
+          })
+        }
         return ddl.trim() as IntrospectResult<R>
       }
       request.input('table', sql.NVarChar, req.table)

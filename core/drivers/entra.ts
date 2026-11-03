@@ -1,4 +1,10 @@
-import { AuthenticationRequiredError, ClientSecretCredential, DefaultAzureCredential, InteractiveBrowserCredential, type TokenCredential } from '@azure/identity'
+import {
+  AuthenticationRequiredError,
+  ClientSecretCredential,
+  DefaultAzureCredential,
+  InteractiveBrowserCredential,
+  type TokenCredential,
+} from '@azure/identity'
 import { isLoginForbidden } from '../login.ts'
 import { AppError, type ConnectionConfig } from '../types.ts'
 
@@ -17,7 +23,13 @@ const LOGIN_TIMEOUT = 5 * 60_000
 const credentials = new Map<string, TokenCredential>()
 
 function credential(c: ConnectionConfig): TokenCredential {
-  const key = JSON.stringify([c.auth, c.tenantId, c.clientId, c.user, c.auth === 'entra-service-principal' ? c.password : undefined])
+  const key = JSON.stringify([
+    c.auth,
+    c.tenantId,
+    c.clientId,
+    c.user,
+    c.auth === 'entra-service-principal' ? c.password : undefined,
+  ])
   let cred = credentials.get(key)
   if (!cred) {
     if (c.auth === 'entra-interactive') {
@@ -51,7 +63,11 @@ export async function entraToken(c: ConnectionConfig, scope: string): Promise<st
     const token = await cred.getToken(scope, options).catch(async (e) => {
       if (!(e instanceof AuthenticationRequiredError && cred instanceof InteractiveBrowserCredential)) throw e
       if (isLoginForbidden()) {
-        throw new AppError('entraLoginRequired', 'Microsoft Entra sign-in required: open the connection in Colwerk to sign in in the browser, then retry.', { code: 'EENTRALOGIN' })
+        throw new AppError(
+          'entraLoginRequired',
+          'Microsoft Entra sign-in required: open the connection in Colwerk to sign in in the browser, then retry.',
+          { code: 'EENTRALOGIN' },
+        )
       }
       await cred.authenticate(scope, options)
       return cred.getToken(scope, options)

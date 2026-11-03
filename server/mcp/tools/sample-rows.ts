@@ -20,7 +20,7 @@ WHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-q
     const sql = `select * from ${quoteIdent(schema, dialect)}.${quoteIdent(table, dialect)}`
     const set = (await readQuery(connectionId, sql, limit)).resultSets[0]
     return {
-      rows: set?.rows.map(row => Object.fromEntries(set.columns.map((c, i) => [c.name, row[i]]))) ?? [],
+      rows: set?.rows.map((row) => Object.fromEntries(set.columns.map((c, i) => [c.name, row[i]]))) ?? [],
     }
   },
 })

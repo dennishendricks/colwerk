@@ -17,15 +17,18 @@ export interface Keychain {
   set(secret: string): Promise<void>
 }
 
-function run(cmd: string, args: string[], input = ''): Promise<{ code: number, stdout: string, stderr: string }> {
+function run(cmd: string, args: string[], input = ''): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { windowsHide: true })
     let stdout = ''
     let stderr = ''
-    child.stdout.on('data', d => (stdout += d))
-    child.stderr.on('data', d => (stderr += d))
-    child.on('error', e => reject((e as { code?: string }).code === 'ENOENT' ? new KeychainUnavailable(`${cmd} not found`) : e))
-    child.on('close', code => resolve({ code: code ?? -1, stdout, stderr }))
+    child.stdout.on('data', (d) => (stdout += d))
+    child.stderr.on('data', (d) => (stderr += d))
+    child.on(
+      'error',
+      (e) => reject((e as { code?: string }).code === 'ENOENT' ? new KeychainUnavailable(`${cmd} not found`) : e),
+    )
+    child.on('close', (code) => resolve({ code: code ?? -1, stdout, stderr }))
     child.stdin.end(input)
   })
 }
@@ -67,7 +70,11 @@ function linux(account: string): Keychain {
       throw new KeychainUnavailable(r.stderr.trim())
     },
     async set(secret) {
-      const r = await run('secret-tool', ['store', `--label=${SERVICE}`, 'service', SERVICE, 'account', account], secret)
+      const r = await run(
+        'secret-tool',
+        ['store', `--label=${SERVICE}`, 'service', SERVICE, 'account', account],
+        secret,
+      )
       if (r.code !== 0) throw failed(r)
     },
   }
@@ -123,7 +130,9 @@ function windows(target: string): Keychain {
   }
   return {
     async get() {
-      const r = await powershell(`$s = [ColwerkCred]::Read('${target}'); if ($null -eq $s) { exit 3 }; [Console]::Out.Write($s)`)
+      const r = await powershell(
+        `$s = [ColwerkCred]::Read('${target}'); if ($null -eq $s) { exit 3 }; [Console]::Out.Write($s)`,
+      )
       if (r.code === 3) return undefined
       if (r.code !== 0) throw failed(r)
       return r.stdout.trim()

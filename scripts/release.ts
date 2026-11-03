@@ -24,7 +24,9 @@ function fail(message: string): never {
 if (await output('git', ['branch', '--show-current']) !== 'main') fail('Releases are made from main.')
 if (await output('git', ['status', '--porcelain'])) fail('The working tree has uncommitted changes.')
 await output('git', ['fetch', 'origin', 'main'])
-if (await output('git', ['rev-parse', 'HEAD']) !== await output('git', ['rev-parse', 'origin/main'])) fail('main is not in sync with origin/main.')
+if (await output('git', ['rev-parse', 'HEAD']) !== await output('git', ['rev-parse', 'origin/main'])) {
+  fail('main is not in sync with origin/main.')
+}
 if (!await exec('gh', ['auth', 'status'])) fail('The GitHub CLI is not logged in (gh auth login).')
 
 const packageJson = await Deno.readTextFile('package.json')
@@ -50,11 +52,13 @@ if (!await exec(Deno.execPath(), ['task', 'desktop', '--all-targets'])) {
   fail('Build failed, package.json is reset.')
 }
 
-const files = [...Deno.readDirSync('dist')].filter(entry => entry.isFile && !entry.name.startsWith('.')).map(entry => entry.name).sort()
+const files = [...Deno.readDirSync('dist')].filter((entry) => entry.isFile && !entry.name.startsWith('.')).map(
+  (entry) => entry.name,
+).sort()
 const sums = []
 for (const file of files) {
   const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', await Deno.readFile(`dist/${file}`)))
-  sums.push(`${Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('')}  ${file}\n`)
+  sums.push(`${Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join('')}  ${file}\n`)
 }
 await Deno.writeTextFile('dist/SHA256SUMS.txt', sums.join(''))
 
@@ -62,8 +66,20 @@ if (!await exec('git', ['commit', '-m', `Release ${tag}`, 'package.json'])) fail
 if (!await exec('git', ['tag', '-a', tag, '-m', `Release ${tag}`])) fail('Tagging failed.')
 if (!await exec('git', ['push', '--atomic', 'origin', 'main', tag])) fail('Push failed.')
 
-const assets = [...files, 'SHA256SUMS.txt'].map(file => `dist/${file}`)
-if (!await exec('gh', ['release', 'create', tag, '--draft', '--verify-tag', '--title', `Colwerk ${version}`, '--generate-notes', ...assets])) {
+const assets = [...files, 'SHA256SUMS.txt'].map((file) => `dist/${file}`)
+if (
+  !await exec('gh', [
+    'release',
+    'create',
+    tag,
+    '--draft',
+    '--verify-tag',
+    '--title',
+    `Colwerk ${version}`,
+    '--generate-notes',
+    ...assets,
+  ])
+) {
   fail(`Creating the release failed; ${tag} is pushed, retry with gh release create.`)
 }
 console.log(`Draft release ${tag} created. Check it and publish it on GitHub.`)

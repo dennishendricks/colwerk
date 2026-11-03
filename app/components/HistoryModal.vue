@@ -24,16 +24,22 @@ watch(open, async (v) => {
 
 const shown = computed(() => {
   const term = search.value.trim().toLowerCase()
-  return entries.value.filter(e => (!currentOnly.value || e.connectionId === props.connectionId) && e.sql.toLowerCase().includes(term))
+  return entries.value.filter((e) =>
+    (!currentOnly.value || e.connectionId === props.connectionId) && e.sql.toLowerCase().includes(term)
+  )
 })
 
-const connectionName = (id: string) => connections.value.find(c => c.id === id)?.name
+const connectionName = (id: string) => connections.value.find((c) => c.id === id)?.name
 
 function details(e: HistoryEntry): string {
   const parts = [new Date(e.executedAt).toLocaleString(locale.value, { dateStyle: 'short', timeStyle: 'medium' })]
-  if (e.durationMs !== undefined) parts.push(e.durationMs < 1000 ? `${Math.round(e.durationMs)} ms` : `${(e.durationMs / 1000).toFixed(2)} s`)
+  if (e.durationMs !== undefined) {
+    parts.push(e.durationMs < 1000 ? `${Math.round(e.durationMs)} ms` : `${(e.durationMs / 1000).toFixed(2)} s`)
+  }
   if (e.rowCount !== undefined) parts.push(t('common.rows', { n: e.rowCount.toLocaleString(locale.value) }, e.rowCount))
-  else if (e.affectedRows !== undefined) parts.push(t('common.rowsAffected', { n: e.affectedRows.toLocaleString(locale.value) }, e.affectedRows))
+  else if (e.affectedRows !== undefined) {
+    parts.push(t('common.rowsAffected', { n: e.affectedRows.toLocaleString(locale.value) }, e.affectedRows))
+  }
   return parts.join(' · ')
 }
 
@@ -53,11 +59,13 @@ async function clear() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="t('history.title')" :description="t('history.description')" :ui="{ content: 'max-w-2xl' }">
+  <UModal v-model:open="open" :title="t('history.title')" :description="t('history.description')"
+    :ui="{ content: 'max-w-2xl' }">
     <template #body>
       <div class="space-y-3">
         <div class="flex items-center gap-3">
-          <UInput v-model="search" icon="i-lucide-search" :placeholder="t('history.search')" class="flex-1" autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
+          <UInput v-model="search" icon="i-lucide-search" :placeholder="t('history.search')" class="flex-1"
+            autocorrect="off" autocapitalize="off" :spellcheck="false" autofocus />
           <USwitch v-model="currentOnly" :label="t('history.currentOnly')" />
         </div>
         <UAlert v-if="error" color="error" variant="subtle" :description="error" />
@@ -75,7 +83,8 @@ async function clear() {
             >
               <div class="flex items-center gap-2 text-xs text-muted">
                 <UIcon v-if="e.error" name="i-lucide-circle-alert" class="size-3.5 shrink-0 text-error" />
-                <span class="font-medium text-default">{{ connectionName(e.connectionId) ?? t('history.deletedConnection') }}</span>
+                <span
+                  class="font-medium text-default">{{ connectionName(e.connectionId) ?? t('history.deletedConnection') }}</span>
                 <span>{{ details(e) }}</span>
               </div>
               <pre class="mt-1 line-clamp-3 font-mono text-xs break-all whitespace-pre-wrap">{{ e.sql }}</pre>
@@ -87,7 +96,8 @@ async function clear() {
     </template>
     <template #footer>
       <div class="flex w-full justify-end">
-        <UButton :label="t('history.clear')" icon="i-lucide-trash-2" color="neutral" variant="ghost" :disabled="!entries.length" @click="clear" />
+        <UButton :label="t('history.clear')" icon="i-lucide-trash-2" color="neutral" variant="ghost"
+          :disabled="!entries.length" @click="clear" />
       </div>
     </template>
   </UModal>

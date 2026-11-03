@@ -1,7 +1,13 @@
 import { assertEquals } from 'jsr:@std/assert@1'
-import { isReadOnlyStatement, isSelectStatement, type SplitDialect, splitStatements, statementAt } from '../core/sql-split.ts'
+import {
+  isReadOnlyStatement,
+  isSelectStatement,
+  type SplitDialect,
+  splitStatements,
+  statementAt,
+} from '../core/sql-split.ts'
 
-const texts = (sql: string, d: SplitDialect) => splitStatements(sql, d).map(r => sql.slice(r.from, r.to))
+const texts = (sql: string, d: SplitDialect) => splitStatements(sql, d).map((r) => sql.slice(r.from, r.to))
 
 Deno.test('splits on semicolons, ignoring strings and comments', () => {
   const sql = `select 'a;b' as x; -- c;d\nselect "e;f" /* g;h */ from t;\n\n  select 3`
@@ -30,7 +36,11 @@ create trigger tr after insert on t begin
   delete from u;
 end;
 select 2`
-  assertEquals(texts(sql, 'sqlite'), ['select [a;b], `c;d` from t', sql.slice(sql.indexOf('create'), sql.lastIndexOf(';')), 'select 2'])
+  assertEquals(texts(sql, 'sqlite'), [
+    'select [a;b], `c;d` from t',
+    sql.slice(sql.indexOf('create'), sql.lastIndexOf(';')),
+    'select 2',
+  ])
 })
 
 Deno.test('statement under cursor', () => {
@@ -57,7 +67,10 @@ Deno.test('mssql: blank lines separate statements under the cursor, not inside s
 
 Deno.test('mssql batches split at GO only', () => {
   const sql = `declare @x int = 1; select @x\nGO\nselect 2; select 3`
-  assertEquals(splitStatements(sql, 'mssql', { semicolons: false }).map(r => sql.slice(r.from, r.to)), ['declare @x int = 1; select @x', 'select 2; select 3'])
+  assertEquals(splitStatements(sql, 'mssql', { semicolons: false }).map((r) => sql.slice(r.from, r.to)), [
+    'declare @x int = 1; select @x',
+    'select 2; select 3',
+  ])
 })
 
 Deno.test('read-only statements', () => {
@@ -90,16 +103,34 @@ Deno.test('read-only statements', () => {
   for (const sql of ['pivot t on k using sum(v)', 'unpivot t on a, b into name k value v', 'summarize t']) {
     assertEquals(isReadOnlyStatement(sql, 'duckdb'), true, sql)
   }
-  assertEquals(isReadOnlyStatement('select * from a inner merge join b on a.id = b.id option (merge union)', 'mssql'), true)
+  assertEquals(
+    isReadOnlyStatement('select * from a inner merge join b on a.id = b.id option (merge union)', 'mssql'),
+    true,
+  )
   assertEquals(isReadOnlyStatement('merge into t using s on t.id = s.id when matched then delete', 'mssql'), false)
   assertEquals(isReadOnlyStatement('select * from a inner merge join b on a.id = b.id', 'postgres'), false)
 })
 
 Deno.test('select statement detection', () => {
-  for (const sql of ['select 1', '  -- note\nselect 1;', '(select 1) union (select 2)', 'with a as (select 1) select * from a']) {
+  for (
+    const sql of [
+      'select 1',
+      '  -- note\nselect 1;',
+      '(select 1) union (select 2)',
+      'with a as (select 1) select * from a',
+    ]
+  ) {
     assertEquals(isSelectStatement(sql, 'postgres'), true, sql)
   }
-  for (const sql of ['show tables', 'explain select 1', 'values (1)', 'select 1; select 2', 'with d as (delete from t returning *) select * from d']) {
+  for (
+    const sql of [
+      'show tables',
+      'explain select 1',
+      'values (1)',
+      'select 1; select 2',
+      'with d as (delete from t returning *) select * from d',
+    ]
+  ) {
     assertEquals(isSelectStatement(sql, 'postgres'), false, sql)
   }
 })

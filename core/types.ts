@@ -13,7 +13,13 @@ export type ConnectionColor = typeof connectionColors[number]
  * - `entra-interactive`: Microsoft Entra login in the system browser (with MFA); `user` is the account to suggest
  * - `entra-service-principal`: Microsoft Entra application with `clientId`, `tenantId` and the client secret in `password`
  */
-export const connectionAuths = ['password', 'windows', 'entra-default', 'entra-interactive', 'entra-service-principal'] as const
+export const connectionAuths = [
+  'password',
+  'windows',
+  'entra-default',
+  'entra-interactive',
+  'entra-service-principal',
+] as const
 export type ConnectionAuth = typeof connectionAuths[number]
 
 /** SQL Server: order of day, month and year when strings are converted to dates. */
@@ -172,7 +178,7 @@ export interface ColumnInfo {
   nullable: boolean
   primaryKey: boolean
   /** Set when the column is part of a foreign key. */
-  references?: { schema: string, table: string, column: string }
+  references?: { schema: string; table: string; column: string }
   /** Names of indexes the column participates in (excluding the primary key). */
   indexes: string[]
   comment: string | null
@@ -195,21 +201,20 @@ export type IntrospectRequest =
   /** Databases the login has access to. */
   | { kind: 'databases' }
   | { kind: 'schemas' }
-  | { kind: 'tables', schema: string }
-  | { kind: 'columns', schema: string, table: string }
-  | { kind: 'indexes', schema: string, table: string }
-  | { kind: 'routines', schema: string }
+  | { kind: 'tables'; schema: string }
+  | { kind: 'columns'; schema: string; table: string }
+  | { kind: 'indexes'; schema: string; table: string }
+  | { kind: 'routines'; schema: string }
   /** Source of a table, view or routine (all overloads of the name); never cached. */
-  | { kind: 'ddl', schema: string, name: string, object: 'table' | 'view' | 'routine' }
+  | { kind: 'ddl'; schema: string; name: string; object: 'table' | 'view' | 'routine' }
 
-export type IntrospectResult<R extends IntrospectRequest> =
-  R extends { kind: 'databases' } ? DatabaseInfo[]
-    : R extends { kind: 'schemas' } ? SchemaInfo[]
-      : R extends { kind: 'tables' } ? TableInfo[]
-        : R extends { kind: 'columns' } ? ColumnInfo[]
-          : R extends { kind: 'indexes' } ? IndexInfo[]
-            : R extends { kind: 'routines' } ? RoutineInfo[]
-              : string
+export type IntrospectResult<R extends IntrospectRequest> = R extends { kind: 'databases' } ? DatabaseInfo[]
+  : R extends { kind: 'schemas' } ? SchemaInfo[]
+  : R extends { kind: 'tables' } ? TableInfo[]
+  : R extends { kind: 'columns' } ? ColumnInfo[]
+  : R extends { kind: 'indexes' } ? IndexInfo[]
+  : R extends { kind: 'routines' } ? RoutineInfo[]
+  : string
 
 /** Receives a streamed result. `rows` is awaited (backpressure); if it rejects, the statement is aborted. */
 export interface RowSink {
@@ -252,7 +257,11 @@ export class DbError extends Error {
 export class AppError extends DbError {
   readonly params?: Record<string, string | number>
 
-  constructor(readonly key: string, message: string, options: { code?: string, params?: Record<string, string | number> } = {}) {
+  constructor(
+    readonly key: string,
+    message: string,
+    options: { code?: string; params?: Record<string, string | number> } = {},
+  ) {
     super(message, options.code)
     this.params = options.params
   }

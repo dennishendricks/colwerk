@@ -5,7 +5,19 @@ import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } fr
 import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect, SQLite } from '@codemirror/lang-sql'
 import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
-import { crosshairCursor, Decoration, type DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, placeholder, rectangularSelection, tooltips } from '@codemirror/view'
+import {
+  crosshairCursor,
+  Decoration,
+  type DecorationSet,
+  drawSelection,
+  EditorView,
+  highlightActiveLine,
+  keymap,
+  lineNumbers,
+  placeholder,
+  rectangularSelection,
+  tooltips,
+} from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
 
@@ -16,11 +28,17 @@ const props = defineProps<{
   /** Document offset of the last run's error. */
   errorAt?: number
 }>()
-const emit = defineEmits<{ run: [], explain: [] }>()
+const emit = defineEmits<{ run: []; explain: [] }>()
 const model = defineModel<string>({ required: true })
 
 // DuckDB's grammar is close to PostgreSQL's.
-const DIALECTS: Record<Dialect, SQLDialect> = { postgres: PostgreSQL, duckdb: PostgreSQL, mysql: MySQL, mssql: MSSQL, sqlite: SQLite }
+const DIALECTS: Record<Dialect, SQLDialect> = {
+  postgres: PostgreSQL,
+  duckdb: PostgreSQL,
+  mysql: MySQL,
+  mssql: MSSQL,
+  sqlite: SQLite,
+}
 
 const highlight = HighlightStyle.define([
   { tag: tags.keyword, color: 'var(--sql-keyword)', fontWeight: '600' },
@@ -41,18 +59,40 @@ const theme = EditorView.theme({
   '.cm-gutters': { backgroundColor: 'var(--ui-bg-muted)', color: 'var(--ui-text-muted)', border: 'none' },
   '.cm-activeLine': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 6%, transparent)' },
   '.cm-errorLine': { backgroundColor: 'color-mix(in oklab, var(--ui-error) 10%, transparent)' },
-  '.cm-errorMark': { textDecoration: 'underline wavy var(--ui-error)', textDecorationSkipInk: 'none', textUnderlineOffset: '3px' },
+  '.cm-errorMark': {
+    textDecoration: 'underline wavy var(--ui-error)',
+    textDecorationSkipInk: 'none',
+    textUnderlineOffset: '3px',
+  },
   '.cm-content': { caretColor: 'var(--ui-text-highlighted)' },
   '.cm-cursor, .cm-dropCursor': { borderLeft: '2px solid var(--ui-text-highlighted)' },
   '.cm-placeholder': { color: 'var(--ui-text-muted)' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 25%, transparent) !important' },
-  '.cm-tooltip': { backgroundColor: 'var(--ui-bg-elevated)', border: '1px solid var(--ui-border)', color: 'var(--ui-text)' },
-  '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'var(--ui-bg-accented)', color: 'var(--ui-text-highlighted)' },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
+    backgroundColor: 'color-mix(in oklab, var(--ui-primary) 25%, transparent) !important',
+  },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--ui-bg-elevated)',
+    border: '1px solid var(--ui-border)',
+    color: 'var(--ui-text)',
+  },
+  '.cm-tooltip-autocomplete ul li[aria-selected]': {
+    backgroundColor: 'var(--ui-bg-accented)',
+    color: 'var(--ui-text-highlighted)',
+  },
   // Search panel (⌘F)
   '.cm-panels': { backgroundColor: 'var(--ui-bg-muted)', color: 'var(--ui-text)' },
   '.cm-panels-top': { borderBottom: '1px solid var(--ui-border)' },
-  '.cm-textfield': { backgroundColor: 'var(--ui-bg)', border: '1px solid var(--ui-border-accented)', borderRadius: '4px' },
-  '.cm-button': { backgroundImage: 'none', backgroundColor: 'var(--ui-bg-elevated)', border: '1px solid var(--ui-border-accented)', borderRadius: '4px' },
+  '.cm-textfield': {
+    backgroundColor: 'var(--ui-bg)',
+    border: '1px solid var(--ui-border-accented)',
+    borderRadius: '4px',
+  },
+  '.cm-button': {
+    backgroundImage: 'none',
+    backgroundColor: 'var(--ui-bg-elevated)',
+    border: '1px solid var(--ui-border-accented)',
+    borderRadius: '4px',
+  },
   '.cm-searchMatch': { backgroundColor: 'color-mix(in oklab, var(--ui-warning) 30%, transparent)' },
   '.cm-searchMatch-selected': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 45%, transparent)' },
 })
@@ -91,7 +131,7 @@ const errorField = StateField.define<DecorationSet>({
     }
     return marks
   },
-  provide: f => EditorView.decorations.from(f),
+  provide: (f) => EditorView.decorations.from(f),
 })
 
 /** Underlines the word at `pos` (at least one character) and highlights its line. */
@@ -190,7 +230,11 @@ watch(model, (value) => {
   if (value.startsWith(doc)) {
     // Appended from outside (e.g. a generated SELECT): keep the undo history and select the new part.
     const from = value.length - value.slice(doc.length).replace(/^[\s;]+/, '').length
-    view.dispatch({ changes: { from: doc.length, insert: value.slice(doc.length) }, selection: { anchor: from, head: value.length }, scrollIntoView: true })
+    view.dispatch({
+      changes: { from: doc.length, insert: value.slice(doc.length) },
+      selection: { anchor: from, head: value.length },
+      scrollIntoView: true,
+    })
   } else {
     view.dispatch({ changes: { from: 0, to: doc.length, insert: value } })
   }
@@ -205,7 +249,7 @@ watch(() => props.errorAt, (pos) => {
 })
 
 /** The selection if there is one, otherwise the statement under the cursor; `from`: its document offset. */
-function runnableSql(): { sql: string, from: number } {
+function runnableSql(): { sql: string; from: number } {
   if (!view) return { sql: '', from: 0 }
   const { state } = view
   const sel = state.selection.main
