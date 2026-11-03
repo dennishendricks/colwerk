@@ -1,6 +1,5 @@
 // Collects the license texts of everything the packaged app contains: the npm packages bundled into the client
-// and server (recorded during `nuxt build`, see nuxt.config.ts), the packages Nitro copies to
-// `.output/server/node_modules`, and the Deno runtime.
+// and server (recorded during `nuxt build`, see nuxt.config.ts) and the Deno runtime.
 import { join } from 'node:path'
 
 const DENO_LICENSE = `MIT License
@@ -25,9 +24,6 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 `
 
-// Deno's npm layout: `node_modules/.deno/<name with + for />@<version>[_<n>]/node_modules/<name>`.
-const DENO_NPM = 'node_modules/.deno'
-
 type Package = { name: string, version: string, license?: string, text?: string }
 
 async function readPackage(dir: string): Promise<Package> {
@@ -39,34 +35,11 @@ async function readPackage(dir: string): Promise<Package> {
   return { name, version, license: typeof license === 'string' ? license : license?.type, text }
 }
 
-/** Nitro's copies carry only the traced files, without the license; the original comes from Deno's npm directory. */
-async function serverPackageDirs(): Promise<string[]> {
-  const installed = [...Deno.readDirSync(DENO_NPM)].map(entry => entry.name)
-  const dirs: string[] = []
-  const root = '.output/server/node_modules'
-  // With several versions of a package, Nitro puts each into `.nitro/<name>@<version>` and links one of them.
-  const nitro = join(root, '.nitro')
-  const packageDirs = (dir: string) => [...Deno.readDirSync(dir)].flatMap((entry) => {
-    if (entry.name.startsWith('.')) return []
-    if (entry.name.startsWith('@')) return [...Deno.readDirSync(join(dir, entry.name))].map(e => join(dir, entry.name, e.name))
-    return [join(dir, entry.name)]
-  })
-  const nitroDirs = await Deno.stat(nitro).then(() => packageDirs(nitro), () => [])
-  for (const pkgDir of [...packageDirs(root), ...nitroDirs]) {
-    const { name, version } = JSON.parse(await Deno.readTextFile(join(pkgDir, 'package.json')))
-    const key = `${name.replace('/', '+')}@${version}`
-    const match = installed.find(n => n === key || n.startsWith(`${key}_`))
-    if (!match) throw new Error(`${name}@${version} not found in ${DENO_NPM}`)
-    dirs.push(join(DENO_NPM, match, 'node_modules', name))
-  }
-  return dirs
-}
-
 /** Writes `THIRD_PARTY_LICENSES.txt` to `file`. */
 export async function writeThirdPartyLicenses(file: string): Promise<void> {
   const bundled: string[] = JSON.parse(await Deno.readTextFile('.nuxt/bundled-packages.json'))
   const packages = new Map<string, Package>()
-  for (const dir of [...bundled, ...await serverPackageDirs()]) {
+  for (const dir of bundled) {
     const pkg = await readPackage(dir)
     // The app's own sources resolve to the project root, which is no third-party package.
     if (pkg.name !== 'colwerk') packages.set(`${pkg.name}@${pkg.version}`, pkg)
