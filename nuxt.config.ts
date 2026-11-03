@@ -55,7 +55,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
   nitro: {
     preset: 'deno-server',
-    rollupConfig: { plugins: [recordBundledPackages] },
+    rollupConfig: { plugins: [recordBundledPackages], external: ['node:sqlite'] },
     // Runs on Deno: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
     esbuild: { options: { target: 'esnext' } },
   },
