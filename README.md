@@ -71,7 +71,6 @@ Native libraries (currently DuckDB) are loaded via `Deno.dlopen`, not as Node-AP
 
 ## Known limitations
 
-- Tested on macOS arm64 only; Windows and Linux builds are untested.
 - MSSQL `DECIMAL`/`MONEY` lose precision beyond ~15 digits (tedious returns JS numbers).
 - Postgres/DuckDB scripts commit each statement individually unless they contain their own `BEGIN`.
 
