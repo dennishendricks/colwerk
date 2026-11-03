@@ -11,7 +11,7 @@ Requirements: Deno 2.9+, Docker (optional, for the test databases).
 
 ```sh
 deno install --allow-scripts   # install dependencies
-deno task hooks                # pre-commit hook: refuses commits with unformatted files
+deno task hooks                # pre-commit hook: formats staged files with deno fmt
 docker compose up -d           # test databases: Postgres :55432, MariaDB :53306, MSSQL :51433
 deno task dev                  # dev server; prints the URL including the session token
 ```
