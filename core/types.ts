@@ -68,6 +68,8 @@ export interface ConnectionConfig {
   file?: string
   /** DuckDB, SQLite: open the database file read-only. */
   readOnly?: boolean
+  /** DuckDB: create a new database file in the storage format of DuckDB 1.4, so that DuckDB 1.x can open it. */
+  v1Storage?: boolean
   /** Marks the connection in the UI (connection list, tabs, query toolbar). */
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */
@@ -108,6 +110,7 @@ export interface DriverStatus extends DriverInfo {
  * - BIGINT and DECIMAL/NUMERIC as string (no precision loss)
  * - timestamps/dates as ISO-8601 string
  * - binary data as hex string with `0x` prefix
+ * - geometries (DuckDB, PostGIS, MySQL) as WKT, prefixed with `SRID=…;` when the value carries an SRID
  * - everything else as JSON-compatible value (number, string, boolean, null, arrays, objects)
  */
 export type CellValue = string | number | boolean | null | CellValue[] | { [key: string]: CellValue }

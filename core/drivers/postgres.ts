@@ -1,7 +1,8 @@
 import pg from 'pg'
 import Cursor from 'pg-cursor'
+import { hexEwkbToText } from '../geometry.ts'
 import { splitStatements } from '../sql-split.ts'
-import { AppError, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
+import { AppError, type CellValue, type ColumnInfo, type ConnectionConfig, DbError, type Driver, type IntrospectRequest, type IntrospectResult, type QueryResult, type ResultColumn, type ResultSet, type RowSink, type Session, type TableInfo, type TransactionState } from '../types.ts'
 import { normalizeValue, sqlTimestampToIso, STREAM_BATCH } from '../values.ts'
 import { ENTRA_SCOPE, entraToken, isEntra } from './entra.ts'
 import { tlsOptions } from './tls.ts'
@@ -21,6 +22,15 @@ const types: pg.CustomTypesConfig = {
     if (oid === OID.dateArray) return parseTextArray
     return pg.types.getTypeParser(oid, format)
   }) as pg.CustomTypesConfig['getTypeParser'],
+}
+
+// PostGIS sends geometry and geography as hex-encoded EWKB; extension types have no fixed OID, so the
+// columns are recognized by their type name.
+const GEOMETRY = /(^|\.)(geometry|geography)$/
+
+function convertRows(columns: ResultColumn[], rows: unknown[][]): CellValue[][] {
+  const geometry = columns.map(c => GEOMETRY.test(c.type))
+  return rows.map(r => r.map((v, i) => geometry[i] && typeof v === 'string' ? hexEwkbToText(v) : normalizeValue(v)))
 }
 
 // Status byte of the last ReadyForQuery message.
@@ -183,11 +193,8 @@ class PostgresSession implements Session {
           const truncated = read.length > rowLimit
           const rows = truncated ? read.slice(0, rowLimit) : read
           await this.resolveTypeNames(fields.map(f => f.dataTypeID))
-          resultSets.push({
-            columns: fields.map(f => ({ name: f.name, type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID) })),
-            rows: rows.map(r => r.map(normalizeValue)),
-            truncated,
-          })
+          const columns = fields.map(f => ({ name: f.name, type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID) }))
+          resultSets.push({ columns, rows: convertRows(columns, rows), truncated })
         } else if (result.command && DML.has(result.command)) {
           affectedRows = (affectedRows ?? 0) + (result.rowCount ?? 0)
         }
@@ -207,18 +214,17 @@ class PostgresSession implements Session {
       cursor.read(STREAM_BATCH, (err, rows, result) => err ? reject(err) : resolve({ rows, result }))
     })
     try {
-      let first = true
+      let columns: ResultColumn[] | undefined
       for (;;) {
         const { rows, result } = await read()
-        if (first) {
-          first = false
+        if (!columns) {
           // Type names come from the cache only: the client is blocked by the open cursor. Columns of a
           // query run before in this session (the usual case for an export) are always cached.
-          const fields = result.fields ?? []
-          if (fields.length) sink.columns(fields.map(f => ({ name: f.name, type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID) })))
+          columns = (result.fields ?? []).map(f => ({ name: f.name, type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID) }))
+          if (columns.length) sink.columns(columns)
         }
         if (!rows.length) break
-        await sink.rows(rows.map(r => r.map(normalizeValue)))
+        await sink.rows(convertRows(columns, rows))
       }
     } catch (e) {
       throw wrap(e)

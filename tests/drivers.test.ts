@@ -1,6 +1,7 @@
 // Contract tests every driver must pass. Network databases come from docker-compose.yml and are
 // skipped when not reachable; DuckDB and SQLite run in memory.
 import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
+import { join } from 'node:path'
 import { loadDriver } from '../core/registry.ts'
 import { type ConnectionConfig, DbError, type QueryResult, type Session } from '../core/types.ts'
 import { reachable, testConnections } from './helpers.ts'
@@ -233,14 +234,72 @@ for (const c of cases) {
   })
 
   if (name === 'duckdb') {
-    Deno.test({ name: `${name}: an unsupported column type leaves the session usable`, ...opts }, async () => {
+    Deno.test({ name: `${name}: v1Storage creates the file in the storage format of DuckDB 1.4`, ...opts }, async () => {
+      const dir = await Deno.makeTempDir()
+      try {
+        for (const v1Storage of [true, false]) {
+          const s = await (await loadDriver(name)).connect({ ...c.config, id: `duck-v1-${v1Storage}`, file: join(dir, `${v1Storage}.duckdb`), v1Storage })
+          try {
+            const sql = `select map_extract_value(tags, 'storage_version') from duckdb_databases() where database_name = current_database()`
+            assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), [[v1Storage ? 'v1.4.0+' : 'v2.0.0+']])
+          } finally {
+            await s.close()
+          }
+        }
+      } finally {
+        await Deno.remove(dir, { recursive: true })
+      }
+    })
+
+    Deno.test({ name: `${name}: GEOMETRY as WKT`, ...opts }, async () => {
+      const res = await (await session()).execute(`select 'POLYGON((0 0, 1 0, 1 1, 0 0))'::GEOMETRY as g, 'POINT(1 2)'::GEOMETRY('OGC:CRS84') as crs`, { rowLimit: 1 })
+      assertEquals(res.resultSets[0]!.columns.map(c => c.type), ['GEOMETRY', `GEOMETRY('OGC:CRS84')`])
+      assertEquals(rows(res), [['POLYGON ((0 0, 1 0, 1 1, 0 0))', 'POINT (1 2)']])
+    })
+
+    Deno.test({ name: `${name}: a VARIANT value equals the value it was cast from`, ...opts }, async () => {
       const s = await session()
-      await assertRejects(() => s.execute('select 42::VARIANT as v', { rowLimit: 1 }), Error, 'Unsupported DuckDB type')
-      assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 1 })), [[1]])
+      const values = [
+        'true', 'false', '-5::tinyint', '-300::smallint', '-70000::integer', '-5000000000::bigint', '-170141183460469231731687303715884105727::hugeint',
+        '200::utinyint', '60000::usmallint', '4000000000::uinteger', '18000000000000000000::ubigint', '340282366920938463463374607431768211455::uhugeint',
+        '1.5::float', '-2.25::double', `'nan'::double`, '-12.345::decimal(5,3)', '123456789.12::decimal(11,2)', '-1234567890123456.78::decimal(18,2)',
+        '12345678901234567890.123::decimal(38,3)', `repeat('ä', 200)`, `'\\xDE\\xAD'::blob`, `'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid`,
+        `date '2024-01-02'`, `date '-0044-03-15'`, `time '03:04:05.123456'`, `'03:04:05.123456789'::time_ns`, `timestamp_s '2024-01-02 03:04:05'`,
+        `timestamp_ms '2024-01-02 03:04:05.123'`, `timestamp '2024-01-02 03:04:05.123456'`, `timestamp_ns '2024-01-02 03:04:05.123456789'`,
+        `'03:04:05+02:30'::timetz`, `'2024-01-02 03:04:05+00'::timestamptz`, `'2024-01-02 03:04:05.123456789+00'::timestamptz_ns`,
+        `interval '1 month 2 days 3 seconds'`, '12345678901234567890123::bignum', `'10110'::bit`, `'POINT(1 2)'::geometry`,
+        `[1, null, 3]`, `{'a': 1, 'b': [{'c': 'x'}], 'd': null}`, 'null',
+      ]
+      await s.execute(`set timezone = 'UTC'`, { rowLimit: 1 })
+      const res = await s.execute(`select ${values.map((v, i) => `${v} as v${i}, (${v})::variant as w${i}`).join(', ')}`, { rowLimit: 1 })
+      const [row] = rows(res) as unknown[][]
+      values.forEach((v, i) => assertEquals(row![2 * i + 1], row![2 * i], v))
+    })
+  }
+
+  if (name === 'mysql') {
+    Deno.test({ name: `${name}: geometry as WKT with SRID`, ...opts }, async () => {
+      const res = await (await session()).execute(`select ST_GeomFromText('POINT(1 2)', 4326) as g, ST_GeomFromText('LINESTRING(0 0, 1 1)') as l`, { rowLimit: 1 })
+      assertEquals(rows(res), [['SRID=4326;POINT (1 2)', 'LINESTRING (0 0, 1 1)']])
     })
   }
 
   if (name === 'postgres') {
+    // Only when PostGIS is installed in the test database (the postgres image of docker-compose.yml has none).
+    const postgis = !ignore && rows(await (await session()).execute(`select 1 from pg_extension where extname = 'postgis'`, { rowLimit: 1 })).length > 0
+    Deno.test({ name: `${name}: PostGIS geometry and geography as EWKT`, ...opts, ignore: !postgis }, async () => {
+      const s = await session()
+      const sql = `select 'SRID=4326;POINT(7.1 50.7)'::geometry as g, 'POINT Z (1 2 3)'::geometry as z,
+        'LINESTRING(0 0, 1 1)'::geography as geo, null::geometry as n`
+      const expected = [['SRID=4326;POINT (7.1 50.7)', 'POINT Z (1 2 3)', 'SRID=4326;LINESTRING (0 0, 1 1)', null]]
+      assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), expected)
+      const streamed: unknown[][] = []
+      await s.stream(sql, { columns: () => {}, rows: async (r) => {
+        streamed.push(...r)
+      } })
+      assertEquals(streamed, expected)
+    })
+
     Deno.test({ name: `${name}: date and timestamp arrays keep the unified string form`, ...opts }, async () => {
       const [[ts, d, tz]] = rows(await (await session()).execute(
         `select array['2024-01-02 03:04:05.123456'::timestamp, null] as ts, array['2024-01-02'::date] as d,

@@ -78,6 +78,7 @@ export function parseConnection(body: unknown): ConnectionInput {
     sslServerName: b.ssl === true ? str('sslServerName') : undefined,
     file: str('file'),
     readOnly: b.readOnly === true,
+    v1Storage: b.v1Storage === true,
     color,
     confirmWrites: b.confirmWrites === true,
   }
