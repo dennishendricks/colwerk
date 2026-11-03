@@ -265,6 +265,7 @@ watchEffect(() => {
     ]),
     submenu(t('menu.view'), [
       item(t('menu.sidebar'), 'sidebar', true, 'CmdOrCtrl+B'),
+      ...(macOS.value ? [role('togglefullscreen')] : []),
       'separator',
       // No checkmarks in Deno's menus: the active design and language are disabled instead.
       item(t('menu.designSystem'), 'design-system', colorMode.preference !== 'system'),
