@@ -14,7 +14,7 @@ services:
       retries: 30
 
   mariadb:
-    image: mariadb:11
+    image: mariadb:13
     environment:
       MARIADB_USER: dbm
       MARIADB_PASSWORD: dbm
