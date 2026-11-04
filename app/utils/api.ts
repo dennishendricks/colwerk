@@ -1,6 +1,6 @@
 const TOKEN_KEY = 'colwerk-token'
 
-/** Reads the session token from `#token=…` (dev server, self-hosted binary) and keeps it for reloads. */
+/** Reads the session token from `#token=…` (also in the desktop app, see src-tauri) and keeps it for reloads. */
 function takeToken(): string | null {
   const match = location.hash.match(/token=([0-9a-f]+)/)
   if (match) {
@@ -13,12 +13,9 @@ function takeToken(): string | null {
 export const sessionToken = ref(takeToken())
 window.addEventListener('hashchange', () => (sessionToken.value = takeToken()))
 
-// Desktop app: the launcher hands the token over through a binding (see launcher/main.ts).
-const desktopToken = (window as { bindings?: { sessionToken(): Promise<string> } }).bindings?.sessionToken()
-
 const fetcher = $fetch.create({
-  async onRequest({ options }) {
-    options.headers.set('x-colwerk-token', sessionToken.value ?? await desktopToken ?? '')
+  onRequest({ options }) {
+    options.headers.set('x-colwerk-token', sessionToken.value ?? '')
   },
 }) as (url: string, options?: object) => Promise<unknown>
 
@@ -48,7 +45,7 @@ export function errorMessage(e: unknown): string {
 export async function subscribe(url: string, onEvent: (event: string, data: string) => void): Promise<never> {
   for (;;) {
     try {
-      const res = await fetch(url, { headers: { 'x-colwerk-token': sessionToken.value ?? await desktopToken ?? '' } })
+      const res = await fetch(url, { headers: { 'x-colwerk-token': sessionToken.value ?? '' } })
       const reader = res.ok ? res.body?.pipeThrough(new TextDecoderStream()).getReader() : undefined
       let buffer = ''
       for (let chunk = await reader?.read(); chunk && !chunk.done; chunk = await reader!.read()) {

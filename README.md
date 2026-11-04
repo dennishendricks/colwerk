@@ -3,11 +3,14 @@
 A lightweight SQL editor and database client for the desktop. Supports PostgreSQL, MySQL/MariaDB, Microsoft SQL Server,
 DuckDB and SQLite.
 
-Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro, packaged with Deno (`deno desktop`, `deno compile`).
+Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro. The server runs on Node as a single executable; the desktop
+app is a Tauri 2 shell around it. Deno is the development toolchain (tasks, tests, formatting).
 
 ## Getting started
 
-Requirements: Deno 2.9+, Docker (optional, for the test databases).
+Requirements: Deno 2.9+, Docker (optional, for the test databases). For the desktop app also Rust (stable) and, on
+Linux, Tauri's system packages (`libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev`). The Node runtime of the
+builds is downloaded by the packaging script (official build, pinned version, checked against its checksums).
 
 ```sh
 deno install --allow-scripts   # install dependencies
@@ -16,27 +19,28 @@ docker compose up -d           # test databases: Postgres :55432, MariaDB :53306
 deno task dev                  # dev server; prints the URL including the session token
 ```
 
-| Task                  | Description                                                                   |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `deno task dev`       | Nuxt dev server on `127.0.0.1`, random port, fresh token                      |
-| `deno task desktop`   | Desktop app for the host system (`--all-targets` for all), written to `dist/` |
-| `deno task compile`   | Self-hosted binary `dist/colwerk` that opens the default browser              |
-| `deno task release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release  |
-| `deno task test`      | Driver contract tests, API end-to-end test, SQL splitter tests                |
-| `deno task typecheck` | `deno check` and `nuxt typecheck`                                             |
-| `deno task fmt`       | Formats all files with `deno fmt` (settings in `deno.json`)                   |
-| `deno task hooks`     | Enables the pre-commit hook in `.githooks/`                                   |
+| Task                  | Description                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `deno task dev`       | Nuxt dev server on `127.0.0.1`, random port, fresh token (`--desktop`: in the Tauri shell) |
+| `deno task desktop`   | Desktop app for the host system: installer and .zip in `dist/`                             |
+| `deno task compile`   | Self-hosted binary `dist/colwerk` that opens the default browser                           |
+| `deno task release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release               |
+| `deno task test`      | Driver contract tests, API end-to-end test, SQL splitter tests                             |
+| `deno task typecheck` | `deno check` and `nuxt typecheck`                                                          |
+| `deno task fmt`       | Formats all files with `deno fmt` (settings in `deno.json`)                                |
+| `deno task hooks`     | Enables the pre-commit hook in `.githooks/`                                                |
 
 Tests against Postgres, MariaDB and MSSQL are skipped when the container is not reachable.
 
 ## Architecture
 
 ```
-core/      runtime-agnostic TypeScript: drivers, sessions, export, store, keychain (no Nuxt or Deno dependencies, except DuckDB FFI)
-server/    thin Nitro layer: security middleware, /api/* routes, MCP tools; no database logic
-app/       Nuxt UI frontend, talks to /api/* only
-launcher/  entry point for deno desktop / deno compile, MCP stdio bridge
-scripts/   dev server, packaging, release
+core/       runtime-agnostic TypeScript on node: APIs: drivers, sessions, export, store, keychain (no Nuxt dependencies)
+server/     thin Nitro layer: security middleware, /api/* routes, MCP tools; no database logic
+app/        Nuxt UI frontend, talks to /api/* only; native menus and dialogs through Tauri (app/utils/desktop.ts)
+launcher/   entry point of the server binary (colwerk-server), MCP stdio bridge
+src-tauri/  desktop shell: starts the server binary as sidecar and shows it in its window
+scripts/    dev server, packaging, release
 ```
 
 Core decisions:
@@ -48,8 +52,11 @@ Core decisions:
   JSON.
 - **Bounded results.** Drivers read at most `rowLimit + 1` rows and cancel the rest; each tab has a timeout (default 60
   s).
-- **Server-side export.** CSV/Parquet files are written by the server via a native save dialog, because the desktop
-  webview does not handle downloads.
+- **Server-side export.** CSV/Parquet files are written by the server to the path chosen in a native save dialog,
+  because the desktop webview does not handle downloads.
+- **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
+  The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
+  and opener APIs as a remote page on `127.0.0.1` (`src-tauri/capabilities`).
 - **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas` and `supportsNetwork`; the UI adapts to them.
 
 ## Security
@@ -65,7 +72,7 @@ on its own:
 
 ```json
 {
-  "mcpServers": { "colwerk": { "command": "/Applications/Colwerk.app/Contents/MacOS/laufey_webview", "args": ["mcp"] } }
+  "mcpServers": { "colwerk": { "command": "/Applications/Colwerk.app/Contents/MacOS/colwerk-server", "args": ["mcp"] } }
 }
 ```
 
@@ -86,9 +93,8 @@ A driver implements `Driver` in `core/drivers/<name>.ts`, is registered in `core
 test in `tests/drivers.test.ts`. `connect()` must open exactly one connection (no pool), and `cancel()` must work
 concurrently with `execute()`.
 
-Native libraries (currently DuckDB) are loaded via `Deno.dlopen`, not as Node-API addons, which crash `deno desktop`
-builds on Windows and Linux ([denoland/deno#36596](https://github.com/denoland/deno/issues/36596)). They are not
-embedded in the packages but downloaded from npm on first use, verified by hash and stored in the data directory.
+Native addons (currently DuckDB, `@duckdb/node-bindings`) are not embedded in the packages but downloaded from npm on
+first use, verified by hash and stored in the data directory.
 
 ## Known limitations
 

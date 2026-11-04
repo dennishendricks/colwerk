@@ -29,6 +29,24 @@ jobs:
       - run: deno task lint
       - run: deno task typecheck
 
+  # The desktop shell (src-tauri); its packages are only built for a release.
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml -- -D warnings
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -41,13 +59,14 @@ jobs:
           deno-version: v2.9.x
           cache: true
       - run: deno install --frozen --allow-scripts
-      # Builds `.output` and `dist/colwerk`, which enable the API and binary tests.
+      # Builds `.output` and `dist/colwerk` (the server as a Node single executable), which enable the API and
+      # binary tests.
       - run: deno task compile
       - run: docker compose up -d --wait postgres mariadb mssql && docker compose run --rm mssql-init
       - run: deno task test
 
-  # DuckDB FFI, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main; the network
-  # databases are skipped here.
+  # DuckDB's native addon, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main;
+  # the network databases are skipped here.
   platforms:
     if: github.event_name == 'push'
     strategy:

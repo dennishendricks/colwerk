@@ -15,15 +15,21 @@ jobs:
       matrix:
         os: [macos-latest, macos-15-intel, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       # LF line endings on Windows too, so the files shared by all builds (LICENSE) are identical.
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
-      # Without cache: the release is built only from deno.lock, not from a cache written by another run.
+      # Without cache: the release is built only from deno.lock and Cargo.lock, not from a cache written by another run.
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.x
+      - uses: dtolnay/rust-toolchain@stable
+      # Build dependencies of Tauri on Linux (WebKitGTK, and xdo for the menus).
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev patchelf
       - run: deno install --frozen --allow-scripts
       # Builds the host's target into `dist`.
       - run: deno task desktop

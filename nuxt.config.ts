@@ -36,6 +36,8 @@ export default defineNuxtConfig({
       // Bundles the server dependencies instead of copying them to `.output/server/node_modules`, so the
       // bundled-packages record covers them too. Not in dev, where Nitro would also bundle its dev tooling.
       noExternals: true,
+      // The public files go into the bundle, so the single executable (scripts/package.ts) reads nothing from disk.
+      serveStatic: 'inline',
       // Optional dependency of `pg`, only loaded through `pg.native`, which the app does not use.
       virtual: { 'pg-native': 'export default {}' },
       // `require()` of a module with a default and named exports (e.g. `buffer`, unenv's `debug`) has to return
@@ -58,9 +60,10 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2026-10-01',
   nitro: {
-    preset: 'deno-server',
-    rollupConfig: { plugins: [recordBundledPackages], external: ['node:sqlite'] },
-    // Runs on Deno: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
+    // Exports the request listener without starting a server: launcher/main.ts starts it on a port of its own.
+    preset: 'node-listener',
+    rollupConfig: { plugins: [recordBundledPackages] },
+    // Runs on Node 26: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
     esbuild: { options: { target: 'esnext' } },
   },
   vite: {

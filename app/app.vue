@@ -2,6 +2,7 @@
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
 import { de, en } from '@nuxt/ui/locale'
 
@@ -227,26 +228,33 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
-// Native application menu (desktop app). The page sees each key first: a shortcut it handles calls
-// preventDefault, which keeps the menu item with the same accelerator from firing as well. Deno 2.9.8 only
-// supports single-character accelerators, so ⌘↵ and ⇧⌘[ / ⇧⌘] are not shown in the menu.
+// Native application menu (desktop app). On macOS the page sees each key first: a shortcut it handles calls
+// preventDefault, which keeps the menu item with the same accelerator from firing as well. On Windows and Linux
+// the menu takes its accelerators before the page; both run the same handler. ⌘↵ and ⇧⌘[ / ⇧⌘] stay with the
+// page, which treats them differently depending on the focus.
+// The platform's own items (roles) are only used on macOS, where Tauri implements all of them.
 watchEffect(() => {
-  if (!hasApplicationMenu) return
+  if (!isDesktop) return
   const tab = activeTab.value
   const busy = !!tab && (tab.running || !!tab.exporting)
   const shown = tab?.result?.resultSets[tab.resultIndex]
   const item = (label: string, id: string, enabled = true, accelerator?: string): ApplicationMenuItem => ({
-    item: { label, id, enabled, accelerator },
+    label,
+    id,
+    enabled,
+    accelerator,
   })
-  const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ submenu: { label, items } })
-  const role = (role: string): ApplicationMenuItem => ({ role: { role } })
+  const check = (label: string, id: string, checked: boolean): ApplicationMenuItem => ({ label, id, checked })
+  const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ label, items })
+  const roles = (...roles: (Extract<ApplicationMenuItem, { role: string }>['role'] | 'separator')[]) =>
+    macOS.value ? roles.map((role) => role === 'separator' ? role : { role }) : []
   setApplicationMenu([
     // macOS replaces the label of the first menu with the app name.
     submenu('Colwerk', [
       item(t('menu.setupMcp'), 'mcp'),
       item(t('menu.checkUpdates'), 'update'),
       'separator',
-      role('quit'),
+      ...(macOS.value ? roles('Quit') : [item(t('menu.quit'), 'quit')]),
     ]),
     submenu(t('menu.file'), [
       item(t('menu.newTab'), 'new-tab', true, 'CmdOrCtrl+T'),
@@ -268,14 +276,7 @@ watchEffect(() => {
       item(t('menu.closeTab'), 'close-tab', !!tab, 'CmdOrCtrl+W'),
     ]),
     submenu(t('menu.edit'), [
-      role('undo'),
-      role('redo'),
-      'separator',
-      role('cut'),
-      role('copy'),
-      role('paste'),
-      role('selectAll'),
-      'separator',
+      ...roles('Undo', 'Redo', 'separator', 'Cut', 'Copy', 'Paste', 'SelectAll', 'separator'),
       item(t('menu.format'), 'format', !!tab?.sql.trim(), 'CmdOrCtrl+Shift+F'),
     ]),
     submenu(t('menu.query'), [
@@ -295,19 +296,17 @@ watchEffect(() => {
     ]),
     submenu(t('menu.view'), [
       item(t('menu.sidebar'), 'sidebar', true, 'CmdOrCtrl+B'),
-      ...(macOS.value ? [role('togglefullscreen')] : []),
+      ...roles('Fullscreen'),
       'separator',
-      // No checkmarks in Deno's menus: the active design and language are disabled instead.
-      item(t('menu.designSystem'), 'design-system', colorMode.preference !== 'system'),
-      item(t('menu.designLight'), 'design-light', colorMode.preference !== 'light'),
-      item(t('menu.designDark'), 'design-dark', colorMode.preference !== 'dark'),
+      check(t('menu.designSystem'), 'design-system', colorMode.preference === 'system'),
+      check(t('menu.designLight'), 'design-light', colorMode.preference === 'light'),
+      check(t('menu.designDark'), 'design-dark', colorMode.preference === 'dark'),
       'separator',
       // Each language under its own name, so it can be found in a language one cannot read.
-      ...locales.value.map((l) => item(l.name!, `locale-${l.code}`, l.code !== locale.value)),
+      ...locales.value.map((l) => check(l.name!, `locale-${l.code}`, l.code === locale.value)),
     ]),
     submenu(t('menu.window'), [
-      role('minimize'),
-      'separator',
+      ...roles('Minimize', 'separator'),
       item(t('menu.previousTab'), 'previous-tab', tabs.value.length > 1),
       item(t('menu.nextTab'), 'next-tab', tabs.value.length > 1),
       'separator',
@@ -322,6 +321,7 @@ watchEffect(() => {
 defineMenuHandlers({
   mcp: () => (mcpOpen.value = true),
   update: () => checkForUpdate(true),
+  quit: () => getCurrentWindow().close(),
   privacy: () => openUrl(privacyUrl),
   'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
   'duplicate-tab': () => duplicateTab(activeTab.value),
@@ -395,7 +395,7 @@ defineMenuHandlers({
         <div class="border-t border-default px-3 py-1 text-xs text-muted">
           <a :href="websiteUrl" class="hover:text-default" @click.prevent="openUrl(websiteUrl)">Colwerk</a> {{ version }}
           <!-- In the desktop app it is in the application menu. -->
-          <template v-if="!hasApplicationMenu">
+          <template v-if="!isDesktop">
             · <a :href="privacyUrl" class="hover:text-default" @click.prevent="openUrl(privacyUrl)">{{ t('menu.privacy') }}</a>
           </template>
         </div>
@@ -447,7 +447,7 @@ defineMenuHandlers({
           <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto"
             :title="t('app.history')" @click="historyOpen = true" />
           <!-- In the desktop app it is in the application menu. -->
-          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral"
+          <UButton v-if="!isDesktop" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral"
             :title="t('app.setupMcp')" @click="mcpOpen = true" />
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"

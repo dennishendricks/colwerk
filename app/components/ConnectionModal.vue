@@ -99,15 +99,12 @@ function payload(): Partial<ConnectionInput> {
   return { ...form, password }
 }
 
-// Native dialog on the server's machine: the page itself cannot learn the path of a picked file.
+// Native dialog: the page itself cannot learn the path of a picked file.
 const picking = ref(false)
 async function pickFile() {
   picking.value = true
   try {
-    const { path } = await api<{ path: string | null }>('/api/dialog', {
-      method: 'POST',
-      body: { kind: 'open', title: t('dialog.open') },
-    })
+    const path = await fileDialog('open', t('dialog.open'))
     if (path) form.file = path
   } catch (e) {
     toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })

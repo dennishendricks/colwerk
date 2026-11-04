@@ -1,174 +1,66 @@
-// DuckDB through its C API (Deno FFI) instead of the Node-API addon of @duckdb/node-api: `deno desktop`
-// binaries do not export the N-API symbols from their executable, so the addon crashes the app on Windows
-// and Linux (denoland/deno#36596). This is the only part of core/ that depends on Deno.
+// DuckDB through its C API, as exposed 1:1 by the Node-API addon `@duckdb/node-bindings`. Results are read
+// from the vectors' memory directly instead of through `@duckdb/node-api`'s value objects, to produce the
+// unified value model (see `CellValue`) in one pass.
 //
-// The library is `libduckdb` from the npm package `@duckdb/node-bindings-<platform>`: in packaged builds the
-// launcher downloads it and passes its path through globalThis (launcher/native.ts), from source it comes
-// from the project's node_modules.
+// In packaged builds the addon is not embedded: the launcher downloads it and passes the path of its
+// `duckdb.node` through globalThis (launcher/native.ts). From source it comes from the project's node_modules.
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
-// Named imports: Nitro's Deno preset adds its own `process` import to every chunk.
-import { arch, cwd, platform } from 'node:process'
+import { join } from 'node:path'
+import process from 'node:process'
+import type * as Bindings from '@duckdb/node-bindings'
 import { wkbToText } from '../geometry.ts'
 import { type CellValue, DbError } from '../types.ts'
 import { toHex } from '../values.ts'
 
-const LIBRARY: Record<string, string> = { darwin: 'libduckdb.dylib', linux: 'libduckdb.so', win32: 'duckdb.dll' }
+type Vector = Bindings.Vector
+type LogicalType = Bindings.LogicalType
 
-function libraryPath(): string {
+const decoder = new TextDecoder()
+
+function load(): typeof Bindings {
   const path = (globalThis as { colwerkDuckdbLibrary?: string }).colwerkDuckdbLibrary
-  if (path) return path
+  if (path) return createRequire(path)(path)
   // Resolved from the working directory (dev server and tests run in the project root), since Nitro's bundles
   // do not keep `import.meta.url`.
-  const bindings = createRequire(join(cwd(), 'package.json')).resolve('@duckdb/node-bindings/package.json')
-  const pkg = createRequire(bindings).resolve(`@duckdb/node-bindings-${platform}-${arch}/package.json`)
-  return join(dirname(pkg), LIBRARY[platform]!)
+  return createRequire(join(process.cwd(), 'package.json'))('@duckdb/node-bindings')
 }
 
-// `duckdb_result` is passed by value to some functions: six 8-byte fields.
-const RESULT = { struct: ['u64', 'u64', 'u64', 'pointer', 'pointer', 'pointer'] } as const
+let bindings: typeof Bindings | undefined
+const duckdb = () => bindings ??= load()
 
-// Out parameters and `T *` arguments are buffers; calls that can run long are nonblocking (own thread),
-// so the event loop keeps running and `duckdb_interrupt` can reach them.
-const SYMBOLS = {
-  duckdb_create_instance_cache: { parameters: [], result: 'pointer' },
-  duckdb_get_or_create_from_cache: {
-    parameters: ['pointer', 'buffer', 'buffer', 'pointer', 'buffer'],
-    result: 'i32',
-    nonblocking: true,
-  },
-  duckdb_create_config: { parameters: ['buffer'], result: 'i32' },
-  duckdb_set_config: { parameters: ['pointer', 'buffer', 'buffer'], result: 'i32' },
-  duckdb_destroy_config: { parameters: ['buffer'], result: 'void' },
-  duckdb_open_ext: { parameters: ['buffer', 'buffer', 'pointer', 'buffer'], result: 'i32', nonblocking: true },
-  duckdb_close: { parameters: ['buffer'], result: 'void' },
-  duckdb_connect: { parameters: ['pointer', 'buffer'], result: 'i32' },
-  duckdb_disconnect: { parameters: ['buffer'], result: 'void' },
-  duckdb_interrupt: { parameters: ['pointer'], result: 'void' },
-  duckdb_free: { parameters: ['pointer'], result: 'void' },
-  duckdb_prepare: { parameters: ['pointer', 'buffer', 'buffer'], result: 'i32', nonblocking: true },
-  duckdb_prepare_error: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_bind_varchar: { parameters: ['pointer', 'u64', 'buffer'], result: 'i32' },
-  duckdb_destroy_prepare: { parameters: ['buffer'], result: 'void' },
-  duckdb_execute_prepared_streaming: { parameters: ['pointer', 'buffer'], result: 'i32', nonblocking: true },
-  duckdb_result_error: { parameters: ['buffer'], result: 'pointer' },
-  duckdb_result_return_type: { parameters: [RESULT], result: 'i32' },
-  duckdb_rows_changed: { parameters: ['buffer'], result: 'u64' },
-  duckdb_column_count: { parameters: ['buffer'], result: 'u64' },
-  duckdb_column_name: { parameters: ['buffer', 'u64'], result: 'pointer' },
-  duckdb_column_logical_type: { parameters: ['buffer', 'u64'], result: 'pointer' },
-  duckdb_fetch_chunk: { parameters: [RESULT], result: 'pointer', nonblocking: true },
-  duckdb_destroy_result: { parameters: ['buffer'], result: 'void' },
-  duckdb_data_chunk_get_size: { parameters: ['pointer'], result: 'u64' },
-  duckdb_data_chunk_get_vector: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_destroy_data_chunk: { parameters: ['buffer'], result: 'void' },
-  duckdb_vector_get_data: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_vector_get_validity: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_list_vector_get_child: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_list_vector_get_size: { parameters: ['pointer'], result: 'u64' },
-  duckdb_array_vector_get_child: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_struct_vector_get_child: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_get_type_id: { parameters: ['pointer'], result: 'i32' },
-  duckdb_logical_type_get_alias: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_destroy_logical_type: { parameters: ['buffer'], result: 'void' },
-  duckdb_decimal_width: { parameters: ['pointer'], result: 'u8' },
-  duckdb_decimal_scale: { parameters: ['pointer'], result: 'u8' },
-  duckdb_decimal_internal_type: { parameters: ['pointer'], result: 'i32' },
-  duckdb_enum_internal_type: { parameters: ['pointer'], result: 'i32' },
-  duckdb_enum_dictionary_size: { parameters: ['pointer'], result: 'u32' },
-  duckdb_enum_dictionary_value: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_list_type_child_type: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_array_type_child_type: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_array_type_array_size: { parameters: ['pointer'], result: 'u64' },
-  duckdb_map_type_key_type: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_map_type_value_type: { parameters: ['pointer'], result: 'pointer' },
-  duckdb_struct_type_child_count: { parameters: ['pointer'], result: 'u64' },
-  duckdb_struct_type_child_name: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_struct_type_child_type: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_union_type_member_count: { parameters: ['pointer'], result: 'u64' },
-  duckdb_union_type_member_name: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_union_type_member_type: { parameters: ['pointer', 'u64'], result: 'pointer' },
-  duckdb_geometry_type_get_crs: { parameters: ['pointer'], result: 'pointer' },
-} as const
-
-// core/ is also type-checked by Nuxt, which does not know Deno's types, so the FFI API used here is typed locally.
-type Pointer = object | null
-type Param<T> = T extends 'pointer' ? Pointer
-  : T extends 'u64' ? bigint
-  : T extends 'buffer' ? ArrayBufferView
-  : Uint8Array
-type Return<T> = T extends 'pointer' ? Pointer
-  : T extends 'void' ? undefined
-  : T extends 'u64' ? number | bigint
-  : number
-type Params<P extends readonly unknown[]> = { -readonly [I in keyof P]: Param<P[I]> }
-type Symbols = {
-  [K in keyof typeof SYMBOLS]: (
-    ...args: Params<typeof SYMBOLS[K]['parameters']>
-  ) => typeof SYMBOLS[K] extends { nonblocking: true } ? Promise<Return<typeof SYMBOLS[K]['result']>>
-    : Return<typeof SYMBOLS[K]['result']>
-}
-const { Deno } = globalThis as unknown as {
-  Deno: {
-    dlopen(path: string, symbols: typeof SYMBOLS): { symbols: Symbols }
-    UnsafePointer: { create(value: bigint): Pointer; value(p: Pointer): number | bigint }
-    UnsafePointerView: { getCString(p: object): string; getArrayBuffer(p: object, byteLength: number): ArrayBuffer }
-  }
-}
-
-let symbols: Symbols | undefined
-const capi = () => symbols ??= Deno.dlopen(libraryPath(), SYMBOLS).symbols
-
-const encoder = new TextEncoder()
-const decoder = new TextDecoder()
-const cstr = (s: string) => encoder.encode(`${s}\0`)
-const text = (p: Pointer) => p ? Deno.UnsafePointerView.getCString(p) : ''
-/** A string the caller has to free. */
-function owned(p: Pointer): string {
+/** The addon rejects with plain errors; the driver expects `DbError`. */
+async function call<T>(promise: Promise<T>): Promise<T> {
   try {
-    return text(p)
-  } finally {
-    if (p) capi().duckdb_free(p)
+    return await promise
+  } catch (e) {
+    throw e instanceof DbError ? e : new DbError(e instanceof Error ? e.message : String(e))
   }
 }
-/** Out parameter receiving a handle; also what the destroy functions take. */
-const slot = () => new BigUint64Array(1)
-const handle = (s: BigUint64Array) => Deno.UnsafePointer.create(s[0]!)
-const slotOf = (p: Pointer) => BigUint64Array.of(BigInt(Deno.UnsafePointer.value(p)))
 
 // One cache per access mode: switching a connection to read-only would otherwise collide with the
 // read-write instance while it is still open.
-const caches: { readWrite?: Pointer; readOnly?: Pointer } = {}
+const caches: { readWrite?: Bindings.InstanceCache; readOnly?: Bindings.InstanceCache } = {}
 
 /**
  * Opens a connection to the database at `path`. Every connection holds its own database handle from the
  * instance cache, so a file is opened only once per process and configuration.
  */
 export async function connect(path: string, readOnly: boolean, v1Storage: boolean): Promise<Connection> {
-  const c = capi()
+  const d = duckdb()
   if (v1Storage && !readOnly && !path.startsWith(':memory:') && !existsSync(path)) await createV1(path)
   const cache = readOnly
-    ? caches.readOnly ??= c.duckdb_create_instance_cache()
-    : caches.readWrite ??= c.duckdb_create_instance_cache()
-  const config = slot()
-  c.duckdb_create_config(config)
-  const db = slot()
+    ? caches.readOnly ??= d.create_instance_cache()
+    : caches.readWrite ??= d.create_instance_cache()
+  const config = d.create_config()
+  if (readOnly) d.set_config(config, 'access_mode', 'READ_ONLY')
+  const db = await call(d.get_or_create_from_cache(cache, path, config))
   try {
-    if (readOnly) c.duckdb_set_config(handle(config), cstr('access_mode'), cstr('READ_ONLY'))
-    const error = slot()
-    if (await c.duckdb_get_or_create_from_cache(cache, cstr(path), db, handle(config), error)) {
-      throw new DbError(owned(handle(error)) || `Cannot open ${path}`)
-    }
-  } finally {
-    c.duckdb_destroy_config(config)
+    return new Connection(db, await call(d.connect(db)))
+  } catch (e) {
+    d.close_sync(db)
+    throw e
   }
-  const conn = slot()
-  if (c.duckdb_connect(handle(db), conn)) {
-    c.duckdb_close(db)
-    throw new DbError(`Cannot connect to ${path}`)
-  }
-  return new Connection(db, conn)
 }
 
 /**
@@ -177,62 +69,48 @@ export async function connect(path: string, readOnly: boolean, v1Storage: boolea
  * configuration per file.
  */
 async function createV1(path: string) {
-  const c = capi()
-  const config = slot()
-  c.duckdb_create_config(config)
-  const db = slot()
-  try {
-    c.duckdb_set_config(handle(config), cstr('storage_compatibility_version'), cstr('v1.4.0'))
-    const error = slot()
-    if (await c.duckdb_open_ext(cstr(path), db, handle(config), error)) {
-      throw new DbError(owned(handle(error)) || `Cannot open ${path}`)
-    }
-  } finally {
-    c.duckdb_destroy_config(config)
-  }
-  c.duckdb_close(db)
+  const d = duckdb()
+  const config = d.create_config()
+  d.set_config(config, 'storage_compatibility_version', 'v1.4.0')
+  d.close_sync(await call(d.open(path, config)))
 }
 
 export class Connection {
-  constructor(private db: BigUint64Array, private conn: BigUint64Array) {}
+  private closed = false
+
+  constructor(private db: Bindings.Database, private conn: Bindings.Connection) {}
 
   /** Runs one statement; the result streams and must be closed. `params` are bound as VARCHAR. */
   async query(sql: string, params: string[] = []): Promise<Result> {
-    const c = capi()
-    const prepared = slot()
+    const d = duckdb()
+    const prepared = await call(d.prepare(this.conn, sql))
     try {
-      if (await c.duckdb_prepare(handle(this.conn), cstr(sql), prepared)) {
-        throw new DbError(text(c.duckdb_prepare_error(handle(prepared))) || 'Connection closed')
-      }
-      params.forEach((p, i) => c.duckdb_bind_varchar(handle(prepared), BigInt(i + 1), cstr(p)))
-      const result = new Uint8Array(48)
-      if (await c.duckdb_execute_prepared_streaming(handle(prepared), result)) {
-        const message = text(c.duckdb_result_error(result))
-        c.duckdb_destroy_result(result)
-        throw new DbError(message)
-      }
+      params.forEach((p, i) => d.bind_varchar(prepared, i + 1, p))
+      const result = await call(d.execute_prepared_streaming(prepared))
       // An open result blocks the connection (DuckDB 2.0), so it is destroyed if a column type is unsupported.
       try {
         return new Result(prepared, result)
       } catch (e) {
-        c.duckdb_destroy_result(result)
+        d.destroy_result_sync(result)
         throw e
       }
     } catch (e) {
-      c.duckdb_destroy_prepare(prepared)
+      d.destroy_prepare_sync(prepared)
       throw e
     }
   }
 
   /** Aborts the running statement; safe to call from another task while it runs. */
   interrupt() {
-    capi().duckdb_interrupt(handle(this.conn))
+    duckdb().interrupt(this.conn)
   }
 
-  /** Only once no statement runs anymore. Repeated calls are no-ops (the handles are set to NULL). */
+  /** Only once no statement runs anymore. Repeated calls are no-ops. */
   close() {
-    capi().duckdb_disconnect(this.conn)
-    capi().duckdb_close(this.db)
+    if (this.closed) return
+    this.closed = true
+    duckdb().disconnect_sync(this.conn)
+    duckdb().close_sync(this.db)
   }
 }
 
@@ -242,51 +120,37 @@ export class Result {
   readonly columns: { name: string; type: string }[] = []
   private decoders: Decoder[] = []
 
-  constructor(private prepared: BigUint64Array, private result: Uint8Array) {
-    const c = capi()
-    for (let i = 0; i < Number(c.duckdb_column_count(result)); i++) {
-      const type = c.duckdb_column_logical_type(result, BigInt(i))
-      try {
-        const { name, decode } = describe(type)
-        this.columns.push({ name: text(c.duckdb_column_name(result, BigInt(i))), type: name })
-        this.decoders.push(decode)
-      } finally {
-        c.duckdb_destroy_logical_type(slotOf(type))
-      }
+  constructor(private prepared: Bindings.PreparedStatement, private result: Bindings.Result) {
+    const d = duckdb()
+    for (let i = 0; i < d.column_count(result); i++) {
+      const { name, decode } = describe(d.column_logical_type(result, i))
+      this.columns.push({ name: d.column_name(result, i), type: name })
+      this.decoders.push(decode)
     }
   }
 
   /** False for DDL and DML, which only report a count. */
   get isQuery() {
-    return capi().duckdb_result_return_type(this.result) === QUERY_RESULT
+    return duckdb().result_return_type(this.result) === QUERY_RESULT
   }
 
   get rowsChanged() {
-    return Number(capi().duckdb_rows_changed(this.result))
+    return Number(duckdb().rows_changed(this.result))
   }
 
   /** The next chunk of rows (up to 2048), undefined at the end. */
   async next(): Promise<CellValue[][] | undefined> {
-    const c = capi()
-    const chunk = await c.duckdb_fetch_chunk(this.result)
-    if (!chunk) {
-      const error = text(c.duckdb_result_error(this.result))
-      if (error) throw new DbError(error)
-      return undefined
-    }
-    try {
-      const count = Number(c.duckdb_data_chunk_get_size(chunk))
-      if (!count) return undefined
-      const columns = this.decoders.map((decode, i) => decode(c.duckdb_data_chunk_get_vector(chunk, BigInt(i)), count))
-      return Array.from({ length: count }, (_, row) => columns.map((read) => read(row)))
-    } finally {
-      c.duckdb_destroy_data_chunk(slotOf(chunk))
-    }
+    const d = duckdb()
+    const chunk = await call(d.fetch_chunk(this.result))
+    const count = chunk ? d.data_chunk_get_size(chunk) : 0
+    if (!count) return undefined
+    const columns = this.decoders.map((decode, i) => decode(d.data_chunk_get_vector(chunk!, i), count))
+    return Array.from({ length: count }, (_, row) => columns.map((read) => read(row)))
   }
 
   close() {
-    capi().duckdb_destroy_result(this.result)
-    capi().duckdb_destroy_prepare(this.prepared)
+    duckdb().destroy_result_sync(this.result)
+    duckdb().destroy_prepare_sync(this.prepared)
   }
 }
 
@@ -294,7 +158,7 @@ export class Result {
 // destroyed: BIGINT, HUGEINT and DECIMAL as string, timestamps in ISO 8601, BLOB as hex, nested types as JSON.
 
 /** Reads the value of a row from a vector with `count` rows. */
-type Decoder = (vector: Pointer, count: number) => (row: number) => CellValue
+type Decoder = (vector: Vector, count: number) => (row: number) => CellValue
 interface Described {
   name: string
   decode: Decoder
@@ -342,24 +206,15 @@ const T = {
   TIMESTAMP_TZ_NS: 42,
 } as const
 
-function describe(type: Pointer): Described {
-  const alias = owned(capi().duckdb_logical_type_get_alias(type))
+function describe(type: LogicalType): Described {
+  const alias = duckdb().logical_type_get_alias(type)
   const described = describeType(type)
   return alias ? { ...described, name: alias } : described
 }
 
-/** Describes a child type the caller does not own afterwards. */
-function describeChild(type: Pointer): Described {
-  try {
-    return describe(type)
-  } finally {
-    capi().duckdb_destroy_logical_type(slotOf(type))
-  }
-}
-
-function describeType(type: Pointer): Described {
-  const c = capi()
-  const id = c.duckdb_get_type_id(type)
+function describeType(type: LogicalType): Described {
+  const d = duckdb()
+  const id = d.get_type_id(type)
   switch (id) {
     case T.BOOLEAN:
       return { name: 'BOOLEAN', decode: fixed(1, (v, o) => v.getUint8(o) !== 0) }
@@ -396,7 +251,7 @@ function describeType(type: Pointer): Described {
     case T.BIGNUM:
       return { name: 'BIGNUM', decode: fixed(16, (v, o) => bignum(bytes(v, o))) }
     case T.GEOMETRY: {
-      const crs = owned(c.duckdb_geometry_type_get_crs(type))
+      const crs = d.geometry_type_get_crs(type)
       return { name: crs ? `GEOMETRY('${crs}')` : 'GEOMETRY', decode: fixed(16, (v, o) => wkbToText(bytes(v, o))) }
     }
     case T.VARIANT:
@@ -429,47 +284,47 @@ function describeType(type: Pointer): Described {
     case T.UUID:
       return { name: 'UUID', decode: fixed(16, uuid) }
     case T.DECIMAL: {
-      const width = c.duckdb_decimal_width(type)
-      const scale = c.duckdb_decimal_scale(type)
-      const [size, read] = INTEGERS[c.duckdb_decimal_internal_type(type)]!
+      const width = d.decimal_width(type)
+      const scale = d.decimal_scale(type)
+      const [size, read] = INTEGERS[d.decimal_internal_type(type)]!
       return { name: `DECIMAL(${width},${scale})`, decode: fixed(size, (v, o) => decimal(read(v, o), scale)) }
     }
     case T.ENUM: {
       const values = Array.from(
-        { length: c.duckdb_enum_dictionary_size(type) },
-        (_, i) => owned(c.duckdb_enum_dictionary_value(type, BigInt(i))),
+        { length: d.enum_dictionary_size(type) },
+        (_, i) => d.enum_dictionary_value(type, i),
       )
-      const [size, read] = INTEGERS[c.duckdb_enum_internal_type(type)]!
+      const [size, read] = INTEGERS[d.enum_internal_type(type)]!
       return {
         name: `ENUM(${values.map((v) => `'${v.replaceAll("'", "''")}'`).join(', ')})`,
         decode: fixed(size, (v, o) => values[Number(read(v, o))]!),
       }
     }
     case T.LIST: {
-      const child = describeChild(c.duckdb_list_type_child_type(type))
+      const child = describe(d.list_type_child_type(type))
       return { name: `${child.name}[]`, decode: list(child.decode) }
     }
     // Physically a list of STRUCT(key, value); like @duckdb/node-api an array of { key, value } objects.
     case T.MAP: {
-      const key = describeChild(c.duckdb_map_type_key_type(type))
-      const value = describeChild(c.duckdb_map_type_value_type(type))
+      const key = describe(d.map_type_key_type(type))
+      const value = describe(d.map_type_value_type(type))
       return {
         name: `MAP(${key.name}, ${value.name})`,
         decode: list(struct([['key', key.decode], ['value', value.decode]])),
       }
     }
     case T.ARRAY: {
-      const child = describeChild(c.duckdb_array_type_child_type(type))
-      const size = Number(c.duckdb_array_type_array_size(type))
+      const child = describe(d.array_type_child_type(type))
+      const size = d.array_type_array_size(type)
       return { name: `${child.name}[${size}]`, decode: array(child.decode, size) }
     }
     case T.STRUCT: {
       const fields = Array.from(
-        { length: Number(c.duckdb_struct_type_child_count(type)) },
+        { length: d.struct_type_child_count(type) },
         (_, i) =>
           [
-            owned(c.duckdb_struct_type_child_name(type, BigInt(i))),
-            describeChild(c.duckdb_struct_type_child_type(type, BigInt(i))),
+            d.struct_type_child_name(type, i),
+            describe(d.struct_type_child_type(type, i)),
           ] as const,
       )
       return {
@@ -480,11 +335,11 @@ function describeType(type: Pointer): Described {
     // A struct of the tag (UTINYINT) and one child per member; like @duckdb/node-api { tag, value }.
     case T.UNION: {
       const members = Array.from(
-        { length: Number(c.duckdb_union_type_member_count(type)) },
+        { length: d.union_type_member_count(type) },
         (_, i) =>
           [
-            owned(c.duckdb_union_type_member_name(type, BigInt(i))),
-            describeChild(c.duckdb_union_type_member_type(type, BigInt(i))),
+            d.union_type_member_name(type, i),
+            describe(d.union_type_member_type(type, i)),
           ] as const,
       )
       return {
@@ -510,21 +365,20 @@ const INTEGERS: Record<number, [number, (v: DataView, o: number) => bigint]> = {
   [T.HUGEINT]: [16, (v, o) => int128(v, o, true)],
 }
 
-function view(p: Pointer, byteLength: number): DataView {
-  return new DataView(p && byteLength ? Deno.UnsafePointerView.getArrayBuffer(p, byteLength) : new ArrayBuffer(0))
+function view(data: Uint8Array): DataView {
+  return new DataView(data.buffer, data.byteOffset, data.byteLength)
 }
 
 /** One bit per row; no mask means every row is valid. */
-function validity(vector: Pointer, count: number): (row: number) => boolean {
-  const p = capi().duckdb_vector_get_validity(vector)
-  if (!p || !count) return () => true
-  const mask = new Uint32Array(Deno.UnsafePointerView.getArrayBuffer(p, Math.ceil(count / 64) * 8))
-  return (row) => ((mask[row >>> 5]! >>> (row & 31)) & 1) === 1
+function validity(vector: Vector, count: number): (row: number) => boolean {
+  const mask = count ? duckdb().vector_get_validity(vector, Math.ceil(count / 64) * 8) : null
+  if (!mask?.length) return () => true
+  return (row) => ((mask[row >>> 3]! >>> (row & 7)) & 1) === 1
 }
 
 function fixed(size: number, read: (v: DataView, offset: number) => CellValue): Decoder {
   return (vector, count) => {
-    const data = view(capi().duckdb_vector_get_data(vector), count * size)
+    const data = view(duckdb().vector_get_data(vector, count * size))
     const valid = validity(vector, count)
     return (row) => valid(row) ? read(data, row * size) : null
   }
@@ -532,10 +386,10 @@ function fixed(size: number, read: (v: DataView, offset: number) => CellValue): 
 
 function list(child: Decoder): Decoder {
   return (vector, count) => {
-    const c = capi()
-    const entries = view(c.duckdb_vector_get_data(vector), count * 16)
+    const d = duckdb()
+    const entries = view(d.vector_get_data(vector, count * 16))
     const valid = validity(vector, count)
-    const read = child(c.duckdb_list_vector_get_child(vector), Number(c.duckdb_list_vector_get_size(vector)))
+    const read = child(d.list_vector_get_child(vector), d.list_vector_get_size(vector))
     return (row) => {
       if (!valid(row)) return null
       const offset = Number(entries.getBigUint64(row * 16, true))
@@ -547,7 +401,7 @@ function list(child: Decoder): Decoder {
 function array(child: Decoder, size: number): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
-    const read = child(capi().duckdb_array_vector_get_child(vector), count * size)
+    const read = child(duckdb().array_vector_get_child(vector), count * size)
     return (row) => valid(row) ? Array.from({ length: size }, (_, i) => read(row * size + i)) : null
   }
 }
@@ -556,7 +410,7 @@ function struct(fields: (readonly [string, Decoder])[]): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
     const reads = fields.map(([name, decode], i) =>
-      [name, decode(capi().duckdb_struct_vector_get_child(vector, BigInt(i)), count)] as const
+      [name, decode(duckdb().struct_vector_get_child(vector, i), count)] as const
     )
     return (row) => valid(row) ? Object.fromEntries(reads.map(([name, read]) => [name, read(row)])) : null
   }
@@ -565,10 +419,8 @@ function struct(fields: (readonly [string, Decoder])[]): Decoder {
 function union(members: (readonly [string, Decoder])[]): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
-    const tag = fixed(1, (v, o) => v.getUint8(o))(capi().duckdb_struct_vector_get_child(vector, 0n), count)
-    const reads = members.map(([, decode], i) =>
-      decode(capi().duckdb_struct_vector_get_child(vector, BigInt(i + 1)), count)
-    )
+    const tag = fixed(1, (v, o) => v.getUint8(o))(duckdb().struct_vector_get_child(vector, 0), count)
+    const reads = members.map(([, decode], i) => decode(duckdb().struct_vector_get_child(vector, i + 1), count))
     return (row) => {
       if (!valid(row)) return null
       const t = tag(row) as number
@@ -594,13 +446,11 @@ const VARIANT_LISTS = [
   list(struct([['type', fixed(1, u8)], ['offset', fixed(4, u32)]])),
 ]
 
-function variant(vector: Pointer, count: number): (row: number) => CellValue {
-  const c = capi()
+function variant(vector: Vector, count: number): (row: number) => CellValue {
+  const d = duckdb()
   const valid = validity(vector, count)
-  const [keys, children, values] = VARIANT_LISTS.map((decode, i) =>
-    decode(c.duckdb_struct_vector_get_child(vector, BigInt(i)), count)
-  )
-  const data = view(c.duckdb_vector_get_data(c.duckdb_struct_vector_get_child(vector, 3n)), count * 16)
+  const [keys, children, values] = VARIANT_LISTS.map((decode, i) => decode(d.struct_vector_get_child(vector, i), count))
+  const data = view(d.vector_get_data(d.struct_vector_get_child(vector, 3), count * 16))
   return (row) => {
     if (!valid(row)) return null
     const blob = bytes(data, row * 16)
@@ -723,9 +573,7 @@ function variantValue(r: VariantRow, i: number): CellValue {
 function bytes(v: DataView, o: number): Uint8Array {
   const length = v.getUint32(o, true)
   if (length <= 12) return new Uint8Array(v.buffer, v.byteOffset + o + 4, length)
-  return new Uint8Array(
-    Deno.UnsafePointerView.getArrayBuffer(Deno.UnsafePointer.create(v.getBigUint64(o + 8, true))!, length),
-  )
+  return duckdb().get_data_from_pointer(v.buffer as ArrayBuffer, v.byteOffset + o + 8, length)
 }
 
 function int128(v: DataView, o: number, signed: boolean): bigint {

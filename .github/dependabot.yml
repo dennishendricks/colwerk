@@ -36,3 +36,15 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+
+  - package-ecosystem: 'cargo'
+    directory: '/src-tauri'
+    schedule:
+      interval: 'weekly'
+    assignees:
+      - 'dennishendricks'
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'

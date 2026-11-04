@@ -16,3 +16,8 @@ node_modules
 .DS_Store
 .fleet
 .idea
+
+# Tauri build outputs, generated schemas and the sidecar (scripts/package.ts)
+src-tauri/target
+src-tauri/gen
+src-tauri/binaries

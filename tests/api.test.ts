@@ -1,6 +1,8 @@
 // End-to-end tests of the Nitro layer against the production build (`.output`, created by
 // `deno task compile` / `deno task desktop` or `deno run -A npm:nuxt build`). Skipped without a build.
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert@1'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { freePort } from '../launcher/common.ts'
 import { reachable, testConnections } from './helpers.ts'
 
@@ -23,18 +25,20 @@ async function rawStatus(port: number, host: string, token: string): Promise<num
 Deno.test(
   { name: 'api: security and end-to-end flow', ignore: !built, sanitizeResources: false, sanitizeOps: false },
   async (t) => {
-    const port = freePort()
+    const port = await freePort()
     const token = 'a'.repeat(64)
     const mcpToken = 'c'.repeat(64)
     const dataDir = await Deno.makeTempDir()
+    // The build only exports the request listener (preset `node-listener`); launcher/main.ts serves it in the app.
+    const serve = `import { createServer } from 'node:http'
+      const { listener } = await import('${pathToFileURL(resolve('.output/server/index.mjs'))}')
+      createServer(listener).listen(${port}, '127.0.0.1')`
     const server = new Deno.Command(Deno.execPath(), {
-      args: ['run', '-A', '--config', '.output/deno.json', '--node-modules-dir=manual', '.output/server/index.mjs'],
+      args: ['eval', serve],
       // Without keychain: no entries in the developer's keychain, and the key file can be checked.
       env: {
         COLWERK_TOKEN: token,
         COLWERK_MCP_TOKEN: mcpToken,
-        NITRO_HOST: '127.0.0.1',
-        NITRO_PORT: String(port),
         COLWERK_DATA_DIR: dataDir,
         COLWERK_KEYCHAIN: 'off',
       },
