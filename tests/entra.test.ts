@@ -1,9 +1,10 @@
-import { assertEquals, assertRejects } from 'jsr:@std/assert@1'
+import { test } from 'bun:test'
+import { assertEquals, assertRejects } from './assert.ts'
 import { ENTRA_SCOPE, entraToken } from '../core/drivers/entra.ts'
 import { withoutLogin } from '../core/login.ts'
 import { AppError, type ConnectionConfig } from '../core/types.ts'
 
-Deno.test('entra: without a login, MCP requests get an error instead of a browser window', async () => {
+test('entra: without a login, MCP requests get an error instead of a browser window', async () => {
   const config: ConnectionConfig = {
     id: 'e',
     name: 'e',

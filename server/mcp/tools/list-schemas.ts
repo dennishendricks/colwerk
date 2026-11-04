@@ -9,9 +9,10 @@ WHEN TO USE: To get an overview of a database before looking for tables.
 For MySQL/MariaDB a schema is a database.`,
   inputSchema: {
     connectionId: z.string().describe('connectionId from list-connections'),
-    database: z.string().optional().describe(
-      "One of the connection's databases from list-connections; defaults to all",
-    ),
+    database: z
+      .string()
+      .optional()
+      .describe("One of the connection's databases from list-connections; defaults to all"),
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, database }) {
@@ -30,14 +31,16 @@ For MySQL/MariaDB a schema is a database.`,
       if (connection.dialect === 'mysql') schemas = schemas.filter((s) => s.name === database)
     }
     return {
-      schemas: await Promise.all(schemas.map(async ({ name }) => {
-        const tables = await dbCall(() => workbench.introspect(connectionId, { kind: 'tables', schema: name }))
-        return {
-          name,
-          tables: tables.filter((t) => t.kind === 'table').length,
-          views: tables.filter((t) => t.kind === 'view').length,
-        }
-      })),
+      schemas: await Promise.all(
+        schemas.map(async ({ name }) => {
+          const tables = await dbCall(() => workbench.introspect(connectionId, { kind: 'tables', schema: name }))
+          return {
+            name,
+            tables: tables.filter((t) => t.kind === 'table').length,
+            views: tables.filter((t) => t.kind === 'view').length,
+          }
+        }),
+      ),
     }
   },
 })

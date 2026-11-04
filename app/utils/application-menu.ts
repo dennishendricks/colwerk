@@ -44,8 +44,10 @@ export function setApplicationMenu(menu: ApplicationMenuItem[], force = false) {
   current = json
   shown = menu
   // One after another, so the last menu set is the one shown.
-  queue = queue.then(async () => {
-    const previous = await (await createMenu(menu.map(withActions))).setAsAppMenu()
-    await previous?.close()
-  }).catch((e) => console.error('Application menu:', e))
+  queue = queue
+    .then(async () => {
+      const previous = await (await createMenu(menu.map(withActions))).setAsAppMenu()
+      await previous?.close()
+    })
+    .catch((e) => console.error('Application menu:', e))
 }

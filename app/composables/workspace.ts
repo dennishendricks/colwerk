@@ -168,9 +168,12 @@ export function useSchema() {
       method: 'POST',
       body: { request, refresh, database: target.database },
     })
-      .then((v) => assign(s, v), (e) => {
-        s.errors[key] = errorMessage(e)
-      })
+      .then(
+        (v) => assign(s, v),
+        (e) => {
+          s.errors[key] = errorMessage(e)
+        },
+      )
       .finally(() => {
         s.loading[key] = false
         inflight.delete(id)
@@ -181,7 +184,7 @@ export function useSchema() {
 
   /** `group` keys the indexes of a table or the routines of a schema (loading state, expansion). */
   const keyOf = (schema: string, table?: string, group?: 'indexes' | 'routines') =>
-    JSON.stringify([schema, table ?? null, ...group ? [group] : []])
+    JSON.stringify([schema, table ?? null, ...(group ? [group] : [])])
 
   /** Databases the login can switch to; listed through the connection's default database. */
   const loadDatabases = (connectionId: string, refresh = false) =>
@@ -245,8 +248,7 @@ export function useSchema() {
     api<{ ddl: string }>(`/api/connections/${target.connectionId}/introspect`, {
       method: 'POST',
       body: { request: { kind: 'ddl', schema, name, object }, database: target.database },
-    })
-      .then((r) => r.ddl)
+    }).then((r) => r.ddl)
 
   /** Default schema for unqualified names in autocomplete. */
   function defaultSchema(target: SchemaTarget): string | undefined {
@@ -326,9 +328,9 @@ interface SavedWorkspace {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined
-watch(() =>
-  JSON.stringify(
-    {
+watch(
+  () =>
+    JSON.stringify({
       tabs: tabs.value.map(({ id, title, connectionId, database, sql, path, rowLimit, timeout }): SavedTab => ({
         id,
         title,
@@ -340,16 +342,21 @@ watch(() =>
         timeout,
       })),
       activeTabId: activeTabId.value,
-    } satisfies SavedWorkspace,
-  ), (body) => {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
-})
+    } satisfies SavedWorkspace),
+  (body) => {
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
+  },
+)
 
-const openTransaction = (state?: TransactionState) => state === 'idle' ? undefined : state
+const openTransaction = (state?: TransactionState) => (state === 'idle' ? undefined : state)
 
 /** File name without directory and `.sql` extension, used as tab title. */
-const fileTitle = (path: string) => path.split(/[\\/]/).pop()!.replace(/\.sql$/i, '')
+const fileTitle = (path: string) =>
+  path
+    .split(/[\\/]/)
+    .pop()!
+    .replace(/\.sql$/i, '')
 
 export function useTabs() {
   const { t } = useNuxtApp().$i18n

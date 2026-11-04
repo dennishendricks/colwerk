@@ -21,13 +21,21 @@ const flatSchema = computed(() => {
   return !driver.value?.capabilities.supportsSchemas && schemas.length === 1 ? schemas[0]!.name : undefined
 })
 
-watch(schemaTarget, (t) => {
-  if (!state(t).schemas) loadSchemas(t)
-}, { immediate: true })
+watch(
+  schemaTarget,
+  (t) => {
+    if (!state(t).schemas) loadSchemas(t)
+  },
+  { immediate: true },
+)
 
-watch(flatSchema, (schema) => {
-  if (schema) loadSchema(schema)
-}, { immediate: true })
+watch(
+  flatSchema,
+  (schema) => {
+    if (schema) loadSchema(schema)
+  },
+  { immediate: true },
+)
 
 function toggle(key: string, load: () => void) {
   if (expanded.has(key)) return expanded.delete(key)
@@ -99,8 +107,13 @@ async function selectTable(schema: string, table: string, newTab = false) {
   if (newTab) return openTab(table, sql, true)
   let tab = tabs.value.find((t) => t.id === activeTabId.value)
   if (
-    !tab || tab.connectionId !== props.connectionId || tab.database !== props.database || tab.running || tab.exporting
-  ) tab = addTab(props.connectionId, props.database)
+    !tab ||
+    tab.connectionId !== props.connectionId ||
+    tab.database !== props.database ||
+    tab.running ||
+    tab.exporting
+  )
+    tab = addTab(props.connectionId, props.database)
   const prev = tab.sql
   tab.sql = !prev.trim() ? sql : `${prev}${prev.trimEnd().endsWith(';') ? '' : ';'}\n\n${sql}`
   run(tab, sql, tab.sql.length - sql.length)
@@ -128,9 +141,9 @@ async function generateSql(schema: string, table: string, statement: Statement) 
   const pk = cols.filter((c) => c.primaryKey)
   // Without a primary key the row is identified by all columns; a table of only key columns updates them.
   const set = () =>
-    (pk.length < cols.length ? cols.filter((c) => !c.primaryKey) : cols).map((c) => `${q(c.name)} = ${param()}`).join(
-      ', ',
-    )
+    (pk.length < cols.length ? cols.filter((c) => !c.primaryKey) : cols)
+      .map((c) => `${q(c.name)} = ${param()}`)
+      .join(', ')
   const where = () => (pk.length ? pk : cols).map((c) => `${q(c.name)} = ${param()}`).join(' and ')
   const sql = {
     select: () =>
@@ -166,10 +179,12 @@ const menuItems = computed((): ContextMenuItem[][] => {
   const { schema } = target
   if ('routine' in target) {
     const { name } = target.routine
-    return [[
-      { label: t('schema.showDdl'), icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, 'routine') },
-      { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
-    ]]
+    return [
+      [
+        { label: t('schema.showDdl'), icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, 'routine') },
+        { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
+      ],
+    ]
   }
   const { name, kind } = target.table
   const statements: Statement[] = kind === 'view' ? ['select'] : ['select', 'insert', 'update', 'delete']
@@ -231,12 +246,12 @@ const routineHits = (schema: string) => s.value.routines[schema]?.filter((r) => 
 // A hit on a node itself shows all of its children.
 const shownColumns = (schema: string, table: string) =>
   query.value && !hit(schema) && !hit(table) ? columnHits(schema, table) : s.value.columns[keyOf(schema, table)]
-const shownTables = (schema: string) => query.value && !hit(schema) ? tableHits(schema) : s.value.tables[schema]
-const shownRoutines = (schema: string) => query.value && !hit(schema) ? routineHits(schema) : s.value.routines[schema]
+const shownTables = (schema: string) => (query.value && !hit(schema) ? tableHits(schema) : s.value.tables[schema])
+const shownRoutines = (schema: string) => (query.value && !hit(schema) ? routineHits(schema) : s.value.routines[schema])
 
 const schemaHasHits = (schema: string) => !!tableHits(schema).length || !!routineHits(schema).length
 const shownSchemas = computed(() =>
-  query.value ? s.value.schemas?.filter((x) => hit(x.name) || schemaHasHits(x.name)) : s.value.schemas
+  query.value ? s.value.schemas?.filter((x) => hit(x.name) || schemaHasHits(x.name)) : s.value.schemas,
 )
 const schemaOpen = (schema: string) => expanded.has(keyOf(schema)) || (!!query.value && schemaHasHits(schema))
 const tableOpen = (schema: string, table: string) =>
@@ -253,7 +268,9 @@ function tableTitle(table: TableInfo) {
     table.partitioning && t('schema.partitioning', { value: table.partitioning }),
     table.clustering && t('schema.clustering', { value: table.clustering }),
     t('schema.doubleClick'),
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 function fkTitle(c: ColumnInfo) {
@@ -266,8 +283,15 @@ function fkTitle(c: ColumnInfo) {
   <div class="text-sm outline-none" tabindex="-1" @keydown="onKeydown">
     <div class="flex items-center justify-between px-3 py-1">
       <span class="text-xs font-medium uppercase text-muted">{{ t('schema.title') }}</span>
-      <UButton icon="i-lucide-refresh-cw" size="xs" variant="ghost" color="neutral" :loading="s.loading.schemas"
-        :title="t('common.reload')" @click="refresh" />
+      <UButton
+        icon="i-lucide-refresh-cw"
+        size="xs"
+        variant="ghost"
+        color="neutral"
+        :loading="s.loading.schemas"
+        :title="t('common.reload')"
+        @click="refresh"
+      />
     </div>
     <UInput
       v-if="search !== undefined"
@@ -280,8 +304,15 @@ function fkTitle(c: ColumnInfo) {
       @keydown.escape="search = undefined"
     >
       <template #trailing>
-        <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1"
-          :title="t('schema.closeSearch')" @click="search = undefined" />
+        <UButton
+          icon="i-lucide-x"
+          color="neutral"
+          variant="link"
+          size="xs"
+          class="-me-1"
+          :title="t('schema.closeSearch')"
+          @click="search = undefined"
+        />
       </template>
     </UInput>
     <p v-if="s.errors.schemas" class="px-3 py-1 text-xs text-error">{{ s.errors.schemas }}</p>
@@ -294,17 +325,23 @@ function fkTitle(c: ColumnInfo) {
             class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
             @click="toggleSchema(schema.name)"
           >
-            <UIcon :name="schemaOpen(schema.name) ?'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-              class="size-3.5 shrink-0 text-dimmed" />
+            <UIcon
+              :name="schemaOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+              class="size-3.5 shrink-0 text-dimmed"
+            />
             <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-muted" />
             <span class="truncate">{{ schema.name }}</span>
-            <UIcon v-if="s.loading[keyOf(schema.name)]" name="i-lucide-loader-circle"
-              class="size-3.5 animate-spin text-dimmed" />
+            <UIcon
+              v-if="s.loading[keyOf(schema.name)]"
+              name="i-lucide-loader-circle"
+              class="size-3.5 animate-spin text-dimmed"
+            />
           </button>
 
           <div v-if="flatSchema || schemaOpen(schema.name)" :class="flatSchema ? '' : 'pl-4'">
-            <p v-if="s.errors[keyOf(schema.name)]"
-              class="px-3 py-1 text-xs text-error">{{ s.errors[keyOf(schema.name)] }}</p>
+            <p v-if="s.errors[keyOf(schema.name)]" class="px-3 py-1 text-xs text-error">
+              {{ s.errors[keyOf(schema.name)] }}
+            </p>
             <template v-for="table in shownTables(schema.name)" :key="table.name">
               <button
                 class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
@@ -313,23 +350,32 @@ function fkTitle(c: ColumnInfo) {
                 @dblclick="selectTable(schema.name, table.name)"
                 @contextmenu="menuTarget = { schema: schema.name, table }"
               >
-                <UIcon :name="tableOpen(schema.name, table.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-                  class="size-3.5 shrink-0 text-dimmed" />
-                <UIcon :name="table.kind === 'view' ? 'i-lucide-eye' : 'i-lucide-table-2'"
-                  class="size-4 shrink-0 text-muted" />
+                <UIcon
+                  :name="tableOpen(schema.name, table.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                  class="size-3.5 shrink-0 text-dimmed"
+                />
+                <UIcon
+                  :name="table.kind === 'view' ? 'i-lucide-eye' : 'i-lucide-table-2'"
+                  class="size-4 shrink-0 text-muted"
+                />
                 <span class="truncate">{{ table.name }}</span>
-                <UIcon v-if="s.loading[keyOf(schema.name, table.name)]" name="i-lucide-loader-circle"
-                  class="size-3.5 animate-spin text-dimmed" />
+                <UIcon
+                  v-if="s.loading[keyOf(schema.name, table.name)]"
+                  name="i-lucide-loader-circle"
+                  class="size-3.5 animate-spin text-dimmed"
+                />
                 <span class="ml-auto flex shrink-0 items-center gap-1 pl-1">
                   <UBadge v-if="table.partitioning" label="PART" size="sm" color="neutral" variant="subtle" />
-                  <span v-if="table.rowEstimate !== null"
-                    class="text-xs tabular-nums text-dimmed">{{ rowCount.format(table.rowEstimate) }}</span>
+                  <span v-if="table.rowEstimate !== null" class="text-xs tabular-nums text-dimmed">{{
+                    rowCount.format(table.rowEstimate)
+                  }}</span>
                 </span>
               </button>
 
               <div v-if="tableOpen(schema.name, table.name)" class="pl-9 pr-2">
-                <p v-if="s.errors[keyOf(schema.name, table.name)]"
-                  class="py-1 text-xs text-error">{{ s.errors[keyOf(schema.name, table.name)] }}</p>
+                <p v-if="s.errors[keyOf(schema.name, table.name)]" class="py-1 text-xs text-error">
+                  {{ s.errors[keyOf(schema.name, table.name)] }}
+                </p>
                 <p v-if="table.comment" class="py-0.5 text-xs italic text-muted">{{ table.comment }}</p>
                 <div
                   v-for="col in shownColumns(schema.name, table.name)"
@@ -337,28 +383,58 @@ function fkTitle(c: ColumnInfo) {
                   class="flex items-center gap-1.5 py-0.5 text-xs"
                 >
                   <UIcon name="i-lucide-columns-3" class="size-3.5 shrink-0 text-dimmed" />
-                  <span class="max-w-[60%] shrink-0 truncate" :class="col.primaryKey ? 'font-semibold' : ''"
-                    :title="[col.name, col.comment].filter(Boolean).join('\n')">{{ col.name }}</span>
-                  <UIcon v-if="col.comment" name="i-lucide-message-square-text" class="size-3 shrink-0 text-dimmed"
-                    :title="col.comment" />
-                  <span class="min-w-0 truncate text-dimmed"
-                    :title="col.type">{{ col.type }}{{ col.nullable ? '' : ' not null' }}</span>
+                  <span
+                    class="max-w-[60%] shrink-0 truncate"
+                    :class="col.primaryKey ? 'font-semibold' : ''"
+                    :title="[col.name, col.comment].filter(Boolean).join('\n')"
+                    >{{ col.name }}</span
+                  >
+                  <UIcon
+                    v-if="col.comment"
+                    name="i-lucide-message-square-text"
+                    class="size-3 shrink-0 text-dimmed"
+                    :title="col.comment"
+                  />
+                  <span class="min-w-0 truncate text-dimmed" :title="col.type"
+                    >{{ col.type }}{{ col.nullable ? '' : ' not null' }}</span
+                  >
                   <span class="ml-auto flex shrink-0 gap-1">
                     <UBadge v-if="col.primaryKey" label="PK" size="sm" color="warning" variant="subtle" />
-                    <UBadge v-if="col.references" size="sm" color="info" variant="subtle"
-                      :title="t('schema.foreignKey', { target: fkTitle(col) })">
+                    <UBadge
+                      v-if="col.references"
+                      size="sm"
+                      color="info"
+                      variant="subtle"
+                      :title="t('schema.foreignKey', { target: fkTitle(col) })"
+                    >
                       FK → {{ col.references.table }}
                     </UBadge>
-                    <UBadge v-if="col.indexes.length" label="IDX" size="sm" color="neutral" variant="subtle"
-                      :title="col.indexes.join(', ')" />
+                    <UBadge
+                      v-if="col.indexes.length"
+                      label="IDX"
+                      size="sm"
+                      color="neutral"
+                      variant="subtle"
+                      :title="col.indexes.join(', ')"
+                    />
                   </span>
                 </div>
-                <p v-if="s.errors[keyOf(schema.name, table.name, 'indexes')]"
-                  class="py-1 text-xs text-error">{{ s.errors[keyOf(schema.name, table.name, 'indexes')] }}</p>
+                <p v-if="s.errors[keyOf(schema.name, table.name, 'indexes')]" class="py-1 text-xs text-error">
+                  {{ s.errors[keyOf(schema.name, table.name, 'indexes')] }}
+                </p>
                 <template v-if="s.indexes[keyOf(schema.name, table.name)]?.length">
-                  <button class="flex w-full items-center gap-1.5 py-0.5 text-left text-xs text-muted hover:bg-elevated"
-                    @click="toggleGroup(keyOf(schema.name, table.name, 'indexes'))">
-                    <UIcon :name="expanded.has(keyOf(schema.name, table.name, 'indexes')) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5 shrink-0 text-dimmed" />
+                  <button
+                    class="flex w-full items-center gap-1.5 py-0.5 text-left text-xs text-muted hover:bg-elevated"
+                    @click="toggleGroup(keyOf(schema.name, table.name, 'indexes'))"
+                  >
+                    <UIcon
+                      :name="
+                        expanded.has(keyOf(schema.name, table.name, 'indexes'))
+                          ? 'i-lucide-chevron-down'
+                          : 'i-lucide-chevron-right'
+                      "
+                      class="size-3.5 shrink-0 text-dimmed"
+                    />
                     {{ t('schema.indexes', { n: s.indexes[keyOf(schema.name, table.name)]!.length }) }}
                   </button>
                   <div v-if="expanded.has(keyOf(schema.name, table.name, 'indexes'))" class="pl-5">
@@ -369,8 +445,9 @@ function fkTitle(c: ColumnInfo) {
                     >
                       <UIcon name="i-lucide-list-ordered" class="size-3.5 shrink-0 text-dimmed" />
                       <span class="max-w-[60%] shrink-0 truncate" :title="index.name">{{ index.name }}</span>
-                      <span class="min-w-0 truncate text-dimmed"
-                        :title="index.columns.join(', ')">{{ index.columns.join(', ') }}</span>
+                      <span class="min-w-0 truncate text-dimmed" :title="index.columns.join(', ')">{{
+                        index.columns.join(', ')
+                      }}</span>
                       <span class="ml-auto flex shrink-0 gap-1">
                         <UBadge v-if="index.primary" label="PK" size="sm" color="warning" variant="subtle" />
                         <UBadge v-else-if="index.unique" label="UNIQUE" size="sm" color="neutral" variant="subtle" />
@@ -381,13 +458,18 @@ function fkTitle(c: ColumnInfo) {
               </div>
             </template>
 
-            <p v-if="s.errors[keyOf(schema.name, undefined, 'routines')]"
-              class="px-3 py-1 text-xs text-error">{{ s.errors[keyOf(schema.name, undefined, 'routines')] }}</p>
+            <p v-if="s.errors[keyOf(schema.name, undefined, 'routines')]" class="px-3 py-1 text-xs text-error">
+              {{ s.errors[keyOf(schema.name, undefined, 'routines')] }}
+            </p>
             <template v-if="shownRoutines(schema.name)?.length">
-              <button class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
-                @click="toggleGroup(keyOf(schema.name, undefined, 'routines'))">
-                <UIcon :name="routinesOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-                  class="size-3.5 shrink-0 text-dimmed" />
+              <button
+                class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
+                @click="toggleGroup(keyOf(schema.name, undefined, 'routines'))"
+              >
+                <UIcon
+                  :name="routinesOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                  class="size-3.5 shrink-0 text-dimmed"
+                />
                 <UIcon name="i-lucide-square-function" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ t('schema.functions', { n: shownRoutines(schema.name)!.length }) }}</span>
               </button>
@@ -400,8 +482,10 @@ function fkTitle(c: ColumnInfo) {
                   @contextmenu="menuTarget = { schema: schema.name, routine }"
                 >
                   <span class="size-3.5 shrink-0" />
-                  <UIcon :name="routine.kind === 'procedure' ? 'i-lucide-cog' : 'i-lucide-square-function'"
-                    class="size-4 shrink-0 text-muted" />
+                  <UIcon
+                    :name="routine.kind === 'procedure' ? 'i-lucide-cog' : 'i-lucide-square-function'"
+                    class="size-4 shrink-0 text-muted"
+                  />
                   <span class="truncate">{{ routine.name }}</span>
                 </div>
               </div>

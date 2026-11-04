@@ -32,7 +32,7 @@ export async function dbCall<T>(fn: () => Promise<T>): Promise<T> {
           code: e.code,
           position: e.position,
           transaction: e.transaction,
-          ...e instanceof AppError && { key: e.key, params: e.params },
+          ...(e instanceof AppError && { key: e.key, params: e.params }),
         },
       })
     }
@@ -49,7 +49,7 @@ export function parseDatabase(database: unknown): string | undefined {
 
 export function parseConnection(body: unknown): ConnectionInput {
   const b = (body ?? {}) as Record<string, unknown>
-  const str = (k: string) => typeof b[k] === 'string' && b[k] !== '' ? b[k] as string : undefined
+  const str = (k: string) => (typeof b[k] === 'string' && b[k] !== '' ? (b[k] as string) : undefined)
   const dialect = b.dialect as Dialect
   const driver = drivers.find((d) => d.dialect === dialect)
   if (!driver) throw createError({ statusCode: 400, message: 'Unknown dialect' })
@@ -77,11 +77,13 @@ export function parseConnection(body: unknown): ConnectionInput {
   if (dateFormat !== undefined && !dateFormats.includes(dateFormat)) {
     throw createError({ statusCode: 400, message: 'Invalid date format' })
   }
-  const connectRetries = b.connectRetries === undefined || b.connectRetries === null || b.connectRetries === ''
-    ? undefined
-    : Number(b.connectRetries)
+  const connectRetries =
+    b.connectRetries === undefined || b.connectRetries === null || b.connectRetries === ''
+      ? undefined
+      : Number(b.connectRetries)
   if (
-    connectRetries !== undefined && !(Number.isInteger(connectRetries) && connectRetries >= 0 && connectRetries <= 100)
+    connectRetries !== undefined &&
+    !(Number.isInteger(connectRetries) && connectRetries >= 0 && connectRetries <= 100)
   ) {
     throw createError({ statusCode: 400, message: 'Invalid number of retries', data: { key: 'invalidRetries' } })
   }

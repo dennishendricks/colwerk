@@ -57,7 +57,7 @@ const GEOMETRY = /(^|\.)(geometry|geography)$/
 
 function convertRows(columns: ResultColumn[], rows: unknown[][]): CellValue[][] {
   const geometry = columns.map((c) => GEOMETRY.test(c.type))
-  return rows.map((r) => r.map((v, i) => geometry[i] && typeof v === 'string' ? hexEwkbToText(v) : normalizeValue(v)))
+  return rows.map((r) => r.map((v, i) => (geometry[i] && typeof v === 'string' ? hexEwkbToText(v) : normalizeValue(v))))
 }
 
 // Status byte of the last ReadyForQuery message.
@@ -143,8 +143,8 @@ const sqlFor = (v: number) => ({
   indexes: `
     select ic.relname as name,
       array(select pg_get_indexdef(i.indexrelid, k, true) from generate_series(1, i.${
-    v >= 110000 ? 'indnkeyatts' : 'indnatts'
-  }) k) as columns,
+        v >= 110000 ? 'indnkeyatts' : 'indnatts'
+      }) k) as columns,
       i.indisunique as "unique", i.indisprimary as "primary"
     from pg_index i
     join pg_class ic on ic.oid = i.indexrelid
@@ -155,8 +155,8 @@ const sqlFor = (v: number) => ({
   // Overloads appear once; functions of extensions are left out.
   routines: `
     select p.proname as name, ${
-    v >= 110000 ? `case p.prokind when 'p' then 'procedure' else 'function' end` : `'function'`
-  } as kind
+      v >= 110000 ? `case p.prokind when 'p' then 'procedure' else 'function' end` : `'function'`
+    } as kind
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = $1 and ${isRoutine(v)}
       and not exists (select 1 from pg_depend d
@@ -179,10 +179,10 @@ const sqlFor = (v: number) => ({
         select string_agg(line, E',\\n    ' order by grp, ord) from (
           select 0 as grp, a.attnum::int as ord, format('%I %s', a.attname, format_type(a.atttypid, a.atttypmod))
             || case ${
-    v >= 120000
-      ? `when a.attgenerated = 's' then format(' generated always as (%s) stored', pg_get_expr(d.adbin, d.adrelid))`
-      : ''
-  }
+              v >= 120000
+                ? `when a.attgenerated = 's' then format(' generated always as (%s) stored', pg_get_expr(d.adbin, d.adrelid))`
+                : ''
+            }
                     when d.adbin is not null then ' default ' || pg_get_expr(d.adbin, d.adrelid) else '' end
             || ${v >= 100000 ? IDENTITY : `''`}
             || case when a.attnotnull then ' not null' else '' end as line
@@ -203,13 +203,18 @@ const sqlFor = (v: number) => ({
 })
 
 // Functions and procedures, without aggregates and window functions.
-const isRoutine = (v: number) => v >= 110000 ? `p.prokind in ('f', 'p')` : 'not p.proisagg and not p.proiswindow'
+const isRoutine = (v: number) => (v >= 110000 ? `p.prokind in ('f', 'p')` : 'not p.proisagg and not p.proiswindow')
 
 class PostgresSession implements Session {
   private typeNames = new Map<number, string>()
   private SQL: ReturnType<typeof sqlFor>
 
-  constructor(private client: pg.Client, private config: ConnectionConfig, private pid: number, version: number) {
+  constructor(
+    private client: pg.Client,
+    private config: ConnectionConfig,
+    private pid: number,
+    version: number,
+  ) {
     this.SQL = sqlFor(version)
   }
 
@@ -254,7 +259,7 @@ class PostgresSession implements Session {
     const cursor = this.client.query(new Cursor<unknown[]>(sql, undefined, { rowMode: 'array' }))
     const read = () =>
       new Promise<{ rows: unknown[][]; result: pg.QueryResult }>((resolve, reject) => {
-        cursor.read(STREAM_BATCH, (err, rows, result) => err ? reject(err) : resolve({ rows, result }))
+        cursor.read(STREAM_BATCH, (err, rows, result) => (err ? reject(err) : resolve({ rows, result })))
       })
     try {
       let columns: ResultColumn[] | undefined
@@ -283,7 +288,7 @@ class PostgresSession implements Session {
     const cursor = this.client.query(new Cursor<unknown[]>(sql, undefined, { rowMode: 'array' }))
     return new Promise<{ rows: unknown[][]; result: pg.QueryResult }>((resolve, reject) => {
       cursor.read(maxRows, (err, rows, result) => {
-        cursor.close(() => err ? reject(err) : resolve({ rows, result }))
+        cursor.close(() => (err ? reject(err) : resolve({ rows, result })))
       })
     })
   }

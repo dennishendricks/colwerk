@@ -68,13 +68,10 @@ export class ConnectionStore {
     return this.mutate(async (all) => {
       const { password, ...config } = input
       const existing = all.find((c) => c.id === input.id)
-      const passwordEnc = password === undefined
-        ? existing?.passwordEnc
-        : password === ''
-        ? undefined
-        : await this.encrypt(password)
+      const passwordEnc =
+        password === undefined ? existing?.passwordEnc : password === '' ? undefined : await this.encrypt(password)
       const next: StoredConnection = { ...config, passwordEnc }
-      return existing ? all.map((c) => c.id === input.id ? next : c) : [...all, next]
+      return existing ? all.map((c) => (c.id === input.id ? next : c)) : [...all, next]
     })
   }
 
@@ -123,9 +120,9 @@ export class ConnectionStore {
       try {
         const stored = await this.secrets.get()
         if (stored) return stored
-        const secret = await readKeyFile(file) ?? b64(crypto.getRandomValues(new Uint8Array(32)))
+        const secret = (await readKeyFile(file)) ?? b64(crypto.getRandomValues(new Uint8Array(32)))
         await this.secrets.set(secret)
-        if (await this.secrets.get() !== secret) throw new Error('Keychain: the stored key could not be read back')
+        if ((await this.secrets.get()) !== secret) throw new Error('Keychain: the stored key could not be read back')
         await rm(file, { force: true })
         return secret
       } catch (e) {

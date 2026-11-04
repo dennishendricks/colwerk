@@ -27,7 +27,7 @@ function load(): typeof Bindings {
 }
 
 let bindings: typeof Bindings | undefined
-const duckdb = () => bindings ??= load()
+const duckdb = () => (bindings ??= load())
 
 /** The addon rejects with plain errors; the driver expects `DbError`. */
 async function call<T>(promise: Promise<T>): Promise<T> {
@@ -50,8 +50,8 @@ export async function connect(path: string, readOnly: boolean, v1Storage: boolea
   const d = duckdb()
   if (v1Storage && !readOnly && !path.startsWith(':memory:') && !existsSync(path)) await createV1(path)
   const cache = readOnly
-    ? caches.readOnly ??= d.create_instance_cache()
-    : caches.readWrite ??= d.create_instance_cache()
+    ? (caches.readOnly ??= d.create_instance_cache())
+    : (caches.readWrite ??= d.create_instance_cache())
   const config = d.create_config()
   if (readOnly) d.set_config(config, 'access_mode', 'READ_ONLY')
   const db = await call(d.get_or_create_from_cache(cache, path, config))
@@ -78,7 +78,10 @@ async function createV1(path: string) {
 export class Connection {
   private closed = false
 
-  constructor(private db: Bindings.Database, private conn: Bindings.Connection) {}
+  constructor(
+    private db: Bindings.Database,
+    private conn: Bindings.Connection,
+  ) {}
 
   /** Runs one statement; the result streams and must be closed. `params` are bound as VARCHAR. */
   async query(sql: string, params: string[] = []): Promise<Result> {
@@ -120,7 +123,10 @@ export class Result {
   readonly columns: { name: string; type: string }[] = []
   private decoders: Decoder[] = []
 
-  constructor(private prepared: Bindings.PreparedStatement, private result: Bindings.Result) {
+  constructor(
+    private prepared: Bindings.PreparedStatement,
+    private result: Bindings.Result,
+  ) {
     const d = duckdb()
     for (let i = 0; i < d.column_count(result); i++) {
       const { name, decode } = describe(d.column_logical_type(result, i))
@@ -290,10 +296,7 @@ function describeType(type: LogicalType): Described {
       return { name: `DECIMAL(${width},${scale})`, decode: fixed(size, (v, o) => decimal(read(v, o), scale)) }
     }
     case T.ENUM: {
-      const values = Array.from(
-        { length: d.enum_dictionary_size(type) },
-        (_, i) => d.enum_dictionary_value(type, i),
-      )
+      const values = Array.from({ length: d.enum_dictionary_size(type) }, (_, i) => d.enum_dictionary_value(type, i))
       const [size, read] = INTEGERS[d.enum_internal_type(type)]!
       return {
         name: `ENUM(${values.map((v) => `'${v.replaceAll("'", "''")}'`).join(', ')})`,
@@ -310,7 +313,12 @@ function describeType(type: LogicalType): Described {
       const value = describe(d.map_type_value_type(type))
       return {
         name: `MAP(${key.name}, ${value.name})`,
-        decode: list(struct([['key', key.decode], ['value', value.decode]])),
+        decode: list(
+          struct([
+            ['key', key.decode],
+            ['value', value.decode],
+          ]),
+        ),
       }
     }
     case T.ARRAY: {
@@ -321,11 +329,7 @@ function describeType(type: LogicalType): Described {
     case T.STRUCT: {
       const fields = Array.from(
         { length: d.struct_type_child_count(type) },
-        (_, i) =>
-          [
-            d.struct_type_child_name(type, i),
-            describe(d.struct_type_child_type(type, i)),
-          ] as const,
+        (_, i) => [d.struct_type_child_name(type, i), describe(d.struct_type_child_type(type, i))] as const,
       )
       return {
         name: `STRUCT(${fields.map(([n, d]) => `"${n}" ${d.name}`).join(', ')})`,
@@ -336,11 +340,7 @@ function describeType(type: LogicalType): Described {
     case T.UNION: {
       const members = Array.from(
         { length: d.union_type_member_count(type) },
-        (_, i) =>
-          [
-            d.union_type_member_name(type, i),
-            describe(d.union_type_member_type(type, i)),
-          ] as const,
+        (_, i) => [d.union_type_member_name(type, i), describe(d.union_type_member_type(type, i))] as const,
       )
       return {
         name: `UNION(${members.map(([n, d]) => `"${n}" ${d.name}`).join(', ')})`,
@@ -380,7 +380,7 @@ function fixed(size: number, read: (v: DataView, offset: number) => CellValue): 
   return (vector, count) => {
     const data = view(duckdb().vector_get_data(vector, count * size))
     const valid = validity(vector, count)
-    return (row) => valid(row) ? read(data, row * size) : null
+    return (row) => (valid(row) ? read(data, row * size) : null)
   }
 }
 
@@ -402,17 +402,17 @@ function array(child: Decoder, size: number): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
     const read = child(duckdb().array_vector_get_child(vector), count * size)
-    return (row) => valid(row) ? Array.from({ length: size }, (_, i) => read(row * size + i)) : null
+    return (row) => (valid(row) ? Array.from({ length: size }, (_, i) => read(row * size + i)) : null)
   }
 }
 
 function struct(fields: (readonly [string, Decoder])[]): Decoder {
   return (vector, count) => {
     const valid = validity(vector, count)
-    const reads = fields.map(([name, decode], i) =>
-      [name, decode(duckdb().struct_vector_get_child(vector, i), count)] as const
+    const reads = fields.map(
+      ([name, decode], i) => [name, decode(duckdb().struct_vector_get_child(vector, i), count)] as const,
     )
-    return (row) => valid(row) ? Object.fromEntries(reads.map(([name, read]) => [name, read(row)])) : null
+    return (row) => (valid(row) ? Object.fromEntries(reads.map(([name, read]) => [name, read(row)])) : null)
   }
 }
 
@@ -442,8 +442,18 @@ const u8 = (v: DataView, o: number) => v.getUint8(o)
 const u32 = (v: DataView, o: number) => v.getUint32(o, true)
 const VARIANT_LISTS = [
   list(fixed(16, (v, o) => decoder.decode(bytes(v, o)))),
-  list(struct([['key', fixed(4, u32)], ['value', fixed(4, u32)]])),
-  list(struct([['type', fixed(1, u8)], ['offset', fixed(4, u32)]])),
+  list(
+    struct([
+      ['key', fixed(4, u32)],
+      ['value', fixed(4, u32)],
+    ]),
+  ),
+  list(
+    struct([
+      ['type', fixed(1, u8)],
+      ['offset', fixed(4, u32)],
+    ]),
+  ),
 ]
 
 function variant(vector: Vector, count: number): (row: number) => CellValue {
@@ -454,12 +464,15 @@ function variant(vector: Vector, count: number): (row: number) => CellValue {
   return (row) => {
     if (!valid(row)) return null
     const blob = bytes(data, row * 16)
-    return variantValue({
-      keys: keys!(row) as string[],
-      children: children!(row) as VariantRow['children'],
-      values: values!(row) as VariantRow['values'],
-      data: new DataView(blob.buffer, blob.byteOffset, blob.byteLength),
-    }, 0)
+    return variantValue(
+      {
+        keys: keys!(row) as string[],
+        children: children!(row) as VariantRow['children'],
+        values: values!(row) as VariantRow['values'],
+        data: new DataView(blob.buffer, blob.byteOffset, blob.byteLength),
+      },
+      0,
+    )
   }
 }
 
@@ -470,9 +483,9 @@ function variantValue(r: VariantRow, i: number): CellValue {
   let o = offset
   const varint = () => {
     let n = 0
-    for (let factor = 1;; factor *= 128) {
+    for (let factor = 1; ; factor *= 128) {
       const b = d.getUint8(o++)
-      n += (b & 0x7F) * factor
+      n += (b & 0x7f) * factor
       if (b < 0x80) return n
     }
   }
@@ -584,18 +597,21 @@ function int128(v: DataView, o: number, signed: boolean): bigint {
 function bignum(b: Uint8Array): string {
   const negative = (b[0]! & 0x80) === 0
   let n = 0n
-  for (const x of b.subarray(3)) n = (n << 8n) | BigInt(negative ? ~x & 0xFF : x)
+  for (const x of b.subarray(3)) n = (n << 8n) | BigInt(negative ? ~x & 0xff : x)
   return String(negative ? -n : n)
 }
 
 /** First byte: number of padding bits before the value. */
 function bit(b: Uint8Array): string {
-  return Array.from(b.subarray(1), (x) => x.toString(2).padStart(8, '0')).join('').slice(b[0])
+  return Array.from(b.subarray(1), (x) => x.toString(2).padStart(8, '0'))
+    .join('')
+    .slice(b[0])
 }
 
 /** HUGEINT with the sign bit flipped, so that UUIDs sort as unsigned. */
 function uuid(v: DataView, o: number): string {
-  const hex = (v.getBigUint64(o + 8, true) ^ (1n << 63n)).toString(16).padStart(16, '0') +
+  const hex =
+    (v.getBigUint64(o + 8, true) ^ (1n << 63n)).toString(16).padStart(16, '0') +
     v.getBigUint64(o, true).toString(16).padStart(16, '0')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
@@ -603,14 +619,14 @@ function uuid(v: DataView, o: number): string {
 /** Upper 40 bits: microseconds of the day; lower 24 bits: 57599 (16 h - 1 s) minus the offset in seconds. */
 function timeTz(v: DataView, o: number): string {
   const bits = v.getBigUint64(o, true)
-  return time(bits >> 24n, 6) + offset(57599 - Number(bits & 0xFFFFFFn))
+  return time(bits >> 24n, 6) + offset(57599 - Number(bits & 0xffffffn))
 }
 
 function interval(v: DataView, o: number): CellValue {
   return { months: v.getInt32(o, true), days: v.getInt32(o + 4, true), micros: String(v.getBigInt64(o + 8, true)) }
 }
 
-const jsonNumber = (n: number): CellValue => Number.isFinite(n) ? n : String(n)
+const jsonNumber = (n: number): CellValue => (Number.isFinite(n) ? n : String(n))
 
 function decimal(n: bigint, scale: number): string {
   if (!scale) return String(n)
@@ -646,7 +662,9 @@ function date(days: number): string {
 function time(value: bigint, digits: number): string {
   const unit = 10n ** BigInt(digits)
   const seconds = Number(value / unit)
-  const fraction = String(value % unit).padStart(digits, '0').replace(/0+$/, '')
+  const fraction = String(value % unit)
+    .padStart(digits, '0')
+    .replace(/0+$/, '')
   return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}${
     fraction ? `.${fraction}` : ''
   }`

@@ -1,5 +1,5 @@
-// Entry point of `colwerk-server`, the Node single executable built by scripts/package.ts: the sidecar of the
-// desktop app (src-tauri) and, on its own, the self-hosted binary of `deno task compile`.
+// Entry point of `colwerk-server`, the Bun single-file executable built by scripts/package.ts: the sidecar of the
+// desktop app (src-tauri) and, on its own, the self-hosted binary of `bun run compile`.
 //
 // Starts the server on 127.0.0.1 with a fresh session token and prints its URL once it listens. The desktop app
 // reads that line and opens the URL in its window; standalone, the URL opens in the default browser. With the
@@ -31,7 +31,8 @@ if (typeof COLWERK_DUCKDB !== 'undefined') Object.assign(globalThis, duckdbGloba
 
 // Dynamic import so the environment above is set before Nitro reads it. scripts/package.ts resolves this path
 // to the Nitro build (preset `node-listener`).
-const { listener } = await import('../server/index.mjs') as { listener: RequestListener }
+// @ts-expect-error -- the path only exists after the bundler's resolution
+const { listener } = (await import('../server/index.mjs')) as { listener: RequestListener }
 const server = createServer(listener)
 await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
 const { port } = server.address() as AddressInfo

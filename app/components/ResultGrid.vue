@@ -24,22 +24,25 @@ const columnSizing = ref<Record<string, number>>({})
 const columnFilters = ref<{ id: string; value: unknown }[]>([])
 const globalFilter = ref(filter.value)
 // Column ids are positions, so state of the previous result must not carry over.
-watch(() => props.result, () => {
-  sorting.value = []
-  columnPinning.value = { left: ['#'], right: [] }
-  columnVisibility.value = {}
-  columnSizing.value = {}
-  columnFilters.value = []
-  filter.value = ''
-  globalFilter.value = ''
-  filtering.value = undefined
-})
+watch(
+  () => props.result,
+  () => {
+    sorting.value = []
+    columnPinning.value = { left: ['#'], right: [] }
+    columnVisibility.value = {}
+    columnSizing.value = {}
+    columnFilters.value = []
+    filter.value = ''
+    globalFilter.value = ''
+    filtering.value = undefined
+  },
+)
 
 // Filtering 100k rows on every keystroke would make typing lag.
 let filterTimer: ReturnType<typeof setTimeout> | undefined
 watch(filter, (value) => {
   clearTimeout(filterTimer)
-  filterTimer = setTimeout(() => globalFilter.value = value, 200)
+  filterTimer = setTimeout(() => (globalFilter.value = value), 200)
 })
 onBeforeUnmount(() => clearTimeout(filterTimer))
 
@@ -63,26 +66,26 @@ const globalFilterOptions = {
 }
 
 const filteredCount = computed(() =>
-  globalFilter.value || columnFilters.value.length ? table.value?.tableApi.getFilteredRowModel().rows.length : undefined
+  globalFilter.value || columnFilters.value.length
+    ? table.value?.tableApi.getFilteredRowModel().rows.length
+    : undefined,
 )
 defineExpose({ filteredCount })
 
 // The table has a fixed layout of exactly the column sizes, which pinned offsets and resizing rely on.
-const table = useTemplateRef<
-  {
-    $el: HTMLElement
-    tableApi: {
-      getTotalSize(): number
-      getRowModel(): { rows: TableRow<Row>[] }
-      getFilteredRowModel(): { rows: unknown[] }
-    }
+const table = useTemplateRef<{
+  $el: HTMLElement
+  tableApi: {
+    getTotalSize(): number
+    getRowModel(): { rows: TableRow<Row>[] }
+    getFilteredRowModel(): { rows: unknown[] }
   }
->('table')
-const tableWidth = computed(() => table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined)
+}>('table')
+const tableWidth = computed(() => (table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined))
 const sizeStyle = ({ column }: { column: Column }) => ({ width: `${column.getSize()}px` })
 // Pinned headers are sticky, which already positions the resize handle.
-const headerClass = ({ column }: { column: Column }) => column.getIsPinned() ? '' : 'relative'
-const pinnedClass = ({ column }: { column: Column }) => column.getIsPinned() ? 'bg-default' : ''
+const headerClass = ({ column }: { column: Column }) => (column.getIsPinned() ? '' : 'relative')
+const pinnedClass = ({ column }: { column: Column }) => (column.getIsPinned() ? 'bg-default' : '')
 
 // Initial width from the header and the first rows' content, in characters of the monospace font.
 const CHAR_WIDTH = 7.2
@@ -105,25 +108,32 @@ const columns = computed<TableColumn<Row>[]>(() => [
     size: Math.max(44, Math.round(String(props.result.rows.length).length * CHAR_WIDTH + 16)),
     meta: { style: { th: sizeStyle }, class: { td: pinnedClass } },
     header: ({ table }) =>
-      h(UDropdownMenu, {
-        items: table.getAllLeafColumns().filter((c) => c.getCanHide()).map((c): DropdownMenuItem => ({
-          label: props.result.columns[Number(c.id)]?.name,
-          type: 'checkbox',
-          checked: c.getIsVisible(),
-          onUpdateChecked: (v: boolean) => c.toggleVisibility(v),
-          onSelect: (e: Event) => e.preventDefault(),
-        })),
-        content: { align: 'start' },
-        ui: { content: 'max-h-96' },
-      }, () =>
-        h(UButton, {
-          icon: 'i-lucide-columns-3',
-          color: 'neutral',
-          variant: 'ghost',
-          size: 'xs',
-          class: '-my-1',
-          title: t('grid.toggleColumns'),
-        })),
+      h(
+        UDropdownMenu,
+        {
+          items: table
+            .getAllLeafColumns()
+            .filter((c) => c.getCanHide())
+            .map((c): DropdownMenuItem => ({
+              label: props.result.columns[Number(c.id)]?.name,
+              type: 'checkbox',
+              checked: c.getIsVisible(),
+              onUpdateChecked: (v: boolean) => c.toggleVisibility(v),
+              onSelect: (e: Event) => e.preventDefault(),
+            })),
+          content: { align: 'start' },
+          ui: { content: 'max-h-96' },
+        },
+        () =>
+          h(UButton, {
+            icon: 'i-lucide-columns-3',
+            color: 'neutral',
+            variant: 'ghost',
+            size: 'xs',
+            class: '-my-1',
+            title: t('grid.toggleColumns'),
+          }),
+      ),
     cell: ({ row }) => h('span', { class: 'text-dimmed' }, row.original.index + 1),
   },
   ...props.result.columns.map((col, i): TableColumn<Row> => ({
@@ -136,23 +146,25 @@ const columns = computed<TableColumn<Row>[]>(() => [
     sortUndefined: 'last',
     filterFn: containsText,
     meta: { style: { th: sizeStyle }, class: { th: headerClass, td: pinnedClass } },
-    header: (
-      { column, header },
-    ) => [
+    header: ({ column, header }) => [
       h(
         UDropdownMenu,
         { items: headerItems(column), content: { align: 'start', onCloseAutoFocus: openColumnFilter } },
         () =>
-          h(UButton, {
-            color: 'neutral',
-            variant: 'ghost',
-            size: 'xs',
-            class: '-mx-1.5 -my-1 font-semibold',
-            title: col.type,
-            icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
-            'data-column': column.id,
-            trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
-          }, () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)]),
+          h(
+            UButton,
+            {
+              color: 'neutral',
+              variant: 'ghost',
+              size: 'xs',
+              class: '-mx-1.5 -my-1 font-semibold',
+              title: col.type,
+              icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
+              'data-column': column.id,
+              trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
+            },
+            () => [col.name, h('span', { class: 'font-normal text-dimmed' }, col.type)],
+          ),
       ),
       h('div', {
         class: [
@@ -185,26 +197,28 @@ function headerItems(column: Column): DropdownMenuItem[][] {
         icon: 'i-lucide-arrow-down-wide-narrow',
         onSelect: () => column.toggleSorting(true),
       },
-      ...sorted ? [{ label: t('grid.clearSort'), icon: 'i-lucide-x', onSelect: () => column.clearSorting() }] : [],
+      ...(sorted ? [{ label: t('grid.clearSort'), icon: 'i-lucide-x', onSelect: () => column.clearSorting() }] : []),
     ],
     [
-      ...pinned !== 'left'
+      ...(pinned !== 'left'
         ? [{ label: t('grid.pinLeft'), icon: 'i-lucide-pin', onSelect: () => column.pin('left') }]
-        : [],
-      ...pinned !== 'right'
+        : []),
+      ...(pinned !== 'right'
         ? [{ label: t('grid.pinRight'), icon: 'i-lucide-pin', onSelect: () => column.pin('right') }]
-        : [],
-      ...pinned ? [{ label: t('grid.unpin'), icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : [],
+        : []),
+      ...(pinned ? [{ label: t('grid.unpin'), icon: 'i-lucide-pin-off', onSelect: () => column.pin(false) }] : []),
     ],
     [
-      { label: t('grid.filter'), icon: 'i-lucide-filter', onSelect: () => pendingFilter = column },
-      ...column.getIsFiltered()
-        ? [{
-          label: t('grid.removeFilter'),
-          icon: 'i-lucide-filter-x',
-          onSelect: () => column.setFilterValue(undefined),
-        }]
-        : [],
+      { label: t('grid.filter'), icon: 'i-lucide-filter', onSelect: () => (pendingFilter = column) },
+      ...(column.getIsFiltered()
+        ? [
+            {
+              label: t('grid.removeFilter'),
+              icon: 'i-lucide-filter-x',
+              onSelect: () => column.setFilterValue(undefined),
+            },
+          ]
+        : []),
     ],
     [{ label: t('grid.hide'), icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
   ]
@@ -333,20 +347,34 @@ function renderCell(value: CellValue) {
     }"
     @dblclick="onDblclick"
   />
-  <UModal v-model:open="detailOpen" :title="detail?.column.name" :description="detail?.column.type"
-    :ui="{ content: 'max-w-3xl' }">
+  <UModal
+    v-model:open="detailOpen"
+    :title="detail?.column.name"
+    :description="detail?.column.type"
+    :ui="{ content: 'max-w-3xl' }"
+  >
     <template #body>
       <span v-if="detail?.value === null" class="font-mono text-xs italic text-dimmed">NULL</span>
-      <pre v-else-if="detail"
-        class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{ detailText(detail.value) }}</pre>
+      <pre v-else-if="detail" class="font-mono text-xs whitespace-pre-wrap wrap-anywhere">{{
+        detailText(detail.value)
+      }}</pre>
     </template>
     <template #footer>
-      <UButton :label="t('common.copy')" icon="i-lucide-copy" color="neutral" variant="outline"
-        @click="copyValue(detail!.value)" />
+      <UButton
+        :label="t('common.copy')"
+        icon="i-lucide-copy"
+        color="neutral"
+        variant="outline"
+        @click="copyValue(detail!.value)"
+      />
     </template>
   </UModal>
-  <UPopover :open="!!filtering" :reference="filtering?.anchor" :content="{ align: 'start' }"
-    @update:open="open => open || (filtering = undefined)">
+  <UPopover
+    :open="!!filtering"
+    :reference="filtering?.anchor"
+    :content="{ align: 'start' }"
+    @update:open="(open) => open || (filtering = undefined)"
+  >
     <template #content>
       <UInput
         v-if="filtering"
@@ -355,7 +383,7 @@ function renderCell(value: CellValue) {
         icon="i-lucide-filter"
         size="xs"
         class="m-2 w-56"
-        @update:model-value="value => filtering?.column.setFilterValue(value)"
+        @update:model-value="(value) => filtering?.column.setFilterValue(value)"
         @keydown.enter="filtering = undefined"
       />
     </template>

@@ -68,7 +68,10 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsDatabases: false,
       locksDatabase: true,
     },
-    load: () => prepareDuckdb().then(() => import('./drivers/duckdb.ts')).then((m) => m.duckdbDriver),
+    load: () =>
+      prepareDuckdb()
+        .then(() => import('./drivers/duckdb.ts'))
+        .then((m) => m.duckdbDriver),
   },
   sqlite: {
     dialect: 'sqlite',
@@ -99,7 +102,7 @@ const duckdbHook = () => (globalThis as { colwerkDuckdb?: DuckdbHook }).colwerkD
 
 /** Fails unless DuckDB's native library is in place. Call before importing the driver. */
 async function prepareDuckdb(): Promise<void> {
-  if (await duckdbHook()?.installed() === false) {
+  if ((await duckdbHook()?.installed()) === false) {
     throw new AppError(
       'driverMissing',
       'The DuckDB driver is not installed. Open the connection in Colwerk and choose "Load database driver".',
@@ -127,11 +130,11 @@ export function loadDriver(dialect: Dialect): Promise<Driver> {
 let installing: { progress?: number; done: Promise<void> } | undefined
 
 export async function driverStatus(): Promise<DriverStatus[]> {
-  const duckdb = await duckdbHook()?.installed() ?? true
+  const duckdb = (await duckdbHook()?.installed()) ?? true
   return drivers.map((d) =>
     d.dialect === 'duckdb'
       ? { ...d, installed: duckdb, installProgress: installing?.progress }
-      : { ...d, installed: true }
+      : { ...d, installed: true },
   )
 }
 
@@ -141,7 +144,8 @@ export function installDriver(dialect: Dialect): Promise<void> {
   if (dialect !== 'duckdb' || !hook) return Promise.resolve()
   if (!installing) {
     const state: { progress?: number } = {}
-    const done = hook.install((fraction) => (state.progress = fraction))
+    const done = hook
+      .install((fraction) => (state.progress = fraction))
       .catch((e) => {
         throw new AppError('driverDownloadFailed', `Download of the DuckDB driver failed: ${(e as Error).message}`, {
           params: { detail: (e as Error).message },

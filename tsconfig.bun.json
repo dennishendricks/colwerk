@@ -1,0 +1,15 @@
+{
+  // The sources outside Nuxt: shared core, launcher, build scripts and tests, all run by Bun.
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["bun"]
+  },
+  "include": ["core", "launcher", "scripts", "tests"]
+}

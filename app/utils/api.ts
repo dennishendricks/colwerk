@@ -54,7 +54,10 @@ export async function subscribe(url: string, onEvent: (event: string, data: stri
         buffer = blocks.pop()!
         for (const block of blocks) {
           const field = (name: string) =>
-            block.split('\n').filter((l) => l.startsWith(`${name}:`)).map((l) => l.slice(name.length + 1).trimStart())
+            block
+              .split('\n')
+              .filter((l) => l.startsWith(`${name}:`))
+              .map((l) => l.slice(name.length + 1).trimStart())
               .join('\n')
           onEvent(field('event'), field('data'))
         }

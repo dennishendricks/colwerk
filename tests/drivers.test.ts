@@ -1,10 +1,12 @@
 // Contract tests every driver must pass. Network databases come from docker-compose.yml and are
 // skipped when not reachable; DuckDB and SQLite run in memory.
-import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
+import { test } from 'bun:test'
+import { rm } from 'node:fs/promises'
+import { assert, assertEquals, assertMatch, assertRejects } from './assert.ts'
 import { join } from 'node:path'
 import { loadDriver } from '../core/registry.ts'
 import { type ConnectionConfig, DbError, type QueryResult, type Session } from '../core/types.ts'
-import { reachable, testConnections } from './helpers.ts'
+import { reachable, tempDir, testConnections } from './helpers.ts'
 
 /** Rows of the only result set. */
 function rows(r: QueryResult) {
@@ -141,8 +143,7 @@ const cases: Case[] = [
       'insert into orders with recursive s(i) as (select 1 union all select i + 1 from s where i < 50000) select i, 1 + i % 200, i * 1.37 from s',
     ],
     // No decimal or timestamp types: such values are stored as text (or as a lossy REAL).
-    values:
-      `select 9007199254740993 as big, '12345678901234567890.123' as dec, '2024-01-02T03:04:05.123456' as ts, x'deadbeef' as bin, null as n`,
+    values: `select 9007199254740993 as big, '12345678901234567890.123' as dec, '2024-01-02T03:04:05.123456' as ts, x'deadbeef' as bin, null as n`,
     ts: '2024-01-02T03:04:05.123456',
     schema: 'main',
     customersSchema: 'main',
@@ -161,7 +162,6 @@ const cases: Case[] = [
 for (const c of cases) {
   const name = c.config.dialect
   const ignore = c.config.host ? !(await reachable(c.config)) : false
-  const opts = { ignore, sanitizeResources: false, sanitizeOps: false }
   let shared: Session | undefined
 
   async function session(): Promise<Session> {
@@ -172,9 +172,12 @@ for (const c of cases) {
     return shared
   }
 
-  Deno.test({ name: `${name}: unified value model`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: unified value model`, async () => {
     const r = (await (await session()).execute(c.values, { rowLimit: 10 })).resultSets[0]!
-    assertEquals(r.columns.map((col) => col.name), ['big', 'dec', 'ts', 'bin', 'n'])
+    assertEquals(
+      r.columns.map((col) => col.name),
+      ['big', 'dec', 'ts', 'bin', 'n'],
+    )
     const [big, dec, ts, bin, n] = r.rows[0]!
     assertEquals(big, '9007199254740993')
     assertEquals(typeof dec, 'string')
@@ -184,7 +187,7 @@ for (const c of cases) {
     assertEquals(n, null)
   })
 
-  Deno.test({ name: `${name}: row limit`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: row limit`, async () => {
     const s = await session()
     const r = (await s.execute(`select * from ${c.schema}.orders`, { rowLimit: 100 })).resultSets[0]!
     assertEquals(r.rows.length, 100)
@@ -196,7 +199,7 @@ for (const c of cases) {
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
   })
 
-  Deno.test({ name: `${name}: session state, DML, multiple statements, errors`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: session state, DML, multiple statements, errors`, async () => {
     const s = await session()
     await s.execute(c.createTemp, { rowLimit: 1 })
     const ins = await s.execute(c.insertSeven, { rowLimit: 1 })
@@ -207,7 +210,10 @@ for (const c of cases) {
       '7',
     )
     const multi = await s.execute(c.multi, { rowLimit: 10 })
-    assertEquals(multi.resultSets.map((r) => r.columns.map((col) => col.name)), [['a'], ['b']])
+    assertEquals(
+      multi.resultSets.map((r) => r.columns.map((col) => col.name)),
+      [['a'], ['b']],
+    )
     // A truncated result set neither cuts off nor skips the statements after it.
     const script = await s.execute(
       `select * from ${c.schema}.orders; ${c.insertSeven}; select count(*) as n from ${tableName}`,
@@ -221,7 +227,7 @@ for (const c of cases) {
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
   })
 
-  Deno.test({ name: `${name}: error position`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: error position`, async () => {
     const s = await session()
     // [script, text from the reported position on]; MSSQL only reports the line (position: its first non-blank character).
     const errors: [string, string][] = [
@@ -235,7 +241,7 @@ for (const c of cases) {
     }
   })
 
-  Deno.test({ name: `${name}: transaction state`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: transaction state`, async () => {
     const s = await session()
     const begin = name === 'mysql' ? 'begin' : 'begin transaction'
     assertEquals(await s.transactionState(), 'idle')
@@ -247,7 +253,7 @@ for (const c of cases) {
     // MySQL, SQL Server and SQLite keep it usable after this error.
     await s.execute(begin, { rowLimit: 1 })
     await assertRejects(() =>
-      s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 })
+      s.execute(name === 'duckdb' ? `select 'x'::int` : 'select * from does_not_exist', { rowLimit: 1 }),
     )
     assertEquals(await s.transactionState(), name === 'postgres' || name === 'duckdb' ? 'failed' : 'open')
     await s.execute('rollback', { rowLimit: 1 })
@@ -255,42 +261,44 @@ for (const c of cases) {
   })
 
   if (name === 'duckdb') {
-    Deno.test(
-      { name: `${name}: v1Storage creates the file in the storage format of DuckDB 1.4`, ...opts },
-      async () => {
-        const dir = await Deno.makeTempDir()
-        try {
-          for (const v1Storage of [true, false]) {
-            const s = await (await loadDriver(name)).connect({
-              ...c.config,
-              id: `duck-v1-${v1Storage}`,
-              file: join(dir, `${v1Storage}.duckdb`),
-              v1Storage,
-            })
-            try {
-              const sql =
-                `select map_extract_value(tags, 'storage_version') from duckdb_databases() where database_name = current_database()`
-              assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), [[v1Storage ? 'v1.4.0+' : 'v2.0.0+']])
-            } finally {
-              await s.close()
-            }
+    test.skipIf(ignore)(`${name}: v1Storage creates the file in the storage format of DuckDB 1.4`, async () => {
+      const dir = await tempDir()
+      try {
+        for (const v1Storage of [true, false]) {
+          const s = await (
+            await loadDriver(name)
+          ).connect({
+            ...c.config,
+            id: `duck-v1-${v1Storage}`,
+            file: join(dir, `${v1Storage}.duckdb`),
+            v1Storage,
+          })
+          try {
+            const sql = `select map_extract_value(tags, 'storage_version') from duckdb_databases() where database_name = current_database()`
+            assertEquals(rows(await s.execute(sql, { rowLimit: 1 })), [[v1Storage ? 'v1.4.0+' : 'v2.0.0+']])
+          } finally {
+            await s.close()
           }
-        } finally {
-          await Deno.remove(dir, { recursive: true })
         }
-      },
-    )
+      } finally {
+        await rm(dir, { recursive: true })
+      }
+    })
 
-    Deno.test({ name: `${name}: GEOMETRY as WKT`, ...opts }, async () => {
-      const res = await (await session()).execute(
-        `select 'POLYGON((0 0, 1 0, 1 1, 0 0))'::GEOMETRY as g, 'POINT(1 2)'::GEOMETRY('OGC:CRS84') as crs`,
-        { rowLimit: 1 },
+    test.skipIf(ignore)(`${name}: GEOMETRY as WKT`, async () => {
+      const res = await (
+        await session()
+      ).execute(`select 'POLYGON((0 0, 1 0, 1 1, 0 0))'::GEOMETRY as g, 'POINT(1 2)'::GEOMETRY('OGC:CRS84') as crs`, {
+        rowLimit: 1,
+      })
+      assertEquals(
+        res.resultSets[0]!.columns.map((c) => c.type),
+        ['GEOMETRY', `GEOMETRY('OGC:CRS84')`],
       )
-      assertEquals(res.resultSets[0]!.columns.map((c) => c.type), ['GEOMETRY', `GEOMETRY('OGC:CRS84')`])
       assertEquals(rows(res), [['POLYGON ((0 0, 1 0, 1 1, 0 0))', 'POINT (1 2)']])
     })
 
-    Deno.test({ name: `${name}: a VARIANT value equals the value it was cast from`, ...opts }, async () => {
+    test.skipIf(ignore)(`${name}: a VARIANT value equals the value it was cast from`, async () => {
       const s = await session()
       const values = [
         'true',
@@ -345,21 +353,23 @@ for (const c of cases) {
   }
 
   if (name === 'mysql') {
-    Deno.test({ name: `${name}: geometry as WKT with SRID`, ...opts }, async () => {
-      const res = await (await session()).execute(
-        `select ST_GeomFromText('POINT(1 2)', 4326) as g, ST_GeomFromText('LINESTRING(0 0, 1 1)') as l`,
-        { rowLimit: 1 },
-      )
+    test.skipIf(ignore)(`${name}: geometry as WKT with SRID`, async () => {
+      const res = await (
+        await session()
+      ).execute(`select ST_GeomFromText('POINT(1 2)', 4326) as g, ST_GeomFromText('LINESTRING(0 0, 1 1)') as l`, {
+        rowLimit: 1,
+      })
       assertEquals(rows(res), [['SRID=4326;POINT (1 2)', 'LINESTRING (0 0, 1 1)']])
     })
   }
 
   if (name === 'postgres') {
     // Only when PostGIS is installed in the test database (the postgres image of docker-compose.yml has none).
-    const postgis = !ignore &&
+    const postgis =
+      !ignore &&
       rows(await (await session()).execute(`select 1 from pg_extension where extname = 'postgis'`, { rowLimit: 1 }))
-          .length > 0
-    Deno.test({ name: `${name}: PostGIS geometry and geography as EWKT`, ...opts, ignore: !postgis }, async () => {
+        .length > 0
+    test.skipIf(!postgis)(`${name}: PostGIS geometry and geography as EWKT`, async () => {
       const s = await session()
       const sql = `select 'SRID=4326;POINT(7.1 50.7)'::geometry as g, 'POINT Z (1 2 3)'::geometry as z,
         'LINESTRING(0 0, 1 1)'::geography as geo, null::geometry as n`
@@ -375,9 +385,11 @@ for (const c of cases) {
       assertEquals(streamed, expected)
     })
 
-    Deno.test({ name: `${name}: date and timestamp arrays keep the unified string form`, ...opts }, async () => {
+    test.skipIf(ignore)(`${name}: date and timestamp arrays keep the unified string form`, async () => {
       const [[ts, d, tz]] = rows(
-        await (await session()).execute(
+        await (
+          await session()
+        ).execute(
           `select array['2024-01-02 03:04:05.123456'::timestamp, null] as ts, array['2024-01-02'::date] as d,
            array['2024-01-02 03:04:05+00'::timestamptz] as tz`,
           { rowLimit: 1 },
@@ -388,7 +400,7 @@ for (const c of cases) {
       assertMatch(tz[0]!, /^2024-01-0[12]T\d{2}:\d{2}:05[+-]\d{2}:\d{2}$/)
     })
 
-    Deno.test({ name: `${name}: search path`, ...opts }, async () => {
+    test.skipIf(ignore)(`${name}: search path`, async () => {
       const s = await (await loadDriver(name)).connect({ ...c.config, searchPath: 'sales, public' })
       try {
         assertEquals(rows(await s.execute('show search_path', { rowLimit: 1 })), [['sales, public']])
@@ -399,20 +411,27 @@ for (const c of cases) {
   }
 
   if (name === 'mssql') {
-    Deno.test({ name: `${name}: GO separates batches`, ...opts }, async () => {
-      const r = await (await session()).execute(`declare @x int = 1\nselect @x as a\nGO\nselect 2 as b`, {
+    test.skipIf(ignore)(`${name}: GO separates batches`, async () => {
+      const r = await (
+        await session()
+      ).execute(`declare @x int = 1\nselect @x as a\nGO\nselect 2 as b`, {
         rowLimit: 10,
       })
-      assertEquals(r.resultSets.map((s) => s.rows), [[[1]], [[2]]])
+      assertEquals(
+        r.resultSets.map((s) => s.rows),
+        [[[1]], [[2]]],
+      )
       await assertRejects(
-        () => (session().then((s) => s.execute(`select 1\nGO\nselect * from does_not_exist`, { rowLimit: 1 }))),
+        () => session().then((s) => s.execute(`select 1\nGO\nselect * from does_not_exist`, { rowLimit: 1 })),
         Error,
         'Batch 2:',
       )
     })
 
-    Deno.test({ name: `${name}: session language and date format`, ...opts }, async () => {
-      const s = await (await loadDriver(name)).connect({
+    test.skipIf(ignore)(`${name}: session language and date format`, async () => {
+      const s = await (
+        await loadDriver(name)
+      ).connect({
         ...c.config,
         language: 'Deutsch',
         dateFormat: 'ymd',
@@ -435,7 +454,7 @@ for (const c of cases) {
     })
   }
 
-  Deno.test({ name: `${name}: stream`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: stream`, async () => {
     const s = await session()
     let columns: string[] = []
     let count = 0
@@ -471,7 +490,7 @@ for (const c of cases) {
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
   })
 
-  Deno.test({ name: `${name}: cancel`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: cancel`, async () => {
     const s = await session()
     const started = performance.now()
     const running = assertRejects(() => s.execute(c.sleep, { rowLimit: 1 }))
@@ -482,7 +501,7 @@ for (const c of cases) {
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
   })
 
-  Deno.test({ name: `${name}: introspection`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: introspection`, async () => {
     const s = await session()
     const schemas = (await s.introspect({ kind: 'schemas' })).map((x) => x.name)
     assert(schemas.includes(c.schema), `schemas: ${schemas}`)
@@ -513,22 +532,32 @@ for (const c of cases) {
     assertEquals(cols.id!.comment, null)
   })
 
-  Deno.test({ name: `${name}: indexes, routines, DDL`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: indexes, routines, DDL`, async () => {
     const s = await session()
     const indexes = await s.introspect({ kind: 'indexes', schema: c.schema, table: 'orders' })
-    assertEquals(indexes.filter((i) => i.primary).map((i) => [i.columns, i.unique]), [[['id'], true]])
-    assertEquals(indexes.find((i) => i.name === 'orders_customer_idx'), {
-      name: 'orders_customer_idx',
-      columns: ['customer_id'],
-      unique: false,
-      primary: false,
-    })
+    assertEquals(
+      indexes.filter((i) => i.primary).map((i) => [i.columns, i.unique]),
+      [[['id'], true]],
+    )
+    assertEquals(
+      indexes.find((i) => i.name === 'orders_customer_idx'),
+      {
+        name: 'orders_customer_idx',
+        columns: ['customer_id'],
+        unique: false,
+        primary: false,
+      },
+    )
 
     for (const stmt of c.routines) await s.execute(stmt, { rowLimit: 1 })
     if (name === 'sqlite') assertEquals(await s.introspect({ kind: 'routines', schema: c.schema }), [])
-    else {try {
+    else {
+      try {
         const routines = await s.introspect({ kind: 'routines', schema: c.schema })
-        assertEquals(routines.find((r) => r.name === 'colwerk_add_so'), { name: 'colwerk_add_so', kind: 'function' })
+        assertEquals(
+          routines.find((r) => r.name === 'colwerk_add_so'),
+          { name: 'colwerk_add_so', kind: 'function' },
+        )
         if (name !== 'duckdb') assertEquals(routines.find((r) => r.name === 'colwerk_touch_so')?.kind, 'procedure')
         assert(!routines.some((r) => ['sum', 'abs', 'now'].includes(r.name)), 'built-in functions listed')
         assertMatch(
@@ -537,7 +566,8 @@ for (const c of cases) {
         )
       } finally {
         for (const stmt of c.dropRoutines) await s.execute(stmt, { rowLimit: 1 })
-      }}
+      }
+    }
 
     const table = await s.introspect({ kind: 'ddl', schema: c.schema, name: 'orders', object: 'table' })
     assertMatch(table, /^create table/i)
@@ -547,11 +577,11 @@ for (const c of cases) {
       /^create\b[\s\S]*view[\s\S]*sum\(/i,
     )
     await assertRejects(() =>
-      s.introspect({ kind: 'ddl', schema: c.schema, name: 'does_not_exist_so', object: 'view' })
+      s.introspect({ kind: 'ddl', schema: c.schema, name: 'does_not_exist_so', object: 'view' }),
     )
   })
 
-  Deno.test({ name: `${name}: close`, ...opts }, async () => {
+  test.skipIf(ignore)(`${name}: close`, async () => {
     await shared?.close()
   })
 }

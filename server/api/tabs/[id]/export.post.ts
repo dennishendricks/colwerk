@@ -6,17 +6,15 @@ import { type CellValue, isReadOnlyStatement, type ResultColumn } from '#core'
 // Answers once the file at `path` is complete.
 export default defineEventHandler(async (event) => {
   const tabId = getRouterParam(event, 'id')!
-  const body = await readBody<
-    {
-      format: string
-      path?: string
-      connectionId?: string
-      database?: string
-      sql?: string
-      columns?: ResultColumn[]
-      rows?: CellValue[][]
-    }
-  >(event)
+  const body = await readBody<{
+    format: string
+    path?: string
+    connectionId?: string
+    database?: string
+    sql?: string
+    columns?: ResultColumn[]
+    rows?: CellValue[][]
+  }>(event)
   const format = parseFormat(body.format)
   const { path } = body
   if (typeof path !== 'string' || !isAbsolute(path)) {
@@ -28,7 +26,7 @@ export default defineEventHandler(async (event) => {
       writeExport(tabId, format, path, async (sink) => {
         sink.columns(columns)
         await sink.rows(rows)
-      })
+      }),
     )
     return { ok: true }
   }
@@ -45,7 +43,7 @@ export default defineEventHandler(async (event) => {
   }
   const database = parseDatabase(body.database)
   await dbCall(() =>
-    writeExport(tabId, format, path, (sink) => workbench.stream(tabId, connectionId, sql, sink, database))
+    writeExport(tabId, format, path, (sink) => workbench.stream(tabId, connectionId, sql, sink, database)),
   )
   return { ok: true }
 })

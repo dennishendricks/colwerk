@@ -16,24 +16,31 @@ const driver = computed(() => driverOf(props.tab.connectionId))
 const connectionItems = computed(() => connections.value.map((c) => ({ label: c.name, value: c.id })))
 const connection = computed(() => connections.value.find((c) => c.id === props.tab.connectionId))
 const schemaTarget = computed(() =>
-  props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined
+  props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined,
 )
 
 // Autocomplete needs at least the tables of the default schema.
-watch(schemaTarget, async (t) => {
-  if (!t) return
-  if (!state(t).schemas) await loadSchemas(t)
-  const schema = defaultSchema(t)
-  if (schema && !state(t).tables[schema]) await loadTables(t, schema)
-  preloadColumns()
-}, { immediate: true })
+watch(
+  schemaTarget,
+  async (t) => {
+    if (!t) return
+    if (!state(t).schemas) await loadSchemas(t)
+    const schema = defaultSchema(t)
+    if (schema && !state(t).tables[schema]) await loadTables(t, schema)
+    preloadColumns()
+  },
+  { immediate: true },
+)
 
 // Columns are only known once loaded: load them for the tables the editor content refers to.
 let preloadTimer: ReturnType<typeof setTimeout> | undefined
-watch(() => props.tab.sql, () => {
-  clearTimeout(preloadTimer)
-  preloadTimer = setTimeout(preloadColumns, 400)
-})
+watch(
+  () => props.tab.sql,
+  () => {
+    clearTimeout(preloadTimer)
+    preloadTimer = setTimeout(preloadColumns, 400)
+  },
+)
 onBeforeUnmount(() => clearTimeout(preloadTimer))
 
 async function preloadColumns() {
@@ -47,8 +54,8 @@ async function preloadColumns() {
     if (!s.tables[schema]) await loadTables(target, schema)
     // Unquoted names may differ in case from the catalog.
     const tables = s.tables[schema] ?? []
-    const table = tables.find((t) => t.name === ref.name) ??
-      tables.find((t) => t.name.toLowerCase() === ref.name.toLowerCase())
+    const table =
+      tables.find((t) => t.name === ref.name) ?? tables.find((t) => t.name.toLowerCase() === ref.name.toLowerCase())
     if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(target, schema, table.name)
   }
 }
@@ -80,9 +87,9 @@ function showPlan(analyze = false) {
 // SQL Server and SQLite have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
   { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-  ...driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite'
+  ...(driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite'
     ? []
-    : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }],
+    : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
 ])
 
 async function copyPlan() {
@@ -91,14 +98,17 @@ async function copyPlan() {
 }
 
 const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
-const resultItems = computed(() =>
-  props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? []
+const resultItems = computed(
+  () => props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? [],
 )
 
 const toast = useToast()
 const exportFormat = ref<'csv' | 'parquet'>('csv')
 const exportScope = ref<'shown' | 'full'>('shown')
-const formatItems = [{ label: 'CSV', value: 'csv' }, { label: 'Parquet', value: 'parquet' }]
+const formatItems = [
+  { label: 'CSV', value: 'csv' },
+  { label: 'Parquet', value: 'parquet' },
+]
 // The full result runs the statement again, which must not repeat side effects.
 const canExportFull = computed(() => {
   const source = props.tab.source
@@ -155,20 +165,20 @@ const busy = computed(() => props.tab.running || !!props.tab.exporting)
 
 // Every open tab keeps its panel mounted, so the shortcuts only apply to the visible one.
 const active = computed(() => props.tab.id === activeTabId.value)
-defineShortcuts(computed(() => active.value ? { meta_shift_f: { usingInput: true, handler: format } } : {}))
+defineShortcuts(computed(() => (active.value ? { meta_shift_f: { usingInput: true, handler: format } } : {})))
 // Application menu (desktop app); app.vue builds the menu and enables the items.
 defineMenuHandlers(() =>
   active.value
     ? {
-      run: execute,
-      explain: () => showPlan(),
-      cancel: () => cancel(props.tab),
-      format: format,
-      commit: () => run(props.tab, 'COMMIT'),
-      rollback: () => run(props.tab, 'ROLLBACK'),
-      export: download,
-    }
-    : {}
+        run: execute,
+        explain: () => showPlan(),
+        cancel: () => cancel(props.tab),
+        format: format,
+        commit: () => run(props.tab, 'COMMIT'),
+        rollback: () => run(props.tab, 'ROLLBACK'),
+        export: download,
+      }
+    : {},
 )
 
 // Ctrl+C cancels like in a terminal. On macOS the key has no other use; elsewhere it is copy, so it
@@ -199,9 +209,12 @@ function onResultKeydown(e: KeyboardEvent) {
   input.select()
 }
 // The grid resets it itself, but not when a new result mounts a fresh grid (other result index).
-watch(() => props.tab.result, () => (filter.value = ''))
+watch(
+  () => props.tab.result,
+  () => (filter.value = ''),
+)
 
-const formatTime = (ms: number) => ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`
+const formatTime = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`)
 
 // Another connection needs another session; closing the old one rolls back its open transaction, so confirm first.
 const pendingConnection = ref<string>()
@@ -224,15 +237,18 @@ const status = computed(() => {
   const time = formatTime(r.durationMs)
   const set = shown.value
   if (!set) {
-    return `${
-      t('common.rowsAffected', { n: (r.affectedRows ?? 0).toLocaleString(locale.value) }, r.affectedRows ?? 0)
-    } · ${time}`
+    return `${t(
+      'common.rowsAffected',
+      { n: (r.affectedRows ?? 0).toLocaleString(locale.value) },
+      r.affectedRows ?? 0,
+    )} · ${time}`
   }
   const filtered = grid.value?.filteredCount
   const n = (value: number) => value.toLocaleString(locale.value)
-  const rows = filtered === undefined
-    ? n(set.rows.length)
-    : t('query.filteredOf', { filtered: n(filtered), rows: n(set.rows.length) })
+  const rows =
+    filtered === undefined
+      ? n(set.rows.length)
+      : t('query.filteredOf', { filtered: n(filtered), rows: n(set.rows.length) })
   return `${t('common.rows', { n: rows }, set.rows.length)}${
     set.truncated ? ` – ${t('query.truncated', { limit: n(props.tab.rowLimit) })}` : ''
   } · ${time}`
@@ -267,8 +283,11 @@ const status = computed(() => {
           @click="execute"
         />
         <UDropdownMenu :items="planItems">
-          <UButton icon="i-lucide-chevron-down" :aria-label="t('query.moreOptions')"
-            :disabled="!tab.connectionId || busy" />
+          <UButton
+            icon="i-lucide-chevron-down"
+            :aria-label="t('query.moreOptions')"
+            :disabled="!tab.connectionId || busy"
+          />
         </UDropdownMenu>
       </UFieldGroup>
       <UButton
@@ -307,18 +326,47 @@ const status = computed(() => {
           :ui="{ label: '@max-4xl:hidden' }"
         />
         <!-- A failed transaction can only be rolled back (Postgres turns COMMIT into ROLLBACK). -->
-        <UButton v-if="tab.transaction === 'open'" size="sm" color="neutral" variant="soft" label="Commit"
-          class="shrink-0" :disabled="busy" @click="run(tab, 'COMMIT')" />
-        <UButton size="sm" color="neutral" variant="soft" label="Rollback" class="shrink-0" :disabled="busy"
-          @click="run(tab, 'ROLLBACK')" />
+        <UButton
+          v-if="tab.transaction === 'open'"
+          size="sm"
+          color="neutral"
+          variant="soft"
+          label="Commit"
+          class="shrink-0"
+          :disabled="busy"
+          @click="run(tab, 'COMMIT')"
+        />
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="soft"
+          label="Rollback"
+          class="shrink-0"
+          :disabled="busy"
+          @click="run(tab, 'ROLLBACK')"
+        />
       </template>
       <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted">
         <span>{{ t('query.limit') }}</span>
-        <UInputNumber v-model="tab.rowLimit" :min="1" :max="100000" :step="100" :step-snapping="false" size="sm"
-          class="w-32" />
+        <UInputNumber
+          v-model="tab.rowLimit"
+          :min="1"
+          :max="100000"
+          :step="100"
+          :step-snapping="false"
+          size="sm"
+          class="w-32"
+        />
         <span>{{ t('query.timeout') }}</span>
-        <UInputNumber v-model="tab.timeout" :min="1" :max="86400" :step="10" :step-snapping="false" size="sm"
-          class="w-28" />
+        <UInputNumber
+          v-model="tab.timeout"
+          :min="1"
+          :max="86400"
+          :step="10"
+          :step-snapping="false"
+          size="sm"
+          class="w-28"
+        />
       </div>
     </div>
 
@@ -367,8 +415,15 @@ const status = computed(() => {
             :class="!busy && resultItems.length > 1 ? '' : 'ml-auto'"
           >
             <template v-if="filter" #trailing>
-              <UButton icon="i-lucide-x" color="neutral" variant="link" size="xs" class="-me-1"
-                :title="t('query.clearFilter')" @click="filter = ''" />
+              <UButton
+                icon="i-lucide-x"
+                color="neutral"
+                variant="link"
+                size="xs"
+                class="-me-1"
+                :title="t('query.clearFilter')"
+                @click="filter = ''"
+              />
             </template>
           </UInput>
           <UButton
@@ -393,16 +448,30 @@ const status = computed(() => {
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
           <pre v-else-if="tab.plan" class="h-full overflow-auto p-3 font-mono text-xs">{{ tab.plan.text }}</pre>
-          <LazyResultGrid v-else-if="shown?.columns.length" ref="grid" :key="tab.resultIndex" v-model:filter="filter"
-            :result="shown" />
+          <LazyResultGrid
+            v-else-if="shown?.columns.length"
+            ref="grid"
+            :key="tab.resultIndex"
+            v-model:filter="filter"
+            :result="shown"
+          />
         </div>
-        <div v-if="!tab.error && shown?.columns.length"
-          class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
+        <div
+          v-if="!tab.error && shown?.columns.length"
+          class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted"
+        >
           <span>{{ t('query.export') }}</span>
           <USelect v-model="exportFormat" :items="formatItems" size="xs" class="w-28" />
           <USelect v-if="shown.truncated" v-model="exportScope" :items="scopeItems" size="xs" class="w-72" />
-          <UButton icon="i-lucide-download" size="xs" variant="soft" :label="t('query.saveAs')"
-            :loading="!!tab.exporting" :disabled="tab.running" @click="download" />
+          <UButton
+            icon="i-lucide-download"
+            size="xs"
+            variant="soft"
+            :label="t('query.saveAs')"
+            :loading="!!tab.exporting"
+            :disabled="tab.running"
+            @click="download"
+          />
         </div>
       </SplitterPanel>
     </SplitterGroup>
@@ -412,7 +481,7 @@ const status = computed(() => {
       :title="t('query.confirmWriteTitle')"
       :description="t('query.confirmWriteDescription', { connection: connection?.name })"
       :close="false"
-      @update:open="v => !v && (pending = undefined)"
+      @update:open="(v) => !v && (pending = undefined)"
     >
       <template #body>
         <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending?.sql }}</pre>
@@ -430,7 +499,7 @@ const status = computed(() => {
       :title="t('query.switchConnectionTitle')"
       :description="t('query.switchConnectionDescription')"
       :close="false"
-      @update:open="v => !v && (pendingConnection = undefined)"
+      @update:open="(v) => !v && (pendingConnection = undefined)"
     >
       <template #footer>
         <div class="flex w-full justify-end gap-2">
