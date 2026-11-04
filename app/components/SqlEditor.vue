@@ -215,9 +215,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => view?.destroy())
 
-watch(() => [props.dialect, props.schema, props.defaultSchema], () => {
-  view?.dispatch({ effects: language.reconfigure(languageExtension()) })
-}, { deep: true })
+watch(
+  () => [props.dialect, props.schema, props.defaultSchema],
+  () => {
+    view?.dispatch({ effects: language.reconfigure(languageExtension()) })
+  },
+  { deep: true },
+)
 
 watch(locale, () => {
   view?.dispatch({ effects: localization.reconfigure(localizationExtension()) })
@@ -240,13 +244,16 @@ watch(model, (value) => {
   }
 })
 
-watch(() => props.errorAt, (pos) => {
-  if (!view) return
-  if (pos === undefined) return view.dispatch({ effects: setError.of(undefined) })
-  const at = Math.min(pos, view.state.doc.length)
-  view.dispatch({ effects: setError.of(at), selection: { anchor: at }, scrollIntoView: true })
-  view.focus()
-})
+watch(
+  () => props.errorAt,
+  (pos) => {
+    if (!view) return
+    if (pos === undefined) return view.dispatch({ effects: setError.of(undefined) })
+    const at = Math.min(pos, view.state.doc.length)
+    view.dispatch({ effects: setError.of(at), selection: { anchor: at }, scrollIntoView: true })
+    view.focus()
+  },
+)
 
 /** The selection if there is one, otherwise the statement under the cursor; `from`: its document offset. */
 function runnableSql(): { sql: string; from: number } {

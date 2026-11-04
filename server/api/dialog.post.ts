@@ -6,8 +6,9 @@ export default defineEventHandler(async (event) => {
   const { kind, defaultName, title } = await readBody<{ kind?: string; defaultName?: string; title?: string }>(event)
   if (kind !== 'open' && kind !== 'save') throw createError({ statusCode: 400, message: 'kind must be open or save' })
   return {
-    path: (await dbCall(() =>
-      fileDialog(kind, typeof defaultName === 'string' ? defaultName : '', typeof title === 'string' ? title : '')
-    )) ?? null,
+    path:
+      (await dbCall(() =>
+        fileDialog(kind, typeof defaultName === 'string' ? defaultName : '', typeof title === 'string' ? title : ''),
+      )) ?? null,
   }
 })

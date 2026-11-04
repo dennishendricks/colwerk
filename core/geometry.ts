@@ -24,13 +24,13 @@ export function wkbToText(bytes: Uint8Array, srid = 0): string {
 
   function geometry(keyword: boolean): string {
     const le = view.getUint8(o++) === 1
-    const u32 = () => (o += 4, view.getUint32(o - 4, le))
-    const f64 = () => (o += 8, view.getFloat64(o - 8, le))
+    const u32 = () => ((o += 4), view.getUint32(o - 4, le))
+    const f64 = () => ((o += 8), view.getFloat64(o - 8, le))
     const raw = u32()
     if (raw & EWKB_SRID) srid = u32() || srid
     // ISO: type + 1000 (Z), 2000 (M), 3000 (ZM); EWKB: flag bits.
-    const iso = Math.floor((raw & 0xFFFF) / 1000)
-    const type = (raw & 0xFFFF) % 1000
+    const iso = Math.floor((raw & 0xffff) / 1000)
+    const type = (raw & 0xffff) % 1000
     const z = !!(raw & EWKB_Z) || iso === 1 || iso === 3
     const m = !!(raw & EWKB_M) || iso === 2 || iso === 3
     if (!TYPES[type]) throw new RangeError(`WKB type ${raw}`)

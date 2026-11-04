@@ -73,7 +73,7 @@ export class Workbench {
       const transaction = () => s.transactionState().catch(() => undefined)
       try {
         return {
-          ...await withTimeout(s, timeoutSeconds, () => s.execute(sql, { rowLimit })),
+          ...(await withTimeout(s, timeoutSeconds, () => s.execute(sql, { rowLimit }))),
           transaction: await transaction(),
         }
       } catch (err) {
@@ -186,7 +186,10 @@ export class Workbench {
     const tab = this.tabs.get(tabId)
     if (!tab) return
     this.tabs.delete(tabId)
-    await tab.session.then((s) => s.close(), () => {})
+    await tab.session.then(
+      (s) => s.close(),
+      () => {},
+    )
   }
 
   introspect<R extends IntrospectRequest>(
@@ -221,7 +224,12 @@ export class Workbench {
     for (const [key, meta] of this.meta) {
       if (meta.connectionId !== connectionId) continue
       this.meta.delete(key)
-      closing.push(meta.session.then((s) => s.close(), () => {}))
+      closing.push(
+        meta.session.then(
+          (s) => s.close(),
+          () => {},
+        ),
+      )
     }
     for (const [tabId, tab] of this.tabs) {
       if (tab.connectionId === connectionId) closing.push(this.closeTab(tabId))
@@ -246,7 +254,7 @@ export class Workbench {
   async closeAll(): Promise<void> {
     await Promise.all(
       [...new Set([...this.meta.values(), ...this.tabs.values()].map((s) => s.connectionId))].map((id) =>
-        this.closeConnection(id)
+        this.closeConnection(id),
       ),
     )
   }
@@ -258,12 +266,15 @@ export class Workbench {
       if (!key.startsWith(prefix)) continue
       const [, db, kind, schema, table] = JSON.parse(key) as [string, string | null, string, string, string]
       if (request && db !== (database ?? null)) continue
-      const below = !request ||
+      const below =
+        !request ||
         request.kind === 'schemas' ||
         (request.kind === 'databases' && kind === 'databases') ||
         (request.kind === 'tables' && schema === request.schema) ||
         // Refreshing a table (its columns) also drops its indexes.
-        (request.kind === 'columns' && (kind === 'columns' || kind === 'indexes') && schema === request.schema &&
+        (request.kind === 'columns' &&
+          (kind === 'columns' || kind === 'indexes') &&
+          schema === request.schema &&
           table === request.table) ||
         (request.kind === 'indexes' && kind === 'indexes' && schema === request.schema && table === request.table) ||
         (request.kind === 'routines' && kind === 'routines' && schema === request.schema)
@@ -295,7 +306,10 @@ export class Workbench {
       } catch (e) {
         if (CONNECTION_LOST.has((e as DbError).code ?? '') && this.meta.get(key)?.session === session) {
           this.meta.delete(key)
-          session.then((s) => s.close(), () => {})
+          session.then(
+            (s) => s.close(),
+            () => {},
+          )
         }
         throw e
       }

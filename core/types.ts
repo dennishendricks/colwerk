@@ -4,7 +4,7 @@ export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite'
 
 /** Marking colors for connections, e.g. red for production. */
 export const connectionColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const
-export type ConnectionColor = typeof connectionColors[number]
+export type ConnectionColor = (typeof connectionColors)[number]
 
 /**
  * Login of a network connection (default `password`):
@@ -20,11 +20,11 @@ export const connectionAuths = [
   'entra-interactive',
   'entra-service-principal',
 ] as const
-export type ConnectionAuth = typeof connectionAuths[number]
+export type ConnectionAuth = (typeof connectionAuths)[number]
 
 /** SQL Server: order of day, month and year when strings are converted to dates. */
 export const dateFormats = ['mdy', 'dmy', 'ymd', 'ydm', 'myd', 'dym'] as const
-export type DateFormat = typeof dateFormats[number]
+export type DateFormat = (typeof dateFormats)[number]
 
 export interface ConnectionConfig {
   id: string
@@ -208,13 +208,19 @@ export type IntrospectRequest =
   /** Source of a table, view or routine (all overloads of the name); never cached. */
   | { kind: 'ddl'; schema: string; name: string; object: 'table' | 'view' | 'routine' }
 
-export type IntrospectResult<R extends IntrospectRequest> = R extends { kind: 'databases' } ? DatabaseInfo[]
-  : R extends { kind: 'schemas' } ? SchemaInfo[]
-  : R extends { kind: 'tables' } ? TableInfo[]
-  : R extends { kind: 'columns' } ? ColumnInfo[]
-  : R extends { kind: 'indexes' } ? IndexInfo[]
-  : R extends { kind: 'routines' } ? RoutineInfo[]
-  : string
+export type IntrospectResult<R extends IntrospectRequest> = R extends { kind: 'databases' }
+  ? DatabaseInfo[]
+  : R extends { kind: 'schemas' }
+    ? SchemaInfo[]
+    : R extends { kind: 'tables' }
+      ? TableInfo[]
+      : R extends { kind: 'columns' }
+        ? ColumnInfo[]
+        : R extends { kind: 'indexes' }
+          ? IndexInfo[]
+          : R extends { kind: 'routines' }
+            ? RoutineInfo[]
+            : string
 
 /** Receives a streamed result. `rows` is awaited (backpressure); if it rejects, the statement is aborted. */
 export interface RowSink {
@@ -244,7 +250,11 @@ export class DbError extends Error {
   transaction?: TransactionState
 
   /** `position`: 0-based character offset of the error in the SQL passed to `Session.execute`, if the database reports it. */
-  constructor(message: string, readonly code?: string, public position?: number) {
+  constructor(
+    message: string,
+    readonly code?: string,
+    public position?: number,
+  ) {
     super(message)
     this.name = 'DbError'
   }

@@ -79,7 +79,7 @@ fn main() {
         });
 }
 
-/// Starts the sidecar; resolves with its stdout, or `None` in development (`deno task dev --desktop`), where the
+/// Starts the sidecar; resolves with its stdout, or `None` in development (`bun run dev --desktop`), where the
 /// Nuxt dev server at COLWERK_URL takes its place.
 fn start_server(app: &AppHandle) -> Result<Option<ChildStdout>, String> {
     #[cfg(debug_assertions)]

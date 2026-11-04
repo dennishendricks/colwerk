@@ -12,10 +12,12 @@ export function createToken(): string {
 /** Reserves a random free port on 127.0.0.1 (for the Nuxt dev server, which takes a port number). */
 export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
-    const server = createServer().once('error', reject).listen(0, '127.0.0.1', () => {
-      const { port } = server.address() as { port: number }
-      server.close(() => resolve(port))
-    })
+    const server = createServer()
+      .once('error', reject)
+      .listen(0, '127.0.0.1', () => {
+        const { port } = server.address() as { port: number }
+        server.close(() => resolve(port))
+      })
   })
 }
 
@@ -26,13 +28,16 @@ export function appUrl(port: number, token: string): string {
 
 /** Opens `url` in the default browser; on Windows it passes through `cmd`, so it must not contain `&`, `^` etc. */
 export function openInBrowser(url: string): void {
-  const [cmd, ...args] = process.platform === 'darwin'
-    ? ['open', url]
-    : process.platform === 'win32'
-    ? ['cmd', '/c', 'start', '', url]
-    : ['xdg-open', url]
+  const [cmd, ...args] =
+    process.platform === 'darwin'
+      ? ['open', url]
+      : process.platform === 'win32'
+        ? ['cmd', '/c', 'start', '', url]
+        : ['xdg-open', url]
   // No browser opener available (e.g. headless server): the printed URL is enough.
-  spawn(cmd!, args, { stdio: 'ignore', detached: true, windowsHide: true }).on('error', () => {}).unref()
+  spawn(cmd!, args, { stdio: 'ignore', detached: true, windowsHide: true })
+    .on('error', () => {})
+    .unref()
 }
 
 // `instance.json` in the data directory tells the MCP bridge (`colwerk-server mcp`) the port of the running

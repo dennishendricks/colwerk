@@ -18,7 +18,7 @@ function run(
     child.stdout.on('data', (d) => (stdout += d))
     child.stderr.on('data', (d) => (stderr += d))
     // undefined: the tool is not installed.
-    child.on('error', (e) => (e as { code?: string }).code === 'ENOENT' ? resolve(undefined) : reject(e))
+    child.on('error', (e) => ((e as { code?: string }).code === 'ENOENT' ? resolve(undefined) : reject(e)))
     child.on('close', (code) => resolve({ code: code ?? -1, stdout, stderr }))
   })
 }
@@ -28,11 +28,12 @@ function run(
  * from the UI in its language; like the name, it never goes into script text.
  */
 export async function fileDialog(kind: 'open' | 'save', defaultName = '', title = ''): Promise<string | undefined> {
-  const r = process.platform === 'darwin'
-    ? await macos(kind, defaultName, title)
-    : process.platform === 'win32'
-    ? await windows(kind, defaultName, title)
-    : await linux(kind, defaultName, title)
+  const r =
+    process.platform === 'darwin'
+      ? await macos(kind, defaultName, title)
+      : process.platform === 'win32'
+        ? await windows(kind, defaultName, title)
+        : await linux(kind, defaultName, title)
   if (!r) throw new AppError('noFileDialog', 'No file dialog available: install zenity or kdialog')
   if (r.cancelled) return undefined
   if (r.code !== 0) {
@@ -44,9 +45,10 @@ export async function fileDialog(kind: 'open' | 'save', defaultName = '', title 
 
 async function macos(kind: 'open' | 'save', name: string, title: string) {
   // Name and title go in as arguments, not into the script text. `activate` brings the dialog to the front.
-  const choose = kind === 'save'
-    ? 'choose file name with prompt (item 2 of argv) default name (item 1 of argv)'
-    : 'choose file with prompt (item 2 of argv)'
+  const choose =
+    kind === 'save'
+      ? 'choose file name with prompt (item 2 of argv) default name (item 1 of argv)'
+      : 'choose file with prompt (item 2 of argv)'
   const r = await run('osascript', [
     '-e',
     'on run argv',
@@ -89,6 +91,6 @@ async function linux(kind: 'open' | 'save', name: string, title: string) {
     `--title=${title}`,
     ...(kind === 'save' ? ['--save', `--filename=${name}`] : []),
   ])
-  const r = zenity ?? await run('kdialog', kind === 'save' ? ['--getsavefilename', name] : ['--getopenfilename'])
+  const r = zenity ?? (await run('kdialog', kind === 'save' ? ['--getsavefilename', name] : ['--getopenfilename']))
   return r && { ...r, cancelled: r.code === 1 }
 }

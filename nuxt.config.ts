@@ -64,7 +64,7 @@ export default defineNuxtConfig({
     // Exports the request listener without starting a server: launcher/main.ts starts it on a port of its own.
     preset: 'node-listener',
     rollupConfig: { plugins: [recordBundledPackages] },
-    // Runs on Node 26: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
+    // Runs on Bun: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
     esbuild: { options: { target: 'esnext' } },
   },
   vite: {
@@ -85,7 +85,7 @@ export default defineNuxtConfig({
   },
   typescript: { strict: true },
   telemetry: false,
-  // Formatting is done by `deno fmt`.
+  // Formatting is done by `bun fmt`.
   eslint: { config: { stylistic: false } },
   // No routes per language. The system language applies on every start, unless one was chosen in the
   // application menu (app/plugins/locale.ts); the module's cookie would pin the first detected language.
@@ -106,8 +106,7 @@ export default defineNuxtConfig({
   mcp: {
     name: 'colwerk',
     description: 'Database structures and read-only SQL queries for the connections configured in Colwerk.',
-    instructions:
-      `Call list-connections first; every other tool needs a connectionId from it, and its "dialect" decides the SQL dialect.
+    instructions: `Call list-connections first; every other tool needs a connectionId from it, and its "dialect" decides the SQL dialect.
 Explore with list-schemas, list-tables and describe-table before writing queries.
 run-query and sample-rows only read. Use open-query to hand a query to the user in the editor instead of running it.`,
   },

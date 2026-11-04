@@ -1,4 +1,7 @@
-import { assertEquals, assertRejects } from 'jsr:@std/assert@1'
+import { test } from 'bun:test'
+import { rm, stat } from 'node:fs/promises'
+import { tempDir } from './helpers.ts'
+import { assertEquals, assertRejects } from './assert.ts'
 import { type Keychain, KeychainUnavailable } from '../core/keychain.ts'
 import { ConnectionStore } from '../core/store.ts'
 import type { ConnectionConfig } from '../core/types.ts'
@@ -17,18 +20,22 @@ class FakeKeychain implements Keychain {
 }
 
 const conn: ConnectionConfig = { id: 'c1', name: 'c', dialect: 'postgres', password: 'geheim' }
-const exists = (path: string) => Deno.stat(path).then(() => true, () => false)
+const exists = (path: string) =>
+  stat(path).then(
+    () => true,
+    () => false,
+  )
 
 async function withDir(fn: (dir: string) => Promise<void>) {
-  const dir = await Deno.makeTempDir()
+  const dir = await tempDir()
   try {
     await fn(dir)
   } finally {
-    await Deno.remove(dir, { recursive: true })
+    await rm(dir, { recursive: true })
   }
 }
 
-Deno.test('store: a new key goes into the keychain, no key file', () =>
+test('store: a new key goes into the keychain, no key file', () =>
   withDir(async (dir) => {
     const chain = new FakeKeychain()
     await new ConnectionStore(dir, chain).save(conn)
@@ -37,7 +44,7 @@ Deno.test('store: a new key goes into the keychain, no key file', () =>
     assertEquals((await new ConnectionStore(dir, chain).get('c1')).password, 'geheim')
   }))
 
-Deno.test('store: an existing key file moves into the keychain', () =>
+test('store: an existing key file moves into the keychain', () =>
   withDir(async (dir) => {
     await new ConnectionStore(dir, null).save(conn)
     assertEquals(await exists(`${dir}/secret.key`), true)
@@ -47,7 +54,7 @@ Deno.test('store: an existing key file moves into the keychain', () =>
     assertEquals((await new ConnectionStore(dir, chain).get('c1')).password, 'geheim')
   }))
 
-Deno.test('store: without keychain the key file is used; other keychain errors surface', () =>
+test('store: without keychain the key file is used; other keychain errors surface', () =>
   withDir(async (dir) => {
     await new ConnectionStore(dir, new FakeKeychain(new KeychainUnavailable('no secret service'))).save(conn)
     assertEquals(await exists(`${dir}/secret.key`), true)
@@ -59,7 +66,7 @@ Deno.test('store: without keychain the key file is used; other keychain errors s
     )
   }))
 
-Deno.test('store: an empty password removes the stored one, undefined keeps it', () =>
+test('store: an empty password removes the stored one, undefined keeps it', () =>
   withDir(async (dir) => {
     const store = new ConnectionStore(dir, new FakeKeychain())
     await store.save(conn)
@@ -69,7 +76,7 @@ Deno.test('store: an empty password removes the stored one, undefined keeps it',
     assertEquals((await store.list())[0]!.hasPassword, false)
   }))
 
-Deno.test('store: color and write confirmation reach the summary', () =>
+test('store: color and write confirmation reach the summary', () =>
   withDir(async (dir) => {
     const store = new ConnectionStore(dir, new FakeKeychain())
     await store.save({ ...conn, color: 'red', confirmWrites: true })

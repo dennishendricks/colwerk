@@ -39,7 +39,11 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
   const root = join(defaultDataDir(), 'drivers')
   const dir = join(root, `duckdb-${manifest.version}-${manifest.platform}`)
   const library = join(dir, 'duckdb.node')
-  const installed = () => stat(library).then(() => true, () => false)
+  const installed = () =>
+    stat(library).then(
+      () => true,
+      () => false,
+    )
 
   async function install(onProgress: (fraction: number) => void) {
     const res = await fetch(manifest.tarball)

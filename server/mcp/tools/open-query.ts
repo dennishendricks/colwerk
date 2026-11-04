@@ -17,7 +17,11 @@ WHEN TO USE: When the user wants to see or keep working on a query, or when the 
   async handler({ connectionId, sql, title, description }) {
     const connection = await connectionOf(connectionId)
     const comment = description
-      ? `${description.trim().split('\n').map((line) => `-- ${line}`.trimEnd()).join('\n')}\n`
+      ? `${description
+          .trim()
+          .split('\n')
+          .map((line) => `-- ${line}`.trimEnd())
+          .join('\n')}\n`
       : ''
     if (!openQuery({ connectionId, sql: comment + sql, title })) {
       throw createError({ statusCode: 409, message: 'No Colwerk editor window is open.' })

@@ -9,6 +9,10 @@ dist
 # Node dependencies
 node_modules
 
+# Leftovers of `bun build --compile` and of `vue-tsc -b` (tsconfig.bun.json)
+*.bun-build
+*.tsbuildinfo
+
 # Logs
 *.log
 

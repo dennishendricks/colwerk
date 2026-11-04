@@ -90,7 +90,7 @@ const SQL = {
     where database_name = current_database() and schema_name = $1 and function_name = $2 and not internal`,
 }
 
-const ident = (name: string) => /^[a-z_][a-z0-9_]*$/.test(name) ? name : `"${name.replaceAll('"', '""')}"`
+const ident = (name: string) => (/^[a-z_][a-z0-9_]*$/.test(name) ? name : `"${name.replaceAll('"', '""')}"`)
 
 class DuckDBSession implements Session {
   // Statements run one after another: a new statement on the connection invalidates a streaming result,
@@ -171,7 +171,7 @@ class DuckDBSession implements Session {
   async transactionState(): Promise<TransactionState | undefined> {
     const id = async () => (await this.rows<{ id: string }>('select txid_current() as id'))[0]!.id
     try {
-      return await id() === await id() ? 'open' : 'idle'
+      return (await id()) === (await id()) ? 'open' : 'idle'
     } catch (e) {
       if (wrap(e).message.includes('Current transaction is aborted')) return 'failed'
       throw e
@@ -182,13 +182,16 @@ class DuckDBSession implements Session {
     try {
       // No switching between databases (supportsDatabases is false): only the opened one.
       if (req.kind === 'databases') {
-        return await this.rows<DatabaseInfo>('select current_database() as name') as IntrospectResult<R>
+        return (await this.rows<DatabaseInfo>('select current_database() as name')) as IntrospectResult<R>
       }
-      if (req.kind === 'schemas') return await this.rows<SchemaInfo>(SQL.schemas) as IntrospectResult<R>
+      if (req.kind === 'schemas') return (await this.rows<SchemaInfo>(SQL.schemas)) as IntrospectResult<R>
       if (req.kind === 'tables') {
-        const tables = await this.rows<
-          { name: string; kind: TableInfo['kind']; row_estimate: string | null; comment: string | null }
-        >(SQL.tables, [req.schema])
+        const tables = await this.rows<{
+          name: string
+          kind: TableInfo['kind']
+          row_estimate: string | null
+          comment: string | null
+        }>(SQL.tables, [req.schema])
         return tables.map(({ row_estimate, ...t }): TableInfo => ({
           schema: req.schema,
           ...t,
@@ -198,9 +201,9 @@ class DuckDBSession implements Session {
         })) as IntrospectResult<R>
       }
       if (req.kind === 'routines') {
-        return await this.rows<RoutineInfo>(SQL.routines, [req.schema]) as IntrospectResult<R>
+        return (await this.rows<RoutineInfo>(SQL.routines, [req.schema])) as IntrospectResult<R>
       }
-      if (req.kind === 'ddl') return await this.ddl(req) as IntrospectResult<R>
+      if (req.kind === 'ddl') return (await this.ddl(req)) as IntrospectResult<R>
       const params = [req.schema, req.table]
       if (req.kind === 'indexes') {
         const [constraints, indexes] = await Promise.all([
@@ -209,9 +212,9 @@ class DuckDBSession implements Session {
         ])
         // Primary keys and unique constraints are not listed in duckdb_indexes().
         return [
-          ...constraints.filter((k) => k.type !== 'FOREIGN KEY').sort((a, b) =>
-            Number(b.type === 'PRIMARY KEY') - Number(a.type === 'PRIMARY KEY')
-          )
+          ...constraints
+            .filter((k) => k.type !== 'FOREIGN KEY')
+            .sort((a, b) => Number(b.type === 'PRIMARY KEY') - Number(a.type === 'PRIMARY KEY'))
             .map((k): IndexInfo => ({
               name: k.name,
               columns: k.cols,
@@ -241,9 +244,8 @@ class DuckDBSession implements Session {
           ...c,
           primaryKey: constraints.some((k) => k.type === 'PRIMARY KEY' && k.cols.includes(c.name)),
           // duckdb_constraints() has no referenced schema; DuckDB only allows FKs within one schema.
-          references: fk?.ref_table && refColumn
-            ? { schema: req.schema, table: fk.ref_table, column: refColumn }
-            : undefined,
+          references:
+            fk?.ref_table && refColumn ? { schema: req.schema, table: fk.ref_table, column: refColumn } : undefined,
           indexes: [
             ...constraints.filter((k) => k.type === 'UNIQUE' && k.cols.includes(c.name)).map((k) => k.name),
             // `expressions` looks like "[col_a, col_b]"; expression indexes simply don't match a column.
@@ -262,14 +264,15 @@ class DuckDBSession implements Session {
     if (req.object === 'routine') {
       // Macros are stored as their body only; overloads appear as separate rows.
       const macros = await this.rows<{ type: string; parameters: string[]; definition: string }>(SQL.routineDdl, params)
-      ddl = macros.map((m) =>
-        `create macro ${ident(req.schema)}.${ident(req.name)}(${m.parameters.join(', ')}) as ${
-          m.type === 'table_macro' ? 'table ' : ''
-        }${m.definition};`
+      ddl = macros.map(
+        (m) =>
+          `create macro ${ident(req.schema)}.${ident(req.name)}(${m.parameters.join(', ')}) as ${
+            m.type === 'table_macro' ? 'table ' : ''
+          }${m.definition};`,
       )
     } else {
-      ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map((r) =>
-        r.sql
+      ddl = (await this.rows<{ sql: string }>(req.object === 'table' ? SQL.tableDdl : SQL.viewDdl, params)).map(
+        (r) => r.sql,
       )
     }
     if (!ddl.length) {

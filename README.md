@@ -3,32 +3,31 @@
 A lightweight SQL editor and database client for the desktop. Supports PostgreSQL, MySQL/MariaDB, Microsoft SQL Server,
 DuckDB and SQLite.
 
-Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro. The server runs on Node as a single executable; the desktop
-app is a Tauri 2 shell around it. Deno is the development toolchain (tasks, tests, formatting).
+Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro. The server runs on Bun as a single-file executable; the
+desktop app is a Tauri 2 shell around it. Bun is also the development toolchain (scripts, tests, formatting).
 
 ## Getting started
 
-Requirements: Deno 2.9+, Docker (optional, for the test databases). For the desktop app also Rust (stable) and, on
-Linux, Tauri's system packages (`libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev`). The Node runtime of the
-builds is downloaded by the packaging script (official build, pinned version, checked against its checksums).
+Requirements: Bun 1.4+, Docker (optional, for the test databases). For the desktop app also Rust (stable) and, on
+Linux, Tauri's system packages (`libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev`).
 
 ```sh
-deno install --allow-scripts   # install dependencies
-deno task hooks                # pre-commit hook: formats staged files with deno fmt
-docker compose up -d           # test databases: Postgres :55432, MariaDB :53306, MSSQL :51433
-deno task dev                  # dev server; prints the URL including the session token
+bun install            # install dependencies
+bun run hooks          # pre-commit hook: formats staged files with bun fmt
+docker compose up -d   # test databases: Postgres :55432, MariaDB :53306, MSSQL :51433
+bun run dev            # dev server; prints the URL including the session token
 ```
 
-| Task                  | Description                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| `deno task dev`       | Nuxt dev server on `127.0.0.1`, random port, fresh token (`--desktop`: in the Tauri shell) |
-| `deno task desktop`   | Desktop app for the host system: installer and .zip in `dist/`                             |
-| `deno task compile`   | Self-hosted binary `dist/colwerk` that opens the default browser                           |
-| `deno task release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release               |
-| `deno task test`      | Driver contract tests, API end-to-end test, SQL splitter tests                             |
-| `deno task typecheck` | `deno check` and `nuxt typecheck`                                                          |
-| `deno task fmt`       | Formats all files with `deno fmt` (settings in `deno.json`)                                |
-| `deno task hooks`     | Enables the pre-commit hook in `.githooks/`                                                |
+| Command             | Description                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `bun run dev`       | Nuxt dev server on `127.0.0.1`, random port, fresh token (`--desktop`: in the Tauri shell) |
+| `bun run desktop`   | Desktop app for the host system: installer and .zip in `dist/`                             |
+| `bun run compile`   | Self-hosted binary `dist/colwerk` that opens the default browser                           |
+| `bun run release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release               |
+| `bun test`          | Driver contract tests, API end-to-end test, SQL splitter tests                             |
+| `bun run typecheck` | `nuxt typecheck`, including core, launcher, scripts and tests (`tsconfig.bun.json`)        |
+| `bun fmt`           | Formats all files (settings in `bunfig.toml`)                                              |
+| `bun run hooks`     | Enables the pre-commit hook in `.githooks/`                                                |
 
 Tests against Postgres, MariaDB and MSSQL are skipped when the container is not reachable.
 

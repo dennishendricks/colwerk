@@ -10,7 +10,7 @@ export default defineEventHandler((event) => {
       // A first comment sends the headers right away, so the client knows it is connected.
       controller.enqueue(encoder.encode(': connected\n\n'))
       off = onOpenQuery((request) =>
-        controller.enqueue(encoder.encode(`event: open-query\ndata: ${JSON.stringify(request)}\n\n`))
+        controller.enqueue(encoder.encode(`event: open-query\ndata: ${JSON.stringify(request)}\n\n`)),
       )
     },
     cancel() {
