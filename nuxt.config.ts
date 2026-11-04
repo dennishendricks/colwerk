@@ -21,11 +21,12 @@ const recordBundledPackages = {
 const pgCommonJs = {
   name: 'colwerk:pg-commonjs',
   resolveId(
-    this: { resolve(id: string, importer?: string, options?: { skipSelf: boolean }): Promise<unknown> },
+    this: { resolve(id: string, importer?: string, options?: object): Promise<unknown> },
     id: string,
     importer?: string,
+    options?: object,
   ) {
-    if (id === 'pg') return this.resolve('pg/lib/index.js', importer, { skipSelf: true })
+    if (id === 'pg') return this.resolve('pg/lib/index.js', importer, { ...options, skipSelf: true })
   },
 }
 
