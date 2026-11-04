@@ -17,12 +17,18 @@
     "npm:@iconify-json/lucide@^1.2.150": "1.2.150",
     "npm:@lezer/highlight@^1.2.5": "1.2.5",
     "npm:@nuxt/eslint@^1.17.0": "1.17.0_eslint@10.14.0_@types+node@26.6.6_@vue+compiler-sfc@3.5.44_oxc-parser@0.141.0_rolldown@1.2.16_rollup@4.67.4_typescript@6.0.3_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
-    "npm:@nuxt/ui@^4.12.0": "4.12.0_@tiptap+core@3.32.2_@tiptap+extension-bubble-menu@3.32.2_@tiptap+extension-code@3.32.2_@tiptap+extension-collaboration@3.32.2_@tiptap+extension-drag-handle@3.32.2_@tiptap+extension-drag-handle-vue-3@3.32.2_@tiptap+extension-floating-menu@3.32.2_@tiptap+extension-horizontal-rule@3.32.2_@tiptap+extension-image@3.32.2_@tiptap+extension-mention@3.32.2_@tiptap+extension-node-range@3.32.2_@tiptap+extension-placeholder@3.32.2_@tiptap+markdown@3.32.2_@tiptap+pm@3.32.2_@tiptap+starter-kit@3.32.2_@tiptap+suggestion@3.32.2_@tiptap+vue-3@3.32.2_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0_zod@4.6.7_@azure+identity@4.14.1_@tiptap+extensions@3.32.2_@tiptap+y-tiptap@3.0.12_@types+node@26.6.6_@vue+compiler-sfc@3.5.44_embla-carousel@8.6.0_oxc-parser@0.141.0_prosemirror-model@1.25.12_prosemirror-state@1.4.4_prosemirror-view@1.42.9_rolldown@1.2.16_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_vue@3.5.44_y-protocols@1.0.7_yjs@13.6.33",
+    "npm:@nuxt/ui@^4.12.0": "4.12.0_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0_zod@4.6.7_esbuild@0.28.2",
     "npm:@nuxtjs/i18n@^10.6.0": "10.6.0_@azure+identity@4.14.1_@types+node@26.6.6_rolldown@1.2.16_rollup@4.67.4_typescript@6.0.3_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_vue@3.5.44",
     "npm:@nuxtjs/mcp-toolkit@~0.24.3": "0.24.3_@vue+compiler-sfc@3.5.44_h3@2.0.8_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_vue@3.5.44_zod@4.6.7_@types+node@26.6.6_oxc-parser@0.141.0_rolldown@1.2.16_rollup@4.67.4_typescript@6.0.3",
+    "npm:@tauri-apps/api@^2.12.4": "2.12.4",
+    "npm:@tauri-apps/cli@*": "2.12.4",
+    "npm:@tauri-apps/cli@^2.12.4": "2.12.4",
+    "npm:@tauri-apps/plugin-dialog@^2.8.3": "2.8.4",
+    "npm:@tauri-apps/plugin-opener@^2.7.2": "2.7.2",
     "npm:@types/mssql@^12.3.0": "12.3.0",
     "npm:@types/pg-cursor@^2.7.2": "2.7.2",
     "npm:@types/pg@^8.23.1": "8.23.1",
+    "npm:esbuild@~0.28.2": "0.28.2",
     "npm:eslint@*": "10.14.0_jiti@2.7.0",
     "npm:eslint@^10.14.0": "10.14.0_jiti@2.7.0",
     "npm:hyparquet-writer@0.18.0": "0.18.0",
@@ -1754,39 +1760,6 @@
         "rolldown"
       ]
     },
-    "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_mlly@1.8.2_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@0.30.21_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0": {
-      "integrity": "sha512-djNup72hMvn7C9xp0/KAYeoY9uzbrPguv91SUBjEeSHh49kP/YI4BvxUVHP8sZd3kms5Ht+IZTJ6XAfm9hofKw==",
-      "dependencies": [
-        "@nuxt/schema",
-        "consola",
-        "defu",
-        "destr",
-        "errx",
-        "exsolve",
-        "ignore@7.0.14",
-        "jiti",
-        "klona",
-        "microdiff",
-        "nostics",
-        "oxc-parser",
-        "package-manager-detector",
-        "pathe",
-        "rc9",
-        "rolldown",
-        "scule",
-        "std-env",
-        "tinyexec",
-        "tinyglobby",
-        "unctx@3.0.1_magic-string@1.4.5_oxc-parser@0.141.0_rolldown@1.2.16_unplugin@3.7.0_@types+node@26.6.6_jiti@2.7.0_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
-        "verkit"
-      ],
-      "optionalPeers": [
-        "@nuxt/schema",
-        "jiti",
-        "oxc-parser",
-        "rolldown"
-      ]
-    },
     "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_mlly@1.8.2_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0": {
       "integrity": "sha512-djNup72hMvn7C9xp0/KAYeoY9uzbrPguv91SUBjEeSHh49kP/YI4BvxUVHP8sZd3kms5Ht+IZTJ6XAfm9hofKw==",
       "dependencies": [
@@ -1851,7 +1824,42 @@
         "rolldown"
       ]
     },
-    "@nuxt/nitro-server@4.6.3_nuxt@4.6.3_@azure+identity@4.14.1_@nuxt+schema@4.6.3_@types+node@26.6.6_jiti@2.7.0_magic-string@1.4.5_mysql2@3.24.6_oxc-parser@0.141.0_rolldown@1.2.16_rollup@4.67.4_typescript@6.0.3_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0": {
+    "@nuxt/kit@4.6.3_mlly@1.8.2": {
+      "integrity": "sha512-djNup72hMvn7C9xp0/KAYeoY9uzbrPguv91SUBjEeSHh49kP/YI4BvxUVHP8sZd3kms5Ht+IZTJ6XAfm9hofKw==",
+      "dependencies": [
+        "@nuxt/schema",
+        "consola",
+        "defu",
+        "destr",
+        "errx",
+        "exsolve",
+        "ignore@7.0.14",
+        "jiti",
+        "klona",
+        "microdiff",
+        "mlly",
+        "nostics",
+        "oxc-parser",
+        "package-manager-detector",
+        "pathe",
+        "rc9",
+        "rolldown",
+        "scule",
+        "std-env",
+        "tinyexec",
+        "tinyglobby",
+        "unctx@3.0.1_magic-string@1.4.5_oxc-parser@0.141.0_rolldown@1.2.16_unplugin@3.7.0_@types+node@26.6.6_jiti@2.7.0_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
+        "verkit"
+      ],
+      "optionalPeers": [
+        "@nuxt/schema",
+        "jiti",
+        "mlly",
+        "oxc-parser",
+        "rolldown"
+      ]
+    },
+    "@nuxt/nitro-server@4.6.3_nuxt@4.6.3__esbuild@0.28.2_@types+node@26.6.6_esbuild@0.28.2_rolldown@1.2.16": {
       "integrity": "sha512-8JyJAJdfzWTUCPg/rUd5w7OLM2g1VjwOvutNjkz0tp0itBUuqc3lm35xSD6h21HpYkrBfjzwFh0T4/pmLVmKGQ==",
       "dependencies": [
         "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_jiti@2.7.0_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
@@ -1871,7 +1879,7 @@
         "my-bad",
         "nitropack",
         "nostics",
-        "nuxt",
+        "nuxt@4.6.3_esbuild@0.28.2",
         "ohash",
         "pathe",
         "radix3",
@@ -1908,14 +1916,14 @@
       ],
       "bin": true
     },
-    "@nuxt/ui@4.12.0_@tiptap+core@3.32.2_@tiptap+extension-bubble-menu@3.32.2_@tiptap+extension-code@3.32.2_@tiptap+extension-collaboration@3.32.2_@tiptap+extension-drag-handle@3.32.2_@tiptap+extension-drag-handle-vue-3@3.32.2_@tiptap+extension-floating-menu@3.32.2_@tiptap+extension-horizontal-rule@3.32.2_@tiptap+extension-image@3.32.2_@tiptap+extension-mention@3.32.2_@tiptap+extension-node-range@3.32.2_@tiptap+extension-placeholder@3.32.2_@tiptap+markdown@3.32.2_@tiptap+pm@3.32.2_@tiptap+starter-kit@3.32.2_@tiptap+suggestion@3.32.2_@tiptap+vue-3@3.32.2_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0_zod@4.6.7_@azure+identity@4.14.1_@tiptap+extensions@3.32.2_@tiptap+y-tiptap@3.0.12_@types+node@26.6.6_@vue+compiler-sfc@3.5.44_embla-carousel@8.6.0_oxc-parser@0.141.0_prosemirror-model@1.25.12_prosemirror-state@1.4.4_prosemirror-view@1.42.9_rolldown@1.2.16_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_vue@3.5.44_y-protocols@1.0.7_yjs@13.6.33": {
+    "@nuxt/ui@4.12.0_tailwindcss@4.3.3_typescript@6.0.3_vue-router@5.4.0_zod@4.6.7_esbuild@0.28.2": {
       "integrity": "sha512-e5g3RiFHTQc+PzBFZogpPLNetAMJDWq+5GPVUK88jIBgm/jnxYqMgbvyhfuLdL7spvyjA5ow5TtvIQVEAs3AMA==",
       "dependencies": [
         "@floating-ui/dom",
         "@iconify/vue",
         "@nuxt/fonts",
         "@nuxt/icon",
-        "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_mlly@1.8.2_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
+        "@nuxt/kit@4.6.3_mlly@1.8.2",
         "@nuxt/schema",
         "@nuxtjs/color-mode",
         "@standard-schema/spec",
@@ -1983,7 +1991,7 @@
         "zod"
       ]
     },
-    "@nuxt/vite-builder@4.6.3_nuxt@4.6.3_rolldown@1.2.16_vue@3.5.44_@nuxt+schema@4.6.3_@types+node@26.6.6_eslint@10.14.0_jiti@2.7.0_magic-string@1.4.5_oxc-parser@0.141.0_rollup@4.67.4_typescript@6.0.3_unplugin@3.7.0_vue-tsc@3.3.14": {
+    "@nuxt/vite-builder@4.6.3_nuxt@4.6.3__@types+node@26.6.6__rolldown@1.2.16__@azure+identity@4.14.1__@vue+compiler-sfc@3.5.44__acorn@8.19.0__eslint@10.14.0__mysql2@3.24.6__oxc-parser@0.141.0__rollup@4.67.4__typescript@6.0.3__vite@8.3.5___@types+node@26.6.6___esbuild@0.28.2___jiti@2.7.0__vue-tsc@3.3.14_rolldown@1.2.16_vue@3.5.44_@nuxt+schema@4.6.3_@types+node@26.6.6_eslint@10.14.0_jiti@2.7.0_magic-string@1.4.5_oxc-parser@0.141.0_rollup@4.67.4_typescript@6.0.3_unplugin@3.7.0_vue-tsc@3.3.14": {
       "integrity": "sha512-azVFaQLNvSDl5h4pZJ9Kf/I6euViEQiZHicyiFYMmNtGsiMyiRaaFjbDUYeIJ+JfxFJEWC53Me4DGxL0DhbeCg==",
       "dependencies": [
         "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_jiti@2.7.0_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
@@ -2002,7 +2010,7 @@
         "knitwork",
         "mocked-exports",
         "my-bad",
-        "nuxt",
+        "nuxt@4.6.3_esbuild@0.28.2",
         "pathe",
         "pkg-types@2.4.0",
         "postcss",
@@ -2022,7 +2030,7 @@
         "rolldown"
       ]
     },
-    "@nuxt/vite-server@4.6.3_nuxt@4.6.3_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_@nuxt+schema@4.6.3_@types+node@26.6.6_jiti@2.7.0_magic-string@1.4.5_oxc-parser@0.141.0_rolldown@1.2.16_rollup@4.67.4_unplugin@3.7.0": {
+    "@nuxt/vite-server@4.6.3_nuxt@4.6.3__@types+node@26.6.6__rolldown@1.2.16__@azure+identity@4.14.1__@vue+compiler-sfc@3.5.44__acorn@8.19.0__eslint@10.14.0__mysql2@3.24.6__oxc-parser@0.141.0__rollup@4.67.4__typescript@6.0.3__vite@8.3.5___@types+node@26.6.6___esbuild@0.28.2___jiti@2.7.0__vue-tsc@3.3.14_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_@nuxt+schema@4.6.3_@types+node@26.6.6_jiti@2.7.0_magic-string@1.4.5_oxc-parser@0.141.0_rolldown@1.2.16_rollup@4.67.4_unplugin@3.7.0": {
       "integrity": "sha512-ZO7ttVthNbwc7Ci/stkrxpx5RScHjfnIYOHiyE48hdrN34zVaUD4nSmXgwCIMqCvgvFvXUmWj+8JmnKzM4rSzg==",
       "dependencies": [
         "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_jiti@2.7.0_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
@@ -2031,7 +2039,7 @@
         "exsolve",
         "mocked-exports",
         "my-bad",
-        "nuxt",
+        "nuxt@4.6.3_esbuild@0.28.2",
         "pathe",
         "rou3@0.9.2",
         "srvx@1.0.5",
@@ -2825,6 +2833,93 @@
         "vue"
       ]
     },
+    "@tauri-apps/api@2.12.4": {
+      "integrity": "sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg=="
+    },
+    "@tauri-apps/cli-darwin-arm64@2.12.4": {
+      "integrity": "sha512-OxqKSckIkoJ6vX2AjifIJpTasFC0Hbdoo7gEiCmAjauABO3U8m2MRsLWe+QTiBwDx1mIrvgA+rvI7tvDnbnHVg==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "@tauri-apps/cli-darwin-x64@2.12.4": {
+      "integrity": "sha512-fz76/77wMMJOaaUN6n3CybRG0P/MTEjjqYk81mGPyhi9m6Ue5T+LWBnJP/AkPooNatBPI2vtulGqomyMJ44lCQ==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "@tauri-apps/cli-linux-arm-gnueabihf@2.12.4": {
+      "integrity": "sha512-K0w8Bof6Lt8QKLAYhRy0yy36ZH5iA/35VuSOvnxyjvCUZ+A3JKsUTlALviH/sVgAlisaPzzmeJSH8XOn4Q2HBA==",
+      "os": ["linux"],
+      "cpu": ["arm"]
+    },
+    "@tauri-apps/cli-linux-arm64-gnu@2.12.4": {
+      "integrity": "sha512-j5rOnjmRUwWrm1oosf0zBYl4D+fqydgUROFCk0hvKZxvbTT8SOERes0QB7rBV/XWNy+kM6pCKzb3oSm2sRglzg==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@tauri-apps/cli-linux-arm64-musl@2.12.4": {
+      "integrity": "sha512-aOue3Fy6Jb7+oWcfAVUsVHfeTybSCt2CZoU06aO4jv4d2Ks/KnaTPwMAK3CLEduGOvBLY1lbBBrIyomqLLH5Sg==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@tauri-apps/cli-linux-riscv64-gnu@2.12.4": {
+      "integrity": "sha512-Fx6GShY/RvST+t6LMlTHAwd66+1tEaAAGrnU7cysVfaiRP1BKng5Vl6rVmO6rSLOA1Sp1dRzNYM4f0OWQGb7qA==",
+      "os": ["linux"],
+      "cpu": ["riscv64"]
+    },
+    "@tauri-apps/cli-linux-x64-gnu@2.12.4": {
+      "integrity": "sha512-tNzZSa79Z1nRpHxEpQ38lsAFpKlFlYvoXzjTV+lRRn/zSf3wrdUC3wnLcq2XEadchPu4ttK0zivhYzr+XGD19Q==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@tauri-apps/cli-linux-x64-musl@2.12.4": {
+      "integrity": "sha512-jmZ1pr0xEqUhuEusWtt9Yt+GF6lCnGHUmIL+KIknpbjK/XQ2qkhDBhaxK/JMHM2A8dAacVXCxXJk2EXpwhQUfA==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@tauri-apps/cli-win32-arm64-msvc@2.12.4": {
+      "integrity": "sha512-fGo8pgEHZxdSYgZ/J98m1usJ7NHKmKbq7k6uT0x1rpOq6Bg2YVzzpaAblWk710f5LHYBJIL5QIFS5IrD+4gmTg==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
+    "@tauri-apps/cli-win32-ia32-msvc@2.12.4": {
+      "integrity": "sha512-ezl8sQIcjYsye3TUnTH5VcWmWzccZASlQm7hlZt0dYyj1XD0qpVW47u2xYVrIKui0F8uQv/7QGZixdWiClBsbg==",
+      "os": ["win32"],
+      "cpu": ["ia32"]
+    },
+    "@tauri-apps/cli-win32-x64-msvc@2.12.4": {
+      "integrity": "sha512-DJhDeCqjLDNMWYFy7ZS8cfeAHX2RK0RbQMLiA3bMVVkXRDJ4NBYiHriGqsUhsr9iG41aTb+dJGkFPmPw1gWwVw==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
+    "@tauri-apps/cli@2.12.4": {
+      "integrity": "sha512-JI9bHfudSRJikGOrjbXEm6RjzzvmKuLc+JixB1NE8hNzQkNlCCIC3pTES3uypkR9lxHrsbxzcnSwhI2IxBQphw==",
+      "optionalDependencies": [
+        "@tauri-apps/cli-darwin-arm64",
+        "@tauri-apps/cli-darwin-x64",
+        "@tauri-apps/cli-linux-arm-gnueabihf",
+        "@tauri-apps/cli-linux-arm64-gnu",
+        "@tauri-apps/cli-linux-arm64-musl",
+        "@tauri-apps/cli-linux-riscv64-gnu",
+        "@tauri-apps/cli-linux-x64-gnu",
+        "@tauri-apps/cli-linux-x64-musl",
+        "@tauri-apps/cli-win32-arm64-msvc",
+        "@tauri-apps/cli-win32-ia32-msvc",
+        "@tauri-apps/cli-win32-x64-msvc"
+      ],
+      "bin": true
+    },
+    "@tauri-apps/plugin-dialog@2.8.4": {
+      "integrity": "sha512-+6ZOiXenOaxXwb8qCbBPdT2jX2cFPaVVHGIskrpmJLpmWj+qKRTD6X/z9x7hTdSQn7NedcoXCkWGej4a7dC4lw==",
+      "dependencies": [
+        "@tauri-apps/api"
+      ]
+    },
+    "@tauri-apps/plugin-opener@2.7.2": {
+      "integrity": "sha512-LyybP1VSzTMQiaFYcsbAse47KpivlyXdLZMQzGLEnkgQacGESnpjAfFoQ6h5sqWgAdZDH9szYjPzHMpv0Sz+TQ==",
+      "dependencies": [
+        "@tauri-apps/api"
+      ]
+    },
     "@tediousjs/connection-string@1.1.0": {
       "integrity": "sha512-z9ZBWEG+8pIB5V1zYzlRPXx0oRJ5H7coPnMQK8EZOw03UTPI9Umn6viL36f5w+CuqkKsnCM50RVStpjZmR0Bng=="
     },
@@ -3298,9 +3393,10 @@
         "tslib"
       ]
     },
-    "@unhead/bundler@3.4.3_oxc-parser@0.141.0_rolldown@1.2.16_unhead@3.4.3_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_@types+node@26.6.6_jiti@2.7.0_rollup@4.67.4": {
+    "@unhead/bundler@3.4.3_esbuild@0.28.2_unhead@3.4.3_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0": {
       "integrity": "sha512-noUTzazRB4fMgO/nluoirrZJXngNbNb3sQzIslA805tKkwakRv2fib4Xe4EdiTuNB7V5XmpUFvfQkKRdBQ9qAA==",
       "dependencies": [
+        "esbuild@0.28.2",
         "magic-string@1.4.5",
         "oxc-parser",
         "oxc-walker@1.1.1_oxc-parser@0.141.0_rolldown@1.2.16",
@@ -3310,12 +3406,13 @@
         "vite@8.3.5_@types+node@26.6.6_esbuild@0.28.2_jiti@2.7.0"
       ],
       "optionalPeers": [
+        "esbuild@0.28.2",
         "oxc-parser",
         "rolldown",
         "vite@8.3.5_@types+node@26.6.6_esbuild@0.28.2_jiti@2.7.0"
       ]
     },
-    "@unhead/vue@3.4.3_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_vue@3.5.44_@types+node@26.6.6_jiti@2.7.0_oxc-parser@0.141.0_rolldown@1.2.16_rollup@4.67.4_typescript@6.0.3": {
+    "@unhead/vue@3.4.3_vue@3.5.44_esbuild@0.28.2": {
       "integrity": "sha512-Wrmk62oC/V1EcBSKRDuy77kVaBtBXXsj6b+vEEWvmfo9AQfpLlc2b6vvvSj9WnXr8VY1ksKHj49Ejo8J/wLSOA==",
       "dependencies": [
         "@unhead/bundler",
@@ -6334,7 +6431,84 @@
         "@nuxt/cli",
         "@nuxt/devalue",
         "@nuxt/devtools",
-        "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_mlly@1.8.2_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@0.30.21_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
+        "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_jiti@2.7.0_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
+        "@nuxt/nitro-server",
+        "@nuxt/schema",
+        "@nuxt/telemetry",
+        "@nuxt/vite-builder",
+        "@nuxt/vite-server",
+        "@types/node",
+        "@unhead/vue",
+        "@vue/shared",
+        "chokidar",
+        "clickable-path",
+        "compatx",
+        "consola",
+        "cookie-es@3.1.1",
+        "defu",
+        "destr",
+        "devalue@6.0.3",
+        "errx",
+        "escape-string-regexp@5.0.0",
+        "exsolve",
+        "fetchdts",
+        "fnv1a-64",
+        "hookable@6.1.2",
+        "ignore@7.0.14",
+        "impound",
+        "iron-webcrypto@2.0.0",
+        "jiti",
+        "klona",
+        "knitwork",
+        "magic-string@1.4.5",
+        "my-bad",
+        "nanotar",
+        "nostics",
+        "object-identity",
+        "ofetch",
+        "ohash",
+        "on-change",
+        "oxc-walker@1.1.1_oxc-parser@0.141.0_rolldown@1.2.16",
+        "pathe",
+        "perfect-debounce",
+        "picomatch@4.0.7",
+        "pkg-types@2.4.0",
+        "rolldown",
+        "rolldown-string",
+        "rou3@0.9.2",
+        "scule",
+        "std-env",
+        "tinyglobby",
+        "ufo",
+        "ultrahtml",
+        "uncrypto",
+        "unctx@3.0.1_magic-string@1.4.5_oxc-parser@0.141.0_rolldown@1.2.16_unplugin@3.7.0_@types+node@26.6.6_jiti@2.7.0_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
+        "undici",
+        "unhead",
+        "unimport@7.0.2_acorn@8.19.0_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_jiti@2.7.0_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
+        "unplugin@3.7.0_esbuild@0.28.2_rolldown@1.2.16_rollup@4.67.4_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0_@types+node@26.6.6_jiti@2.7.0",
+        "unrouting@0.3.1",
+        "untyped",
+        "verkit",
+        "vue",
+        "vue-bundle-renderer",
+        "vue-component-type-helpers",
+        "vue-router"
+      ],
+      "optionalPeers": [
+        "@types/node"
+      ],
+      "bin": true
+    },
+    "nuxt@4.6.3_esbuild@0.28.2": {
+      "integrity": "sha512-I6Muez4OJg1fZnI7Rxl9tl9RVmpgGapVRvZcjeU+1B216jpPjGbHNt/QbUC3sZOFTV+z2WKcvPVXDADay3cIjw==",
+      "dependencies": [
+        "@dxup/nuxt",
+        "@jridgewell/trace-mapping",
+        "@nuxt/cli",
+        "@nuxt/devalue",
+        "@nuxt/devtools",
+        "@nuxt/kit@4.6.3_@nuxt+schema@4.6.3_jiti@2.7.0_oxc-parser@0.141.0_rolldown@1.2.16_@types+node@26.6.6_magic-string@1.4.5_rollup@4.67.4_unplugin@3.7.0_vite@8.3.5__@types+node@26.6.6__esbuild@0.28.2__jiti@2.7.0",
         "@nuxt/nitro-server",
         "@nuxt/schema",
         "@nuxt/telemetry",
@@ -8410,9 +8584,14 @@
         "npm:@nuxt/ui@^4.12.0",
         "npm:@nuxtjs/i18n@^10.6.0",
         "npm:@nuxtjs/mcp-toolkit@~0.24.3",
+        "npm:@tauri-apps/api@^2.12.4",
+        "npm:@tauri-apps/cli@^2.12.4",
+        "npm:@tauri-apps/plugin-dialog@^2.8.3",
+        "npm:@tauri-apps/plugin-opener@^2.7.2",
         "npm:@types/mssql@^12.3.0",
         "npm:@types/pg-cursor@^2.7.2",
         "npm:@types/pg@^8.23.1",
+        "npm:esbuild@~0.28.2",
         "npm:eslint@^10.14.0",
         "npm:hyparquet-writer@0.18.0",
         "npm:mssql@^12.7.13",

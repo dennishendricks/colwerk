@@ -42,6 +42,7 @@
     "disconnectConfirm": "Trennen"
   },
   "menu": {
+    "quit": "Beenden",
     "setupMcp": "MCP einrichten …",
     "checkUpdates": "Nach Updates suchen …",
     "file": "Ablage",

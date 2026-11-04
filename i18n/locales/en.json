@@ -42,6 +42,7 @@
     "disconnectConfirm": "Disconnect"
   },
   "menu": {
+    "quit": "Quit",
     "setupMcp": "Set Up MCP …",
     "checkUpdates": "Check for Updates …",
     "file": "File",

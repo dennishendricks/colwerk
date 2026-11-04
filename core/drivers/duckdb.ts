@@ -19,7 +19,7 @@ import {
   type TableInfo,
   type TransactionState,
 } from '../types.ts'
-import { connect, type Connection } from './duckdb-ffi.ts'
+import { connect, type Connection } from './duckdb-native.ts'
 
 function wrap(e: unknown): DbError {
   return e instanceof DbError ? e : new DbError(e instanceof Error ? e.message : String(e))

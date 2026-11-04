@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
+import { Worker } from 'node:worker_threads'
 import { maskLiterals, splitStatements, type StatementRange } from '../sql-split.ts'
 import {
   AppError,
@@ -47,13 +48,10 @@ interface ExecuteResult {
 /**
  * The worker that owns the connection. node:sqlite only has a synchronous API, so statements run on a thread of
  * their own: the event loop stays free, and `cancel` can end the thread. Stringified into the worker, so it must
- * not use anything from outside the function.
+ * not use anything from outside the function (node:worker_threads, as Node has no web workers).
  */
-function workerMain() {
-  const port = self as unknown as {
-    postMessage(reply: Reply): void
-    onmessage: (e: MessageEvent<Request | { op: 'next' } | { op: 'abort' }>) => void
-  }
+async function workerMain() {
+  const port = (await import('node:worker_threads')).parentPort!
   let db: DatabaseSync
   // Takes the main thread's answer to a streamed batch.
   let ack: ((op: 'next' | 'abort') => void) | undefined
@@ -132,17 +130,17 @@ function workerMain() {
     }
   }
 
-  port.onmessage = async ({ data }) => {
+  port.on('message', async (data: Request | { op: 'next' } | { op: 'abort' }) => {
     if (data.op === 'next' || data.op === 'abort') return ack?.(data.op)
     try {
       port.postMessage({ result: await handle(data) })
     } catch (e) {
       port.postMessage({ error: { message: (e as Error).message, statement: (e as WorkerError).statement } })
     }
-  }
+  })
 }
 
-const workerUrl = URL.createObjectURL(new Blob([`(${workerMain.toString()})()`], { type: 'application/javascript' }))
+const workerCode = `(${workerMain.toString()})()`
 
 /**
  * Statement ranges of a script without those that are only comments: node:sqlite crashes the process on SQL
@@ -196,9 +194,9 @@ class SqliteSession implements Session {
 
   /** Starts a worker and opens the database in it; requests sent afterwards wait for it. */
   start(): Promise<unknown> {
-    const worker = this.worker = new Worker(workerUrl, { type: 'module' })
+    const worker = this.worker = new Worker(workerCode, { eval: true })
     // Replies of a worker given up by `cancel` are ignored.
-    worker.onmessage = ({ data }: MessageEvent<Reply>) => worker === this.worker && this.reply(data)
+    worker.on('message', (data: Reply) => worker === this.worker && this.reply(data))
     return this.request(this.open)
   }
 

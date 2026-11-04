@@ -238,39 +238,30 @@ function cellText(value: CellValue) {
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
-// Desktop app only: the launcher shows a native context menu (see launcher/main.ts). In the browser
-// the browser's own menu stays.
-type MenuItem = { item: { label: string; id: string; enabled: boolean } } | 'separator'
-const contextMenu =
-  (window as { bindings?: { contextMenu?(x: number, y: number, menu: MenuItem[]): Promise<string | null> } }).bindings
-    ?.contextMenu
-
-async function onRowContextmenu(e: Event, row: TableRow<Row>) {
-  e.preventDefault()
-  const { clientX, clientY } = e as MouseEvent
+// Desktop app only: a native context menu. In the browser the browser's own menu stays.
+function onRowContextmenu(e: Event, row: TableRow<Row>) {
   const col = cellColumn(e, row)
-  const id = await contextMenu!(clientX, clientY, [
-    { item: { label: t('grid.copyValue'), id: 'copy', enabled: col !== undefined } },
-    { item: { label: t('grid.showValue'), id: 'show', enabled: col !== undefined } },
-    'separator',
-    { item: { label: t('grid.copyJson'), id: 'json', enabled: true } },
-    { item: { label: t('grid.copyCsv'), id: 'csv', enabled: true } },
-  ])
   const { columns } = props.result
   const { cells } = row.original
-  if (id === 'copy') {
-    await copyValue(cells[col!] ?? null)
-  } else if (id === 'show') {
-    showDetail(row, col!)
-  } else if (id === 'json') {
-    await navigator.clipboard.writeText(
-      JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2),
-    )
-  } else if (id === 'csv') {
-    await navigator.clipboard.writeText(
-      [columns.map((c) => c.name), cells].map((fields) => fields.map(csvField).join(';')).join('\r\n'),
-    )
-  }
+  return showContextMenu(e as MouseEvent, [
+    { label: t('grid.copyValue'), enabled: col !== undefined, action: () => copyValue(cells[col!] ?? null) },
+    { label: t('grid.showValue'), enabled: col !== undefined, action: () => showDetail(row, col!) },
+    'separator',
+    {
+      label: t('grid.copyJson'),
+      action: () =>
+        navigator.clipboard.writeText(
+          JSON.stringify(Object.fromEntries(columns.map((c, i) => [c.name, cells[i] ?? null])), null, 2),
+        ),
+    },
+    {
+      label: t('grid.copyCsv'),
+      action: () =>
+        navigator.clipboard.writeText(
+          [columns.map((c) => c.name), cells].map((fields) => fields.map(csvField).join(';')).join('\r\n'),
+        ),
+    },
+  ])
 }
 
 // Cells are rendered in `getVisibleCells()` order, so the td's position identifies the column even
@@ -328,7 +319,7 @@ function renderCell(value: CellValue) {
     :data="data"
     :columns="columns"
     :virtualize="{ estimateSize: 29, overscan: 20 }"
-    :on-contextmenu="contextMenu ? onRowContextmenu : undefined"
+    :on-contextmenu="isDesktop ? onRowContextmenu : undefined"
     sticky="header"
     class="h-full"
     :style="{ '--grid-width': tableWidth }"
