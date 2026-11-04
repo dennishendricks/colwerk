@@ -106,6 +106,12 @@ const toggleSidebar = () => sidebar.value?.isCollapsed ? sidebar.value.expand() 
 // so it no longer differs from the system once the system setting changes.
 const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value === 'dark')
+// The native title bar follows the chosen mode; without one (null) it follows the system, like the page.
+watch(
+  () => colorMode.preference,
+  (mode) => isDesktop && getCurrentWindow().setTheme(mode === 'system' ? null : mode as 'light' | 'dark'),
+  { immediate: true },
+)
 
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
