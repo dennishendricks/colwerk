@@ -14,8 +14,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_window_state::StateFlags;
 
 /// The running sidecar; taken on exit.
 struct Server(Mutex<Option<Child>>);
@@ -25,17 +27,32 @@ static EXITING: AtomicBool = AtomicBool::new(false);
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Without VISIBLE: the window stays hidden until the app has loaded (see below), not shown on restore.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() - StateFlags::VISIBLE)
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Server(Mutex::new(None)))
         .setup(|app| {
             let server = start_server(app.handle());
-            // Size and position of the last run are restored by the window-state plugin.
+            // Size and position of the last run are restored by the window-state plugin. The window is shown
+            // once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
+            // native window nor the splash in the system's color mode flashes up before it.
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title("Colwerk")
                     .inner_size(1400.0, 900.0)
+                    .visible(false)
+                    .on_page_load(|window, payload| {
+                        if payload.event() == PageLoadEvent::Finished
+                            && payload.url().path() != "/index.html"
+                        {
+                            let _ = window.show();
+                        }
+                    })
                     .build()?;
             let handle = app.handle().clone();
             thread::spawn(move || {
