@@ -1,0 +1,9 @@
+[fmt]
+printWidth = 120
+semi = false
+singleQuote = true
+
+[test]
+root = "tests"
+# Driver and API tests run against real databases; Bun's default of 5 s is too short for some of them.
+timeout = 60000

@@ -168,9 +168,12 @@ export function useSchema() {
       method: 'POST',
       body: { request, refresh, database: target.database },
     })
-      .then((v) => assign(s, v), (e) => {
-        s.errors[key] = errorMessage(e)
-      })
+      .then(
+        (v) => assign(s, v),
+        (e) => {
+          s.errors[key] = errorMessage(e)
+        },
+      )
       .finally(() => {
         s.loading[key] = false
         inflight.delete(id)
@@ -181,7 +184,7 @@ export function useSchema() {
 
   /** `group` keys the indexes of a table or the routines of a schema (loading state, expansion). */
   const keyOf = (schema: string, table?: string, group?: 'indexes' | 'routines') =>
-    JSON.stringify([schema, table ?? null, ...group ? [group] : []])
+    JSON.stringify([schema, table ?? null, ...(group ? [group] : [])])
 
   /** Databases the login can switch to; listed through the connection's default database. */
   const loadDatabases = (connectionId: string, refresh = false) =>
@@ -245,8 +248,7 @@ export function useSchema() {
     api<{ ddl: string }>(`/api/connections/${target.connectionId}/introspect`, {
       method: 'POST',
       body: { request: { kind: 'ddl', schema, name, object }, database: target.database },
-    })
-      .then((r) => r.ddl)
+    }).then((r) => r.ddl)
 
   /** Default schema for unqualified names in autocomplete. */
   function defaultSchema(target: SchemaTarget): string | undefined {
@@ -326,9 +328,9 @@ interface SavedWorkspace {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined
-watch(() =>
-  JSON.stringify(
-    {
+watch(
+  () =>
+    JSON.stringify({
       tabs: tabs.value.map(({ id, title, connectionId, database, sql, path, rowLimit, timeout }): SavedTab => ({
         id,
         title,
@@ -340,16 +342,21 @@ watch(() =>
         timeout,
       })),
       activeTabId: activeTabId.value,
-    } satisfies SavedWorkspace,
-  ), (body) => {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
-})
+    } satisfies SavedWorkspace),
+  (body) => {
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
+  },
+)
 
-const openTransaction = (state?: TransactionState) => state === 'idle' ? undefined : state
+const openTransaction = (state?: TransactionState) => (state === 'idle' ? undefined : state)
 
 /** File name without directory and `.sql` extension, used as tab title. */
-const fileTitle = (path: string) => path.split(/[\\/]/).pop()!.replace(/\.sql$/i, '')
+const fileTitle = (path: string) =>
+  path
+    .split(/[\\/]/)
+    .pop()!
+    .replace(/\.sql$/i, '')
 
 export function useTabs() {
   const { t } = useNuxtApp().$i18n
@@ -467,10 +474,7 @@ export function useTabs() {
     tab.exporting = 'running'
     try {
       const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
-      const { path } = await api<{ path: string | null }>('/api/dialog', {
-        method: 'POST',
-        body: { kind: 'save', defaultName: `export-${stamp}.${format}`, title: t('dialog.save') },
-      })
+      const path = await fileDialog('save', t('dialog.save'), `export-${stamp}.${format}`)
       // Widened: `cancel()` changes it while this call is waiting.
       if (!path || (tab.exporting as QueryTab['exporting']) === 'cancelled') return undefined
       const body = full ? { format, path, ...tab.source } : { format, path, columns: shown?.columns, rows: shown?.rows }
@@ -489,10 +493,7 @@ export function useTabs() {
    * Resolves with the tab, `undefined` if the user cancelled.
    */
   async function openFile(connectionId?: string, database?: string): Promise<QueryTab | undefined> {
-    const { path } = await api<{ path: string | null }>('/api/dialog', {
-      method: 'POST',
-      body: { kind: 'open', title: t('dialog.open') },
-    })
+    const path = await fileDialog('open', t('dialog.open'))
     if (!path) return undefined
     const { sql } = await api<{ sql: string }>('/api/files/read', { method: 'POST', body: { path } })
     const existing = tabs.value.find((t) => t.path === path)
@@ -510,10 +511,7 @@ export function useTabs() {
    * Resolves with the path, `undefined` if the user cancelled.
    */
   async function saveFile(tab: QueryTab, saveAs = false): Promise<string | undefined> {
-    const path = !saveAs && tab.path ? tab.path : (await api<{ path: string | null }>('/api/dialog', {
-      method: 'POST',
-      body: { kind: 'save', defaultName: `${tab.title}.sql`, title: t('dialog.save') },
-    })).path
+    const path = !saveAs && tab.path ? tab.path : await fileDialog('save', t('dialog.save'), `${tab.title}.sql`)
     if (!path) return undefined
     await api('/api/files/write', { method: 'POST', body: { path, sql: tab.sql } })
     tab.path = path

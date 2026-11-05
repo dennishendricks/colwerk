@@ -7,6 +7,16 @@
     "url": "https://github.com/dennishendricks/colwerk"
   },
   "type": "module",
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "desktop": "bun scripts/package.ts desktop",
+    "compile": "bun scripts/package.ts compile",
+    "release": "bun scripts/release.ts",
+    "hooks": "git config core.hooksPath .githooks",
+    "lint": "bun --bun nuxt prepare && bun --bun eslint .",
+    "lint:fix": "bun --bun nuxt prepare && bun --bun eslint --fix .",
+    "typecheck": "bun --bun nuxt typecheck"
+  },
   "dependencies": {
     "@azure/identity": "^4.14.1",
     "@codemirror/autocomplete": "^6.20.4",
@@ -22,6 +32,9 @@
     "@nuxt/ui": "^4.12.0",
     "@nuxtjs/i18n": "^10.6.0",
     "@nuxtjs/mcp-toolkit": "^0.24.3",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-opener": "^2.7.2",
     "hyparquet-writer": "0.18.0",
     "mssql": "^12.7.13",
     "mysql2": "^3.24.6",
@@ -37,6 +50,8 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/bun": "^1.4.4",
     "@types/mssql": "^12.3.0",
     "@types/pg": "^8.23.1",
     "@types/pg-cursor": "^2.7.2",

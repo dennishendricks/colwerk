@@ -158,7 +158,10 @@ class MysqlSession implements Session {
   private running = false
   private stopReason: 'limit' | 'cancel' | null = null
 
-  constructor(private conn: Connection, private config: ConnectionConfig) {}
+  constructor(
+    private conn: Connection,
+    private config: ConnectionConfig,
+  ) {}
 
   execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
     const started = performance.now()
@@ -229,12 +232,15 @@ class MysqlSession implements Session {
       const rows = batch.map((r) => r.map(normalizeValue))
       batch = []
       this.conn.pause()
-      pending = sink.rows(rows).then(() => this.conn.resume(), (e) => {
-        failed = e
-        this.stopReason = 'cancel'
-        this.conn.resume()
-        return this.kill().catch(() => {})
-      })
+      pending = sink.rows(rows).then(
+        () => this.conn.resume(),
+        (e) => {
+          failed = e
+          this.stopReason = 'cancel'
+          this.conn.resume()
+          return this.kill().catch(() => {})
+        },
+      )
     }
 
     return new Promise<void>((resolve, reject) => {
@@ -319,9 +325,10 @@ class MysqlSession implements Session {
       }
       if (req.kind === 'routines') return (await db.query(SQL.routines, [req.schema]))[0] as IntrospectResult<R>
       if (req.kind === 'ddl') {
-        const types = req.object === 'routine'
-          ? ((await db.query(SQL.routineTypes, [req.schema, req.name]))[0] as { type: string }[]).map((r) => r.type)
-          : [req.object.toUpperCase()]
+        const types =
+          req.object === 'routine'
+            ? ((await db.query(SQL.routineTypes, [req.schema, req.name]))[0] as { type: string }[]).map((r) => r.type)
+            : [req.object.toUpperCase()]
         if (!types.length) {
           throw new AppError('objectNotFound', `${req.schema}.${req.name} not found`, {
             params: { name: `${req.schema}.${req.name}` },
@@ -338,27 +345,32 @@ class MysqlSession implements Session {
       }
       const [rows] = await db.query(SQL.columns, [req.schema, req.table])
       const seen = new Set<string>()
-      return (rows as Record<string, string | number | null>[])
-        // A column in several foreign keys appears once per key; keep the first.
-        .filter((r) => !seen.has(r.name as string) && seen.add(r.name as string))
-        .map((r): ColumnInfo => ({
-          name: r.name as string,
-          type: r.type as string,
-          nullable: Number(r.nullable) === 1,
-          primaryKey: Number(r.pk) === 1,
-          references: r.ref_table
-            ? { schema: r.ref_schema as string, table: r.ref_table as string, column: r.ref_column as string }
-            : undefined,
-          indexes: r.idx ? String(r.idx).split('\n') : [],
-          comment: r.comment as string | null,
-        })) as IntrospectResult<R>
+      return (
+        (rows as Record<string, string | number | null>[])
+          // A column in several foreign keys appears once per key; keep the first.
+          .filter((r) => !seen.has(r.name as string) && seen.add(r.name as string))
+          .map((r): ColumnInfo => ({
+            name: r.name as string,
+            type: r.type as string,
+            nullable: Number(r.nullable) === 1,
+            primaryKey: Number(r.pk) === 1,
+            references: r.ref_table
+              ? { schema: r.ref_schema as string, table: r.ref_table as string, column: r.ref_column as string }
+              : undefined,
+            indexes: r.idx ? String(r.idx).split('\n') : [],
+            comment: r.comment as string | null,
+          })) as IntrospectResult<R>
+      )
     } catch (e) {
       throw wrap(e)
     }
   }
 
   async close(): Promise<void> {
-    await this.conn.promise().end().catch(() => this.conn.destroy())
+    await this.conn
+      .promise()
+      .end()
+      .catch(() => this.conn.destroy())
   }
 }
 

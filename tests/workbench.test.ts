@@ -1,18 +1,19 @@
 // Workbench behaviour on top of the drivers: timeout, cancelling on tab close, DuckDB read-only, introspection cache.
-import { assert, assertEquals, assertMatch, assertRejects } from 'jsr:@std/assert@1'
+import { test } from 'bun:test'
+import { rm } from 'node:fs/promises'
+import { assert, assertEquals, assertMatch, assertRejects } from './assert.ts'
 import { join } from 'node:path'
 import { type ConnectionConfig, DbError } from '../core/types.ts'
 import { Workbench } from '../core/workbench.ts'
-import { reachable, testConnections } from './helpers.ts'
+import { reachable, tempDir, testConnections } from './helpers.ts'
 
-const opts = { sanitizeResources: false, sanitizeOps: false }
 const SLOW = 'select count(*) from range(100000000000) a'
 
 function workbench(config: ConnectionConfig) {
   return new Workbench(async () => config)
 }
 
-Deno.test({ name: 'timeout cancels the statement', ...opts }, async () => {
+test('timeout cancels the statement', async () => {
   const wb = workbench({ id: 'wb-timeout', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   const started = performance.now()
   await assertRejects(() => wb.execute('tab', 'wb-timeout', SLOW, 1, 1), Error, 'did not finish within 1 s')
@@ -21,7 +22,7 @@ Deno.test({ name: 'timeout cancels the statement', ...opts }, async () => {
   await wb.closeAll()
 })
 
-Deno.test({ name: 'closing a tab cancels its statement', ...opts }, async () => {
+test('closing a tab cancels its statement', async () => {
   const wb = workbench({ id: 'wb-close', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   const started = performance.now()
   const running = assertRejects(() => wb.execute('tab', 'wb-close', SLOW, 1, 600))
@@ -33,7 +34,7 @@ Deno.test({ name: 'closing a tab cancels its statement', ...opts }, async () => 
   await wb.closeAll()
 })
 
-Deno.test({ name: 'execute reports the transaction state, also on errors', ...opts }, async () => {
+test('execute reports the transaction state, also on errors', async () => {
   const wb = workbench({ id: 'wb-tx', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   assertEquals((await wb.execute('tab', 'wb-tx', 'begin', 1, 10)).transaction, 'open')
   const err = await assertRejects(() => wb.execute('tab', 'wb-tx', `select 'x'::int`, 1, 10), DbError)
@@ -43,20 +44,18 @@ Deno.test({ name: 'execute reports the transaction state, also on errors', ...op
 })
 
 // The metadata session stays open while the tab session connects; before, the second connect hung forever
-// once the first instance object had been garbage-collected (needs `--v8-flags=--expose-gc`).
-Deno.test({ name: 'duckdb: file reconnects after garbage collection', ...opts }, async () => {
-  const dir = await Deno.makeTempDir()
+// once the first instance object had been garbage-collected.
+test('duckdb: file reconnects after garbage collection', async () => {
+  const dir = await tempDir()
   const config: ConnectionConfig = { id: 'wb-gc', name: 'duck', dialect: 'duckdb', file: join(dir, 'gc.duckdb') }
   const wb = workbench(config)
   await wb.introspect('wb-gc', { kind: 'schemas' })
-  const gc = (globalThis as { gc?: () => void }).gc
-  assert(gc, 'run with --v8-flags=--expose-gc')
   for (let i = 0; i < 5; i++) {
-    gc()
+    Bun.gc(true)
     await new Promise((r) => setTimeout(r, 20))
   }
   let timer: ReturnType<typeof setTimeout> | undefined
-  const hung = new Promise<never>((_, reject) => timer = setTimeout(() => reject(new Error('connect hung')), 5_000))
+  const hung = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error('connect hung')), 5_000)))
   try {
     assertEquals(
       (await Promise.race([wb.execute('tab', 'wb-gc', 'select 1 as x', 10, 10), hung])).resultSets[0]!.rows,
@@ -66,11 +65,11 @@ Deno.test({ name: 'duckdb: file reconnects after garbage collection', ...opts },
     clearTimeout(timer)
   }
   await wb.closeAll()
-  await Deno.remove(dir, { recursive: true })
+  await rm(dir, { recursive: true })
 })
 
-Deno.test({ name: 'duckdb: read-only file', ...opts }, async () => {
-  const dir = await Deno.makeTempDir()
+test('duckdb: read-only file', async () => {
+  const dir = await tempDir()
   const file = join(dir, 'ro.duckdb')
   const config: ConnectionConfig = { id: 'wb-ro', name: 'duck', dialect: 'duckdb', file }
   const wb = workbench(config)
@@ -81,12 +80,12 @@ Deno.test({ name: 'duckdb: read-only file', ...opts }, async () => {
   assertEquals((await wb.execute('tab', 'wb-ro', 'select x from t', 10, 10)).resultSets[0]!.rows, [[1]])
   await assertRejects(() => wb.execute('tab', 'wb-ro', 'insert into t values (2)', 1, 10), Error, 'read-only')
   await wb.closeAll()
-  await Deno.remove(dir, { recursive: true })
+  await rm(dir, { recursive: true })
 })
 
 // DuckDB refuses a second configuration of a file it has open, so the read-only open shows the file was released.
-Deno.test({ name: 'duckdb: disconnect releases the file until connect', ...opts }, async () => {
-  const dir = await Deno.makeTempDir()
+test('duckdb: disconnect releases the file until connect', async () => {
+  const dir = await tempDir()
   const file = join(dir, 'disconnect.duckdb')
   const wb = workbench({ id: 'wb-disc', name: 'duck', dialect: 'duckdb', file })
   await wb.execute('tab', 'wb-disc', 'create table t as select 1 as x', 1, 10)
@@ -100,7 +99,7 @@ Deno.test({ name: 'duckdb: disconnect releases the file until connect', ...opts 
   wb.connect('wb-disc')
   assertEquals((await wb.execute('tab', 'wb-disc', 'select x from t', 10, 10)).resultSets[0]!.rows, [[1]])
   await wb.closeAll()
-  await Deno.remove(dir, { recursive: true })
+  await rm(dir, { recursive: true })
 })
 
 // The plan is taken in the tab's session, so it sees the session's temp table.
@@ -135,7 +134,7 @@ const explainCases: { config: ConnectionConfig; create: string; table: string; a
 
 for (const c of explainCases) {
   const ignore = c.config.host ? !(await reachable(c.config)) : false
-  Deno.test({ name: `${c.config.dialect}: explain in the tab session`, ignore, ...opts }, async () => {
+  test.skipIf(ignore)(`${c.config.dialect}: explain in the tab session`, async () => {
     const wb = workbench(c.config)
     const id = c.config.id
     await wb.execute('tab', id, c.create, 1, 10)
@@ -159,24 +158,21 @@ const databaseCases: { config: ConnectionConfig; current: string; other: string 
 ]
 
 for (const c of databaseCases) {
-  Deno.test(
-    { name: `${c.config.dialect}: switching the database`, ignore: !(await reachable(c.config)), ...opts },
-    async () => {
-      const wb = workbench(c.config)
-      const id = c.config.id
-      const current = async (database?: string) =>
-        (await wb.execute('tab', id, c.current, 1, 10, database)).resultSets[0]!.rows[0]![0]
-      assertEquals(await current(), c.config.database)
-      assertEquals(await current(c.other), c.other)
-      assertEquals(await current(), c.config.database)
-      const databases = (await wb.introspect(id, { kind: 'databases' })).map((d) => d.name)
-      assert(databases.includes(c.config.database!), `databases: ${databases}`)
-      await wb.closeAll()
-    },
-  )
+  test.skipIf(!(await reachable(c.config)))(`${c.config.dialect}: switching the database`, async () => {
+    const wb = workbench(c.config)
+    const id = c.config.id
+    const current = async (database?: string) =>
+      (await wb.execute('tab', id, c.current, 1, 10, database)).resultSets[0]!.rows[0]![0]
+    assertEquals(await current(), c.config.database)
+    assertEquals(await current(c.other), c.other)
+    assertEquals(await current(), c.config.database)
+    const databases = (await wb.introspect(id, { kind: 'databases' })).map((d) => d.name)
+    assert(databases.includes(c.config.database!), `databases: ${databases}`)
+    await wb.closeAll()
+  })
 }
 
-Deno.test({ name: 'refreshing a table drops its cached indexes; DDL is never cached', ...opts }, async () => {
+test('refreshing a table drops its cached indexes; DDL is never cached', async () => {
   const wb = workbench({ id: 'wb-cache', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   const indexes = async () =>
     (await wb.introspect('wb-cache', { kind: 'indexes', schema: 'main', table: 't' })).map((i) => i.name)

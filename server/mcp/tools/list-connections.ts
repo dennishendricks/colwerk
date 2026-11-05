@@ -18,8 +18,7 @@ async function probe(connectionId: string): Promise<SchemaInfo[]> {
 export default defineMcpTool({
   name: 'list-connections',
   title: 'List connections',
-  description:
-    `Lists the database connections configured in Colwerk, with their databases and whether they are reachable.
+  description: `Lists the database connections configured in Colwerk, with their databases and whether they are reachable.
 
 WHEN TO USE: Always call this first. Every other tool needs a connectionId from this list.
 Write SQL in the dialect given in "dialect": postgres (PostgreSQL), mysql (MySQL/MariaDB), mssql (SQL Server, T-SQL), duckdb (DuckDB), sqlite (SQLite).
@@ -28,21 +27,23 @@ Names are not unique; identify a connection by connectionId.`,
   async handler() {
     const connections = await store.list()
     return {
-      connections: await Promise.all(connections.map(async (c) => {
-        const base = {
-          connectionId: c.id,
-          name: c.name,
-          folder: c.folder ?? null,
-          dialect: c.dialect,
-          dialectLabel: drivers.find((d) => d.dialect === c.dialect)?.label ?? c.dialect,
-          readOnly: c.readOnly === true,
-        }
-        try {
-          return { ...base, databases: databasesOf(c, await probe(c.id)), status: 'connected' }
-        } catch (e) {
-          return { ...base, databases: databasesOf(c), status: 'unreachable', error: (e as Error).message }
-        }
-      })),
+      connections: await Promise.all(
+        connections.map(async (c) => {
+          const base = {
+            connectionId: c.id,
+            name: c.name,
+            folder: c.folder ?? null,
+            dialect: c.dialect,
+            dialectLabel: drivers.find((d) => d.dialect === c.dialect)?.label ?? c.dialect,
+            readOnly: c.readOnly === true,
+          }
+          try {
+            return { ...base, databases: databasesOf(c, await probe(c.id)), status: 'connected' }
+          } catch (e) {
+            return { ...base, databases: databasesOf(c), status: 'unreachable', error: (e as Error).message }
+          }
+        }),
+      ),
     }
   },
 })

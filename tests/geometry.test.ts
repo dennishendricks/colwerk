@@ -1,10 +1,11 @@
 // WKB → WKT; the WKB values were produced by DuckDB (`hex(geom::blob)`), the EWKB values by PostGIS.
-import { assertEquals } from 'jsr:@std/assert@1'
+import { test } from 'bun:test'
+import { assertEquals } from './assert.ts'
 import { hexEwkbToText, mysqlGeometryToText, wkbToText } from '../core/geometry.ts'
 
 const bytes = (hex: string) => Uint8Array.from(hex.match(/../g)!, (h) => Number.parseInt(h, 16))
 
-Deno.test('geometry: ISO WKB as WKT', () => {
+test('geometry: ISO WKB as WKT', () => {
   const cases: [string, string][] = [
     ['0101000000000000000000F8BF9A9999999999B93F', 'POINT (-1.5 0.1)'],
     ['01E9030000000000000000F03F00000000000000400000000000000840', 'POINT Z (1 2 3)'],
@@ -38,13 +39,13 @@ Deno.test('geometry: ISO WKB as WKT', () => {
   for (const [hex, wkt] of cases) assertEquals(wkbToText(bytes(hex)), wkt)
 })
 
-Deno.test('geometry: unsupported or malformed values stay hex', () => {
+test('geometry: unsupported or malformed values stay hex', () => {
   // CIRCULARSTRING EMPTY
   assertEquals(wkbToText(bytes('010800000000000000')), '0x010800000000000000')
   assertEquals(wkbToText(bytes('0101000000')), '0x0101000000')
 })
 
-Deno.test('geometry: PostGIS EWKB and MySQL keep the SRID', () => {
+test('geometry: PostGIS EWKB and MySQL keep the SRID', () => {
   assertEquals(hexEwkbToText('0101000020E6100000000000000000F03F0000000000000040'), 'SRID=4326;POINT (1 2)')
   assertEquals(
     hexEwkbToText('01010000A0E6100000000000000000F03F00000000000000400000000000000840'),

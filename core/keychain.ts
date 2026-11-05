@@ -24,9 +24,8 @@ function run(cmd: string, args: string[], input = ''): Promise<{ code: number; s
     let stderr = ''
     child.stdout.on('data', (d) => (stdout += d))
     child.stderr.on('data', (d) => (stderr += d))
-    child.on(
-      'error',
-      (e) => reject((e as { code?: string }).code === 'ENOENT' ? new KeychainUnavailable(`${cmd} not found`) : e),
+    child.on('error', (e) =>
+      reject((e as { code?: string }).code === 'ENOENT' ? new KeychainUnavailable(`${cmd} not found`) : e),
     )
     child.on('close', (code) => resolve({ code: code ?? -1, stdout, stderr }))
     child.stdin.end(input)

@@ -42,7 +42,7 @@ export function normalizeValue(value: unknown): CellValue {
   return String(value)
 }
 
-export const cellText = (v: CellValue) => typeof v === 'object' ? JSON.stringify(v) : String(v)
+export const cellText = (v: CellValue) => (typeof v === 'object' ? JSON.stringify(v) : String(v))
 
 /** CSV field (RFC 4180, `;`-separated): every value is quoted, NULL is an empty field. */
 export function csvField(v: CellValue): string {

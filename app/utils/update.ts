@@ -29,10 +29,12 @@ export async function checkForUpdate(manual = false) {
       description: t('update.installed', { version }),
       icon: 'i-lucide-download',
       duration: 0,
-      actions: [{
-        label: t('update.download'),
-        onClick: () => openUrl(release.html_url),
-      }],
+      actions: [
+        {
+          label: t('update.download'),
+          onClick: () => openUrl(release.html_url),
+        },
+      ],
     })
   } catch (e) {
     // No connection, no release or repository not public: no update hint.

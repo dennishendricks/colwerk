@@ -1,10 +1,11 @@
-// DuckDB's native library in packaged builds. It is not embedded: `scripts/package.ts` writes `duckdb.json` with
-// the npm package of the build target. On request (`installDriver()` in core/registry.ts) the package is
-// downloaded from the npm registry, checked against the integrity hash fixed at build time, and its
-// `libduckdb.{dylib,so}` / `duckdb.dll` is unpacked into the data directory. core/drivers/duckdb-ffi.ts loads
-// it from the path in `globalThis.colwerkDuckdbLibrary`.
+// DuckDB's native addon in packaged builds. It is not embedded: scripts/package.ts only embeds a manifest of
+// the build target's npm package (`@duckdb/node-bindings-<platform>`). On request (`installDriver()` in
+// core/registry.ts) the package is downloaded from the npm registry, checked against the integrity hash fixed at
+// build time, and its `duckdb.node` with the DuckDB library next to it is unpacked into the data directory.
+// core/drivers/duckdb-native.ts loads it from the path in `globalThis.colwerkDuckdbLibrary`.
+import { mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { UntarStream } from 'jsr:@std/tar@0.1/untar-stream'
+import { gunzipSync } from 'node:zlib'
 import { defaultDataDir } from '../core/data-dir.ts'
 
 export interface DuckdbManifest {
@@ -16,15 +17,33 @@ export interface DuckdbManifest {
   integrity: string
 }
 
-const LIBRARY: Record<string, string> = { darwin: 'libduckdb.dylib', linux: 'libduckdb.so', win32: 'duckdb.dll' }
+/** The addon and the shared library it links (`libduckdb.dylib`, `libduckdb.so`, `duckdb.dll`). */
+const NATIVE = /\.(node|dylib|so|dll)$/
+
+/** Regular files of a tar archive (ustar; npm tarballs need neither long names nor pax headers here). */
+function* tarFiles(tar: Uint8Array): Generator<{ name: string; data: Uint8Array }> {
+  const decoder = new TextDecoder()
+  const field = (o: number, length: number) => decoder.decode(tar.subarray(o, o + length)).replace(/\0.*$/s, '')
+  for (let o = 0; o + 512 <= tar.length;) {
+    const name = field(o, 100)
+    if (!name) return
+    const size = parseInt(field(o + 124, 12).trim() || '0', 8)
+    const type = field(o + 156, 1)
+    if (type === '0' || type === '') yield { name, data: tar.subarray(o + 512, o + 512 + size) }
+    o += 512 + Math.ceil(size / 512) * 512
+  }
+}
 
 /** The globals the server reads. */
 export function duckdbGlobals(manifest: DuckdbManifest) {
   const root = join(defaultDataDir(), 'drivers')
   const dir = join(root, `duckdb-${manifest.version}-${manifest.platform}`)
-  const file = LIBRARY[manifest.platform.split('-')[0]!]!
-  const library = join(dir, file)
-  const installed = () => Deno.stat(library).then(() => true, () => false)
+  const library = join(dir, 'duckdb.node')
+  const installed = () =>
+    stat(library).then(
+      () => true,
+      () => false,
+    )
 
   async function install(onProgress: (fraction: number) => void) {
     const res = await fetch(manifest.tarball)
@@ -46,26 +65,21 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
 
     // Unpacked next to the target and renamed at the end, so an interrupted download leaves nothing half-done.
     const tmp = `${dir}.${crypto.randomUUID()}.tmp`
-    await Deno.mkdir(tmp, { recursive: true })
+    await mkdir(tmp, { recursive: true })
     try {
-      const entries = ReadableStream.from([tgz]).pipeThrough(new DecompressionStream('gzip')).pipeThrough(
-        new UntarStream(),
-      )
-      for await (const entry of entries) {
-        const name = basename(entry.path)
-        if (entry.readable && name === file) await Deno.writeFile(join(tmp, name), entry.readable)
-        else await entry.readable?.cancel()
+      for (const { name, data } of tarFiles(gunzipSync(tgz))) {
+        if (NATIVE.test(name)) await writeFile(join(tmp, basename(name)), data, { mode: 0o755 })
       }
       // Another instance of the app may have finished first.
-      await Deno.rename(tmp, dir).catch(async (e) => {
+      await rename(tmp, dir).catch(async (e) => {
         if (!(await installed())) throw e
       })
     } finally {
-      await Deno.remove(tmp, { recursive: true }).catch(() => {})
+      await rm(tmp, { recursive: true, force: true })
     }
-    for await (const entry of Deno.readDir(root)) {
-      if (entry.name.startsWith('duckdb-') && join(root, entry.name) !== dir) {
-        await Deno.remove(join(root, entry.name), { recursive: true }).catch(() => {})
+    for (const name of await readdir(root)) {
+      if (name.startsWith('duckdb-') && join(root, name) !== dir) {
+        await rm(join(root, name), { recursive: true, force: true })
       }
     }
   }

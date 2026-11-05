@@ -21,11 +21,12 @@ const recordBundledPackages = {
 const pgCommonJs = {
   name: 'colwerk:pg-commonjs',
   resolveId(
-    this: { resolve(id: string, importer?: string, options?: { skipSelf: boolean }): Promise<unknown> },
+    this: { resolve(id: string, importer?: string, options?: object): Promise<unknown> },
     id: string,
     importer?: string,
+    options?: object,
   ) {
-    if (id === 'pg') return this.resolve('pg/lib/index.js', importer, { skipSelf: true })
+    if (id === 'pg') return this.resolve('pg/lib/index.js', importer, { ...options, skipSelf: true })
   },
 }
 
@@ -36,6 +37,8 @@ export default defineNuxtConfig({
       // Bundles the server dependencies instead of copying them to `.output/server/node_modules`, so the
       // bundled-packages record covers them too. Not in dev, where Nitro would also bundle its dev tooling.
       noExternals: true,
+      // The public files go into the bundle, so the single executable (scripts/package.ts) reads nothing from disk.
+      serveStatic: 'inline',
       // Optional dependency of `pg`, only loaded through `pg.native`, which the app does not use.
       virtual: { 'pg-native': 'export default {}' },
       // `require()` of a module with a default and named exports (e.g. `buffer`, unenv's `debug`) has to return
@@ -58,9 +61,10 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2026-10-01',
   nitro: {
-    preset: 'deno-server',
-    rollupConfig: { plugins: [recordBundledPackages], external: ['node:sqlite'] },
-    // Runs on Deno: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
+    // Exports the request listener without starting a server: launcher/main.ts starts it on a port of its own.
+    preset: 'node-listener',
+    rollupConfig: { plugins: [recordBundledPackages] },
+    // Runs on Bun: no need to lower to Nitro's default es2019 (which rejects BigInt literals in core/export.ts).
     esbuild: { options: { target: 'esnext' } },
   },
   vite: {
@@ -81,7 +85,7 @@ export default defineNuxtConfig({
   },
   typescript: { strict: true },
   telemetry: false,
-  // Formatting is done by `deno fmt`.
+  // Formatting is done by `bun fmt`.
   eslint: { config: { stylistic: false } },
   // No routes per language. The system language applies on every start, unless one was chosen in the
   // application menu (app/plugins/locale.ts); the module's cookie would pin the first detected language.
@@ -102,8 +106,7 @@ export default defineNuxtConfig({
   mcp: {
     name: 'colwerk',
     description: 'Database structures and read-only SQL queries for the connections configured in Colwerk.',
-    instructions:
-      `Call list-connections first; every other tool needs a connectionId from it, and its "dialect" decides the SQL dialect.
+    instructions: `Call list-connections first; every other tool needs a connectionId from it, and its "dialect" decides the SQL dialect.
 Explore with list-schemas, list-tables and describe-table before writing queries.
 run-query and sample-rows only read. Use open-query to hand a query to the user in the editor instead of running it.`,
   },

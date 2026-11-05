@@ -143,9 +143,11 @@ function isGoLine(sql: string, i: number): boolean {
  */
 export function statementAt(sql: string, dialect: SplitDialect, cursor: number): StatementRange | undefined {
   const ranges = splitStatements(sql, dialect, { blankLines: dialect === 'mssql' })
-  return ranges.find((r) => cursor >= r.from && cursor <= r.to) ??
+  return (
+    ranges.find((r) => cursor >= r.from && cursor <= r.to) ??
     ranges.filter((r) => r.to <= cursor).at(-1) ??
     ranges.find((r) => r.from >= cursor)
+  )
 }
 
 /** The statement texts of a script (see `splitStatements`). */
