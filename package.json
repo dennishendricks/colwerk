@@ -15,7 +15,8 @@
     "hooks": "git config core.hooksPath .githooks",
     "lint": "bun --bun nuxt prepare && bun --bun eslint .",
     "lint:fix": "bun --bun nuxt prepare && bun --bun eslint --fix .",
-    "typecheck": "bun --bun nuxt typecheck"
+    "typecheck": "bun --bun nuxt typecheck",
+    "test": "bun test --timeout 60000"
   },
   "dependencies": {
     "@azure/identity": "^4.14.1",

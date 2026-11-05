@@ -59,9 +59,7 @@ jobs:
       # binary tests.
       - run: bun run compile
       - run: docker compose up -d --wait postgres mariadb mssql && docker compose run --rm mssql-init
-      # Driver and API tests run against real databases; Bun's default of 5 s is too short for some of them. Only the
-      # CLI flag works: bunfig.toml ignores `timeout`, and a preloaded setDefaultTimeout covers only the first file.
-      - run: bun test --timeout 60000
+      - run: bun run test
 
   # DuckDB's native addon, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main;
   # the network databases are skipped here.
@@ -82,4 +80,4 @@ jobs:
           bun-version: 1.4.x
       - run: bun install --frozen-lockfile
       - run: bun run compile
-      - run: bun test --timeout 60000
+      - run: bun run test
