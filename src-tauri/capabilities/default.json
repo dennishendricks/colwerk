@@ -15,7 +15,7 @@
     "dialog:allow-save",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/*" }, { "url": "https://colwerk.d-hendricks.com/*" }]
+      "allow": [{ "url": "https://github.com/*" }, { "url": "https://colwerk.app/*" }]
     }
   ]
 }

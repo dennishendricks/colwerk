@@ -85,6 +85,9 @@ if (mode === 'desktop') {
       resources: { '../LICENSE': 'LICENSE', '../.output/THIRD_PARTY_LICENSES.txt': 'THIRD_PARTY_LICENSES.txt' },
     },
   }
+  // linuxdeploy (AppImage) rewrites the RPATH of the sidecar with patchelf, which breaks Bun executables on
+  // arm64 (they crash, and linuxdeploy's ldd with them). There, only the .deb is built.
+  const appImage = !(os === 'linux' && cpu === 'arm64')
   // Cargo builds the shell exactly from Cargo.lock.
   await exec([
     process.execPath,
@@ -93,6 +96,7 @@ if (mode === 'desktop') {
     'build',
     '--config',
     JSON.stringify(config),
+    ...(appImage ? [] : ['--bundles', 'deb']),
     ...extraArgs,
     '--',
     '--locked',
@@ -106,10 +110,7 @@ if (mode === 'desktop') {
       ? [['dmg', '.dmg']]
       : windows
         ? [['msi', '.msi']]
-        : [
-            ['appimage', '.AppImage'],
-            ['deb', '.deb'],
-          ]
+        : [...(appImage ? [['appimage', '.AppImage'] as [string, string]] : []), ['deb', '.deb']]
   for (const [dir, ext] of outputs) {
     const file = (await readdir(join(bundle, dir))).find((f) => f.endsWith(ext))!
     await rename(join(bundle, dir, file), resolve(`dist/${name}${ext}`))
