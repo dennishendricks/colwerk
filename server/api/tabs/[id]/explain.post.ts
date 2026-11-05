@@ -2,9 +2,13 @@ const MAX_TIMEOUT = 86_400
 
 export default defineEventHandler(async (event) => {
   const tabId = getRouterParam(event, 'id')!
-  const { connectionId, database, sql, analyze, timeout } = await readBody<
-    { connectionId: string; database?: string; sql: string; analyze?: boolean; timeout?: number }
-  >(event)
+  const { connectionId, database, sql, analyze, timeout } = await readBody<{
+    connectionId: string
+    database?: string
+    sql: string
+    analyze?: boolean
+    timeout?: number
+  }>(event)
   if (typeof connectionId !== 'string' || typeof sql !== 'string' || !sql.trim()) {
     throw createError({ statusCode: 400, message: 'connectionId and sql are required' })
   }

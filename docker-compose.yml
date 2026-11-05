@@ -45,17 +45,6 @@ services:
     depends_on:
       mssql: { condition: service_healthy }
     volumes: ['./docker/init/mssql.sql:/init.sql:ro']
-    entrypoint: [
-      '/opt/mssql-tools18/bin/sqlcmd',
-      '-C',
-      '-S',
-      'mssql',
-      '-U',
-      'sa',
-      '-P',
-      'Dbm_Passw0rd!',
-      '-b',
-      '-i',
-      '/init.sql',
-    ]
+    entrypoint:
+      ['/opt/mssql-tools18/bin/sqlcmd', '-C', '-S', 'mssql', '-U', 'sa', '-P', 'Dbm_Passw0rd!', '-b', '-i', '/init.sql']
     restart: 'no'

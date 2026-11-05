@@ -4,11 +4,15 @@ const { state, loadDatabases } = useSchema()
 
 const connection = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))
 const supported = computed(() => !!driverOf(activeConnectionId.value)?.capabilities.supportsDatabases)
-const s = computed(() => connection.value ? state({ connectionId: connection.value.id }) : undefined)
+const s = computed(() => (connection.value ? state({ connectionId: connection.value.id }) : undefined))
 
-watch([activeConnectionId, supported], ([id, ok]) => {
-  if (id && ok && !state({ connectionId: id }).databases) loadDatabases(id)
-}, { immediate: true })
+watch(
+  [activeConnectionId, supported],
+  ([id, ok]) => {
+    if (id && ok && !state({ connectionId: id }).databases) loadDatabases(id)
+  },
+  { immediate: true },
+)
 
 // The database configured in the connection is the default; it stays selectable even if the list leaves it out.
 const items = computed(() => {
@@ -33,6 +37,6 @@ const selected = computed({
     :placeholder="$t('connection.defaultDatabase')"
     icon="i-lucide-database"
     class="w-full"
-    @update:open="open => open && loadDatabases(connection!.id, true)"
+    @update:open="(open) => open && loadDatabases(connection!.id, true)"
   />
 </template>

@@ -25,10 +25,9 @@ WHEN NOT TO USE: When the user wants to see, edit or run the query themselves; u
       rowCount: set?.rows.length ?? 0,
       durationMs: Math.round(result.durationMs),
       truncated: set?.truncated ?? false,
-      ...set?.truncated &&
-        {
-          note: `The result has more than ${limit} rows and was cut off. Narrow it down with filters or aggregations.`,
-        },
+      ...(set?.truncated && {
+        note: `The result has more than ${limit} rows and was cut off. Narrow it down with filters or aggregations.`,
+      }),
     }
   },
 })

@@ -1,11 +1,4 @@
 #!/bin/sh
-# Formats staged files with `deno fmt` and stages the result. Enable with `deno task hooks`.
+# Formats staged files with `bun fmt` and stages the result. Enable with `bun run hooks`.
 # Staged files with further unstaged changes are only checked: staging them again would add those changes.
-staged() { git diff --cached --name-only --diff-filter=ACMR -z; }
-
-if staged | xargs -0 -r git diff --quiet --; then
-  staged | xargs -0 -r deno fmt --permit-no-files -q && staged | xargs -0 -r git add --
-else
-  staged | xargs -0 -r deno fmt --check --permit-no-files ||
-    { echo 'Not formatted and partially staged, run `deno task fmt`.' >&2; exit 1; }
-fi
+exec bun fmt --staged

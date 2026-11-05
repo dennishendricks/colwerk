@@ -1,14 +1,14 @@
 // `colwerk mcp`: MCP server on stdio for clients that start a command. Forwards every JSON-RPC message
 // to the running app's `/mcp` endpoint (stateless, so each message stands alone) and writes the replies
 // to stdout. The port is looked up per message, so the app may be started or restarted later.
+import process from 'node:process'
 import { mcpToken } from '../core/mcp-token.ts'
 import { readInstance } from './common.ts'
 
 const NOT_RUNNING = 'Colwerk is not running. Start the app and try again.'
 
-const stdout = Deno.stdout.writable.getWriter()
-const encoder = new TextEncoder()
-const send = (message: unknown) => stdout.write(encoder.encode(`${JSON.stringify(message)}\n`))
+const send = (message: unknown) =>
+  new Promise<void>((resolve) => process.stdout.write(`${JSON.stringify(message)}\n`, () => resolve()))
 
 // Read from the keychain once, and again after any failure (e.g. the token was replaced).
 let token: Promise<string | undefined> | undefined
@@ -53,7 +53,7 @@ export async function runBridge(): Promise<void> {
   const pending = new Set<Promise<void>>()
   let buffer = ''
   // Concurrently, so a long query does not hold up other requests; each reply is one `write`.
-  for await (const chunk of Deno.stdin.readable.pipeThrough(new TextDecoderStream())) {
+  for await (const chunk of process.stdin.setEncoding('utf8')) {
     const lines = (buffer + chunk).split('\n')
     buffer = lines.pop()!
     for (const line of lines.filter((l) => l.trim())) {

@@ -1,160 +1,127 @@
-// `deno task compile` / `deno task desktop [--all-targets] [--keep-output]`: builds the Nuxt app and packages `.output` with the launcher.
+// `bun run compile` / `bun run desktop`: builds the Nuxt app and packages it for the host system.
 //
-// Only `.output` is embedded: Nitro bundles the server dependencies into `.output/server` (`noExternals` in
-// nuxt.config.ts), and `.output/deno.json` keeps Deno from resolving npm packages from the project's full
-// node_modules.
-import { basename, dirname, extname, resolve } from 'node:path'
+// Both build `colwerk-server`, a Bun single-file executable with the launcher, the Nitro server and its
+// dependencies. `compile` writes it to `dist/colwerk`, where it opens the default browser; `desktop` makes it the
+// sidecar of the Tauri app (src-tauri) and writes the app's packages to `dist/`.
+import { copyFile, mkdir, readdir, rename, rm } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { writeThirdPartyLicenses } from './licenses.ts'
 
-const mode = Deno.args[0]
+const mode = process.argv[2]
 if (mode !== 'compile' && mode !== 'desktop') {
-  console.error(
-    'usage: deno run -A scripts/package.ts <compile|desktop> [--all-targets] [--keep-output] [extra deno flags]',
-  )
-  Deno.exit(2)
+  console.error('usage: bun scripts/package.ts <compile|desktop> [extra tauri build flags]')
+  process.exit(2)
+}
+const extraArgs = process.argv.slice(3)
+
+const os = process.platform === 'win32' ? 'windows' : process.platform
+const windows = os === 'windows'
+const cpu = process.arch
+const exe = windows ? '.exe' : ''
+
+async function exec(cmd: string[], cwd?: string) {
+  console.log(`$ ${cmd.join(' ')}`)
+  const code = await Bun.spawn(cmd, { cwd, stdio: ['inherit', 'inherit', 'inherit'] }).exited
+  if (code !== 0) process.exit(code)
 }
 
-// `deno desktop --all-targets` itself writes every target to the host's `desktop.output` (Deno 2.9.8),
-// so the targets are built one by one with an explicit `--output`. In `dist` each package is named
-// `<app>-<version>-<os>-<arch>` with the extension of its `desktop.output` (e.g. `Colwerk-0.1.0-macos-arm64.dmg`).
-const TARGETS: Record<string, { os: 'macos' | 'windows' | 'linux'; duckdb: string; arch: string }> = {
-  'aarch64-apple-darwin': { os: 'macos', duckdb: 'darwin-arm64', arch: 'arm64' },
-  'x86_64-apple-darwin': { os: 'macos', duckdb: 'darwin-x64', arch: 'x64' },
-  'x86_64-pc-windows-msvc': { os: 'windows', duckdb: 'win32-x64', arch: 'x64' },
-  'aarch64-unknown-linux-gnu': { os: 'linux', duckdb: 'linux-arm64', arch: 'arm64' },
-  'x86_64-unknown-linux-gnu': { os: 'linux', duckdb: 'linux-x64', arch: 'x64' },
-}
-const allTargets = mode === 'desktop' && Deno.args.includes('--all-targets')
-const keepOutput = mode === 'desktop' && Deno.args.includes('--keep-output')
-const targets = allTargets ? Object.keys(TARGETS) : [Deno.build.target]
-const extraArgs = Deno.args.slice(1).filter((arg) => arg !== '--all-targets' && arg !== '--keep-output')
-
-async function exec(cmd: string, args: string[], cwd?: string) {
-  const { code } = await new Deno.Command(cmd, { args, cwd, stdout: 'inherit', stderr: 'inherit' }).spawn().status
-  if (code !== 0) Deno.exit(code)
-}
-
-function run(args: string[]) {
-  console.log(`$ deno ${args.join(' ')}`)
-  return exec(Deno.execPath(), args)
-}
-
-await run(['run', '-A', 'npm:nuxt', 'build'])
-
-await Deno.mkdir('.output/launcher', { recursive: true })
-for (const file of ['main.ts', 'common.ts', 'native.ts', 'mcp-bridge.ts']) {
-  await Deno.copyFile(`launcher/${file}`, `.output/launcher/${file}`)
-}
-// Imported by the launcher outside the server bundle; same relative paths as in the source tree.
-await Deno.mkdir('.output/core', { recursive: true })
-for (const file of ['data-dir.ts', 'keychain.ts', 'mcp-token.ts']) {
-  await Deno.copyFile(`core/${file}`, `.output/core/${file}`)
-}
-// `desktop.app` and `desktop.output` come from the project's deno.json. Paths are made absolute, otherwise
-// they would resolve relative to `.output/deno.json`.
-const { desktop } = JSON.parse(await Deno.readTextFile('deno.json'))
-const appVersion = JSON.parse(await Deno.readTextFile('package.json')).version
-const absolute = (paths: Record<string, string>) =>
-  Object.fromEntries(Object.entries(paths).map(([os, path]) => [os, resolve(path)]))
-await Deno.writeTextFile(
-  '.output/deno.json',
-  JSON.stringify(
-    {
-      nodeModulesDir: 'manual',
-      desktop: { app: { ...desktop.app, icons: absolute(desktop.app.icons) } },
-    },
-    null,
-    2,
-  ),
-)
-
-// DuckDB's native library (core/drivers/duckdb-ffi.ts) comes in one npm package per platform. It is not
-// embedded but downloaded on demand (launcher/native.ts); `duckdb.json` tells each build where to get its
-// target's package.
-const { version } = JSON.parse(await Deno.readTextFile('node_modules/@duckdb/node-bindings/package.json'))
+await exec([process.execPath, '--bun', 'nuxt', 'build'])
 
 // License texts: embedded in every build and placed next to the packages in `dist` for the release. DuckDB is
 // not part of them, since it is downloaded at runtime and not distributed.
-await Deno.copyFile('LICENSE', '.output/LICENSE')
-await writeThirdPartyLicenses('.output/THIRD_PARTY_LICENSES.txt')
-await Deno.mkdir('dist', { recursive: true })
-for (const file of ['LICENSE', 'THIRD_PARTY_LICENSES.txt']) await Deno.copyFile(`.output/${file}`, `dist/${file}`)
+await writeThirdPartyLicenses('.output/THIRD_PARTY_LICENSES.txt', { cargo: mode === 'desktop' })
+await mkdir('dist', { recursive: true })
+await copyFile('LICENSE', 'dist/LICENSE')
+await copyFile('.output/THIRD_PARTY_LICENSES.txt', 'dist/THIRD_PARTY_LICENSES.txt')
 
-async function writeDuckdbManifest(platform: string) {
-  const url = `https://registry.npmjs.org/@duckdb/node-bindings-${platform}/${version}`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url}: ${res.status}`)
-  const { dist } = await res.json()
-  await Deno.writeTextFile(
-    '.output/launcher/duckdb.json',
-    JSON.stringify({ version, platform, tarball: dist.tarball, integrity: dist.integrity }),
-  )
+// DuckDB's native addon comes in one npm package per platform. It is not embedded but downloaded on demand
+// (launcher/native.ts); the manifest tells the build where to get its platform's package.
+const { version: duckdbVersion } = await Bun.file('node_modules/@duckdb/node-bindings/package.json').json()
+const duckdbPlatform = `${process.platform}-${cpu}`
+const registry = `https://registry.npmjs.org/@duckdb/node-bindings-${duckdbPlatform}/${duckdbVersion}`
+const { dist: duckdbDist } = await (await fetch(registry)).json()
+const duckdb = {
+  version: duckdbVersion,
+  platform: duckdbPlatform,
+  tarball: duckdbDist.tarball,
+  integrity: duckdbDist.integrity,
 }
 
-for (const target of targets) {
-  const { os, duckdb, arch } = TARGETS[target]!
-  await writeDuckdbManifest(duckdb)
+// The sidecar is named after the Rust target triple of the host, as Tauri expects.
+const target = mode === 'desktop' ? (await Bun.$`rustc --print host-tuple`.text()).trim() : ''
+const server =
+  mode === 'compile' ? resolve(`dist/colwerk${exe}`) : resolve(`src-tauri/binaries/colwerk-server-${target}${exe}`)
+await mkdir(resolve(server, '..'), { recursive: true })
 
-  // `deno desktop` leaves the unpacked app (e.g. `Colwerk.app`) next to the package and makes the .dmg from
-  // the whole output directory, so it builds into an empty staging directory. The package goes to `dist`,
-  // the unpacked app next to it with the same name as `.zip`.
-  const buildDir = resolve('.output/desktop', target)
-  if (mode === 'desktop') await Deno.remove(buildDir, { recursive: true }).catch(() => {})
-  const output = mode === 'desktop'
-    ? `${buildDir}/${basename(desktop.output[os])}`
-    : `dist/colwerk${os === 'windows' ? '.exe' : ''}`
-  await Deno.mkdir(dirname(output), { recursive: true })
-  await run([
-    mode,
+// One executable of the launcher and the Nitro server it imports.
+const result = await Bun.build({
+  entrypoints: ['launcher/main.ts'],
+  compile: { outfile: server },
+  minify: true,
+  define: { COLWERK_DUCKDB: JSON.stringify(JSON.stringify(duckdb)) },
+  plugins: [
+    {
+      name: 'nitro-output',
+      setup(b) {
+        b.onResolve({ filter: /\/server\/index\.mjs$/ }, () => ({ path: resolve('.output/server/index.mjs') }))
+      },
+    },
+  ],
+})
+if (!result.success) {
+  for (const log of result.logs) console.error(log)
+  process.exit(1)
+}
+
+if (mode === 'desktop') {
+  const { version } = await Bun.file('package.json').json()
+  const name = `Colwerk-${version}-${os === 'darwin' ? 'macos' : os}-${cpu}`
+
+  // The sidecar and the license files only exist after this build, so they are added here and not in
+  // tauri.conf.json, which `tauri dev` uses as well.
+  const config = {
+    bundle: {
+      externalBin: ['binaries/colwerk-server'],
+      resources: { '../LICENSE': 'LICENSE', '../.output/THIRD_PARTY_LICENSES.txt': 'THIRD_PARTY_LICENSES.txt' },
+    },
+  }
+  // Cargo builds the shell exactly from Cargo.lock.
+  await exec([
+    process.execPath,
+    '--bun',
+    'tauri',
+    'build',
     '--config',
-    '.output/deno.json',
-    // Type-checked in the project context by `deno task typecheck`; `.output` has no type packages.
-    '--no-check',
-    // Network for the databases and the DuckDB download, file access for config and DuckDB files, env for config,
-    // FFI for DuckDB's native library, run for the OS keychain tools, the native file dialogs (core/dialog.ts)
-    // and opening the browser (app URL, release pages).
-    '--allow-net',
-    '--allow-read',
-    '--allow-write',
-    '--allow-env',
-    '--allow-sys',
-    '--allow-ffi',
-    `--allow-run=${
-      ['security', 'secret-tool', 'powershell', 'osascript', 'zenity', 'kdialog', 'open', 'cmd', 'xdg-open'].join(',')
-    }`,
-    '--include',
-    '.output/public',
-    '--include',
-    '.output/server',
-    '--include',
-    '.output/launcher/duckdb.json',
-    '--include',
-    '.output/LICENSE',
-    '--include',
-    '.output/THIRD_PARTY_LICENSES.txt',
-    ...(mode === 'desktop' ? ['--target', target] : []),
-    // Self-extracting bundle; on macOS `--compress` breaks code signing (Deno 2.9.8), and the .dmg is compressed anyway.
-    ...(mode === 'desktop' && os !== 'macos' ? ['--compress=xz'] : []),
-    '--output',
-    output,
+    JSON.stringify(config),
     ...extraArgs,
-    '.output/launcher/main.ts',
+    '--',
+    '--locked',
   ])
-  if (mode === 'desktop') {
-    const name = `${desktop.app.name}-${appVersion}-${os}-${arch}`
-    const dist = resolve(dirname(desktop.output[os]), `${name}${extname(desktop.output[os])}`)
-    await Deno.mkdir(dirname(dist), { recursive: true })
-    await Deno.rename(output, dist)
 
-    const zip = resolve(dirname(dist), `${name}.zip`)
-    await Deno.remove(zip).catch(() => {})
-    const files = [...Deno.readDirSync(buildDir)].map((entry) => entry.name)
-    // `-y` keeps the symlinks inside a macOS .app (its signature covers them); Windows only has bsdtar.
-    if (Deno.build.os === 'windows') await exec('tar', ['-a', '-cf', zip, ...files], buildDir)
-    else await exec('zip', ['-qry', zip, ...files], buildDir)
-
-    if (!keepOutput) {
-      await Deno.remove(buildDir, { recursive: true })
-    }
+  // Packages: the installer of the platform, and the unpacked app as a .zip.
+  const release = resolve('src-tauri/target/release')
+  const bundle = join(release, 'bundle')
+  const outputs: [string, string][] =
+    os === 'darwin'
+      ? [['dmg', '.dmg']]
+      : windows
+        ? [['msi', '.msi']]
+        : [
+            ['appimage', '.AppImage'],
+            ['deb', '.deb'],
+          ]
+  for (const [dir, ext] of outputs) {
+    const file = (await readdir(join(bundle, dir))).find((f) => f.endsWith(ext))!
+    await rename(join(bundle, dir, file), resolve(`dist/${name}${ext}`))
+  }
+  const zip = resolve(`dist/${name}.zip`)
+  await rm(zip, { force: true })
+  if (os === 'darwin') {
+    // `-y` keeps the symlinks inside the .app (its signature covers them).
+    await exec(['zip', '-qry', zip, 'Colwerk.app'], join(bundle, 'macos'))
+  } else if (windows) {
+    // Portable: the app, its sidecar and the license files, as the installer lays them out.
+    const files = ['colwerk.exe', 'colwerk-server.exe', 'LICENSE', 'THIRD_PARTY_LICENSES.txt']
+    await exec(['tar', '-a', '-cf', zip, ...files], release)
   }
 }

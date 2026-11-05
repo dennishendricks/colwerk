@@ -30,7 +30,7 @@ export function formatSql(sql: string, dialect: SplitDialect): string {
     linesBetweenQueries: 1,
   })
   const masked = maskLiterals(out, dialect)
-  out = out.replace(/<>/g, (match, offset: number) => masked.slice(offset, offset + 2) === '<>' ? '!=' : match)
+  out = out.replace(/<>/g, (match, offset: number) => (masked.slice(offset, offset + 2) === '<>' ? '!=' : match))
   out = onOwnLine(out, dialect)
   out = ctes(out, dialect)
   out = setOperators(out, dialect)
@@ -105,7 +105,10 @@ function ctes(sql: string, dialect: SplitDialect): string {
 /** A blank line before and after `union [all]`, `intersect` and `except`. */
 function setOperators(sql: string, dialect: SplitDialect): string {
   const masked = maskLiterals(sql, dialect).split('\n')
-  return sql.split('\n').flatMap((line, i) => SET_OPERATOR.test(masked[i]!) ? ['', line, ''] : [line]).join('\n')
+  return sql
+    .split('\n')
+    .flatMap((line, i) => (SET_OPERATOR.test(masked[i]!) ? ['', line, ''] : [line]))
+    .join('\n')
 }
 
 /** `a,` / `b` → `a` / `,b`; a comma before a less indented line (`select a, from`) is dropped. */

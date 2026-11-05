@@ -2,6 +2,7 @@
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/workspace'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
 import { de, en } from '@nuxt/ui/locale'
 
@@ -26,7 +27,9 @@ async function toggleConnection(confirmed = false) {
   const connection = activeConnection.value
   if (!connection) return
   if (
-    !connection.disconnected && !confirmed && tabs.value.some((t) => t.connectionId === connection.id && t.transaction)
+    !connection.disconnected &&
+    !confirmed &&
+    tabs.value.some((t) => t.connectionId === connection.id && t.transaction)
   ) {
     confirmingDisconnect.value = true
     return
@@ -99,12 +102,18 @@ function openModal(connection?: ConnectionSummary) {
 
 // Collapsed state is persisted with the panel sizes (auto-save-id).
 const sidebar = useTemplateRef<InstanceType<typeof SplitterPanel>>('sidebar')
-const toggleSidebar = () => sidebar.value?.isCollapsed ? sidebar.value.expand() : sidebar.value?.collapse()
+const toggleSidebar = () => (sidebar.value?.isCollapsed ? sidebar.value.expand() : sidebar.value?.collapse())
 
 // Toggles between the system setting and its opposite; the opposite is stored as a fixed mode (localStorage),
 // so it no longer differs from the system once the system setting changes.
 const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value === 'dark')
+// The native title bar follows the chosen mode; without one (null) it follows the system, like the page.
+watch(
+  () => colorMode.preference,
+  (mode) => isDesktop && getCurrentWindow().setTheme(mode === 'system' ? null : (mode as 'light' | 'dark')),
+  { immediate: true },
+)
 
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
@@ -227,26 +236,33 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
-// Native application menu (desktop app). The page sees each key first: a shortcut it handles calls
-// preventDefault, which keeps the menu item with the same accelerator from firing as well. Deno 2.9.8 only
-// supports single-character accelerators, so ⌘↵ and ⇧⌘[ / ⇧⌘] are not shown in the menu.
+// Native application menu (desktop app). On macOS the page sees each key first: a shortcut it handles calls
+// preventDefault, which keeps the menu item with the same accelerator from firing as well. On Windows and Linux
+// the menu takes its accelerators before the page; both run the same handler. ⌘↵ and ⇧⌘[ / ⇧⌘] stay with the
+// page, which treats them differently depending on the focus.
+// The platform's own items (roles) are only used on macOS, where Tauri implements all of them.
 watchEffect(() => {
-  if (!hasApplicationMenu) return
+  if (!isDesktop) return
   const tab = activeTab.value
   const busy = !!tab && (tab.running || !!tab.exporting)
   const shown = tab?.result?.resultSets[tab.resultIndex]
   const item = (label: string, id: string, enabled = true, accelerator?: string): ApplicationMenuItem => ({
-    item: { label, id, enabled, accelerator },
+    label,
+    id,
+    enabled,
+    accelerator,
   })
-  const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ submenu: { label, items } })
-  const role = (role: string): ApplicationMenuItem => ({ role: { role } })
+  const check = (label: string, id: string, checked: boolean): ApplicationMenuItem => ({ label, id, checked })
+  const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ label, items })
+  const roles = (...roles: (Extract<ApplicationMenuItem, { role: string }>['role'] | 'separator')[]) =>
+    macOS.value ? roles.map((role) => (role === 'separator' ? role : { role })) : []
   setApplicationMenu([
     // macOS replaces the label of the first menu with the app name.
     submenu('Colwerk', [
       item(t('menu.setupMcp'), 'mcp'),
       item(t('menu.checkUpdates'), 'update'),
       'separator',
-      role('quit'),
+      ...(macOS.value ? roles('Quit') : [item(t('menu.quit'), 'quit')]),
     ]),
     submenu(t('menu.file'), [
       item(t('menu.newTab'), 'new-tab', true, 'CmdOrCtrl+T'),
@@ -268,14 +284,7 @@ watchEffect(() => {
       item(t('menu.closeTab'), 'close-tab', !!tab, 'CmdOrCtrl+W'),
     ]),
     submenu(t('menu.edit'), [
-      role('undo'),
-      role('redo'),
-      'separator',
-      role('cut'),
-      role('copy'),
-      role('paste'),
-      role('selectAll'),
-      'separator',
+      ...roles('Undo', 'Redo', 'separator', 'Cut', 'Copy', 'Paste', 'SelectAll', 'separator'),
       item(t('menu.format'), 'format', !!tab?.sql.trim(), 'CmdOrCtrl+Shift+F'),
     ]),
     submenu(t('menu.query'), [
@@ -295,25 +304,23 @@ watchEffect(() => {
     ]),
     submenu(t('menu.view'), [
       item(t('menu.sidebar'), 'sidebar', true, 'CmdOrCtrl+B'),
-      ...(macOS.value ? [role('togglefullscreen')] : []),
+      ...roles('Fullscreen'),
       'separator',
-      // No checkmarks in Deno's menus: the active design and language are disabled instead.
-      item(t('menu.designSystem'), 'design-system', colorMode.preference !== 'system'),
-      item(t('menu.designLight'), 'design-light', colorMode.preference !== 'light'),
-      item(t('menu.designDark'), 'design-dark', colorMode.preference !== 'dark'),
+      check(t('menu.designSystem'), 'design-system', colorMode.preference === 'system'),
+      check(t('menu.designLight'), 'design-light', colorMode.preference === 'light'),
+      check(t('menu.designDark'), 'design-dark', colorMode.preference === 'dark'),
       'separator',
       // Each language under its own name, so it can be found in a language one cannot read.
-      ...locales.value.map((l) => item(l.name!, `locale-${l.code}`, l.code !== locale.value)),
+      ...locales.value.map((l) => check(l.name!, `locale-${l.code}`, l.code === locale.value)),
     ]),
     submenu(t('menu.window'), [
-      role('minimize'),
-      'separator',
+      ...roles('Minimize', 'separator'),
       item(t('menu.previousTab'), 'previous-tab', tabs.value.length > 1),
       item(t('menu.nextTab'), 'next-tab', tabs.value.length > 1),
       'separator',
-      ...tabs.value.slice(0, 9).map((t, i) =>
-        item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)
-      ),
+      ...tabs.value
+        .slice(0, 9)
+        .map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
     ]),
     submenu(t('menu.help'), [item(t('menu.shortcuts'), 'shortcuts'), 'separator', item(t('menu.privacy'), 'privacy')]),
   ])
@@ -322,6 +329,7 @@ watchEffect(() => {
 defineMenuHandlers({
   mcp: () => (mcpOpen.value = true),
   update: () => checkForUpdate(true),
+  quit: () => getCurrentWindow().close(),
   privacy: () => openUrl(privacyUrl),
   'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
   'duplicate-tab': () => duplicateTab(activeTab.value),
@@ -336,10 +344,15 @@ defineMenuHandlers({
   'design-system': () => (colorMode.preference = 'system'),
   'design-light': () => (colorMode.preference = 'light'),
   'design-dark': () => (colorMode.preference = 'dark'),
-  ...Object.fromEntries(locales.value.map((l) => [`locale-${l.code}`, () => {
-    chosenLocale.value = l.code
-    return setLocale(l.code)
-  }])),
+  ...Object.fromEntries(
+    locales.value.map((l) => [
+      `locale-${l.code}`,
+      () => {
+        chosenLocale.value = l.code
+        return setLocale(l.code)
+      },
+    ]),
+  ),
   'previous-tab': () => cycleTab(-1),
   'next-tab': () => cycleTab(1),
   ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
@@ -362,8 +375,15 @@ defineMenuHandlers({
 
     <!-- Sizes are remembered per browser (localStorage) via auto-save-id. -->
     <SplitterGroup v-else direction="horizontal" auto-save-id="colwerk-layout" class="h-full">
-      <SplitterPanel ref="sidebar" as="aside" :default-size="20" :min-size="12" :max-size="45" collapsible
-        class="flex flex-col bg-muted/40">
+      <SplitterPanel
+        ref="sidebar"
+        as="aside"
+        :default-size="20"
+        :min-size="12"
+        :max-size="45"
+        collapsible
+        class="flex flex-col bg-muted/40"
+      >
         <div class="space-y-1 p-2">
           <div class="flex gap-1">
             <div class="min-w-0 flex-1">
@@ -393,10 +413,14 @@ defineMenuHandlers({
           />
         </div>
         <div class="border-t border-default px-3 py-1 text-xs text-muted">
-          <a :href="websiteUrl" class="hover:text-default" @click.prevent="openUrl(websiteUrl)">Colwerk</a> {{ version }}
+          <a :href="websiteUrl" class="hover:text-default" @click.prevent="openUrl(websiteUrl)">Colwerk</a>
+          {{ version }}
           <!-- In the desktop app it is in the application menu. -->
-          <template v-if="!hasApplicationMenu">
-            · <a :href="privacyUrl" class="hover:text-default" @click.prevent="openUrl(privacyUrl)">{{ t('menu.privacy') }}</a>
+          <template v-if="!isDesktop">
+            ·
+            <a :href="privacyUrl" class="hover:text-default" @click.prevent="openUrl(privacyUrl)">{{
+              t('menu.privacy')
+            }}</a>
           </template>
         </div>
       </SplitterPanel>
@@ -417,15 +441,24 @@ defineMenuHandlers({
             v-for="tab in tabs"
             :key="tab.id"
             class="flex cursor-pointer items-center gap-1 rounded-t border border-b-0 px-3 py-1 text-sm"
-            :class="tab.id === activeTabId ? 'border-default bg-default' : 'border-transparent text-muted hover:text-default'"
+            :class="
+              tab.id === activeTabId ? 'border-default bg-default' : 'border-transparent text-muted hover:text-default'
+            "
             @click="activeTabId = tab.id"
           >
             <UIcon v-if="tab.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-            <UIcon v-else-if="tab.transaction" name="i-lucide-triangle-alert"
-              :class="tab.transaction === 'failed' ? 'text-error' : 'text-warning'" class="size-3.5"
-              :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')" />
-            <span v-if="colorOf(tab.connectionId)" class="size-2 shrink-0 rounded-full"
-              :class="connectionColorClasses[colorOf(tab.connectionId)!].bg" />
+            <UIcon
+              v-else-if="tab.transaction"
+              name="i-lucide-triangle-alert"
+              :class="tab.transaction === 'failed' ? 'text-error' : 'text-warning'"
+              class="size-3.5"
+              :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
+            />
+            <span
+              v-if="colorOf(tab.connectionId)"
+              class="size-2 shrink-0 rounded-full"
+              :class="connectionColorClasses[colorOf(tab.connectionId)!].bg"
+            />
             <input
               v-if="renaming === tab.id"
               ref="rename-input"
@@ -436,36 +469,84 @@ defineMenuHandlers({
               @keydown.enter="commitRename(tab)"
               @keydown.escape="renaming = undefined"
               @blur="commitRename(tab)"
+            />
+            <span
+              v-else
+              class="max-w-60 truncate"
+              :title="tab.path ?? tab.title"
+              @dblclick="startRename(tab, $event)"
+              >{{ tab.title }}</span
             >
-            <span v-else class="max-w-60 truncate" :title="tab.path ?? tab.title"
-              @dblclick="startRename(tab, $event)">{{ tab.title }}</span>
-            <UButton icon="i-lucide-x" size="xs" variant="link" color="neutral" class="p-0" :title="t('app.closeTab')"
-              @click.stop="requestClose(tab)" />
+            <UButton
+              icon="i-lucide-x"
+              size="xs"
+              variant="link"
+              color="neutral"
+              class="p-0"
+              :title="t('app.closeTab')"
+              @click.stop="requestClose(tab)"
+            />
           </div>
-          <UButton icon="i-lucide-plus" size="xs" variant="ghost" color="neutral" :title="t('app.newTab')"
-            @click="addTab(activeConnectionId, activeDatabase)" />
-          <UButton icon="i-lucide-history" size="xs" variant="ghost" color="neutral" class="ml-auto"
-            :title="t('app.history')" @click="historyOpen = true" />
+          <UButton
+            icon="i-lucide-plus"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :title="t('app.newTab')"
+            @click="addTab(activeConnectionId, activeDatabase)"
+          />
+          <UButton
+            icon="i-lucide-history"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            class="ml-auto"
+            :title="t('app.history')"
+            @click="historyOpen = true"
+          />
           <!-- In the desktop app it is in the application menu. -->
-          <UButton v-if="!hasApplicationMenu" icon="i-lucide-sparkles" size="xs" variant="ghost" color="neutral"
-            :title="t('app.setupMcp')" @click="mcpOpen = true" />
+          <UButton
+            v-if="!isDesktop"
+            icon="i-lucide-sparkles"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :title="t('app.setupMcp')"
+            @click="mcpOpen = true"
+          />
           <UButton
             :icon="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
             size="xs"
             variant="ghost"
             color="neutral"
-            :title="colorMode.preference !== 'system' ? t('app.systemDesign') : isDark ? t('app.lightDesign') : t('app.darkDesign')"
+            :title="
+              colorMode.preference !== 'system'
+                ? t('app.systemDesign')
+                : isDark
+                  ? t('app.lightDesign')
+                  : t('app.darkDesign')
+            "
             @click="colorMode.preference = colorMode.preference !== 'system' ? 'system' : isDark ? 'light' : 'dark'"
           />
-          <UButton icon="i-lucide-keyboard" size="xs" variant="ghost" color="neutral" :title="t('app.shortcuts')"
-            @click="shortcutsOpen = true" />
+          <UButton
+            icon="i-lucide-keyboard"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :title="t('app.shortcuts')"
+            @click="shortcutsOpen = true"
+          />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
           <QueryPanel v-for="tab in tabs" v-show="tab.id === activeTabId" :key="tab.id" :tab="tab" />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
-            <UButton icon="i-lucide-plus" :label="t('app.newTab')" variant="soft"
-              @click="addTab(activeConnectionId, activeDatabase)" />
+            <UButton
+              icon="i-lucide-plus"
+              :label="t('app.newTab')"
+              variant="soft"
+              @click="addTab(activeConnectionId, activeDatabase)"
+            />
           </div>
         </div>
       </SplitterPanel>
@@ -474,14 +555,17 @@ defineMenuHandlers({
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
-    <LazyHistoryModal v-model:open="historyOpen" :connection-id="activeTab?.connectionId ?? activeConnectionId"
-      @select="e => openInNewTab(e.connectionId, e.sql)" />
+    <LazyHistoryModal
+      v-model:open="historyOpen"
+      :connection-id="activeTab?.connectionId ?? activeConnectionId"
+      @select="(e) => openInNewTab(e.connectionId, e.sql)"
+    />
     <UModal
       :open="!!closing"
       :title="t('app.closeTabTitle')"
       :description="closingTab?.transaction ? t('app.closeTabTransaction') : t('app.closeTabQuery')"
       :close="false"
-      @update:open="v => !v && (closing = undefined)"
+      @update:open="(v) => !v && (closing = undefined)"
     >
       <template #footer>
         <div class="flex w-full justify-end gap-2">

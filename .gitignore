@@ -9,6 +9,10 @@ dist
 # Node dependencies
 node_modules
 
+# Leftovers of `bun build --compile` and of `vue-tsc -b` (tsconfig.bun.json)
+*.bun-build
+*.tsbuildinfo
+
 # Logs
 *.log
 
@@ -16,3 +20,8 @@ node_modules
 .DS_Store
 .fleet
 .idea
+
+# Tauri build outputs, generated schemas and the sidecar (scripts/package.ts)
+src-tauri/target
+src-tauri/gen
+src-tauri/binaries

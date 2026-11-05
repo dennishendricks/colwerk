@@ -16,7 +16,7 @@
   },
   "app": {
     "noServer": "Keine Verbindung zum lokalen Server",
-    "noServerHint": "{error} – Bitte die App über den Launcher bzw. die von „deno task dev“ ausgegebene URL öffnen.",
+    "noServerHint": "{error} – Bitte die App über den Launcher bzw. die von „bun run dev“ ausgegebene URL öffnen.",
     "connect": "Verbindung herstellen",
     "disconnect": "Verbindung trennen",
     "disconnectHint": "Verbindung trennen (gibt die Datenbankdatei für andere Programme frei)",
@@ -42,6 +42,7 @@
     "disconnectConfirm": "Trennen"
   },
   "menu": {
+    "quit": "Beenden",
     "setupMcp": "MCP einrichten …",
     "checkUpdates": "Nach Updates suchen …",
     "file": "Ablage",

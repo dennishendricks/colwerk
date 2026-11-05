@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Started by deno-lock.yml after it commits deno.lock to a Dependabot PR.
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,34 +18,51 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.9.x
-          cache: true
-      - run: deno install --frozen --allow-scripts
-      - run: deno fmt --check
-      - run: deno task lint
-      - run: deno task typecheck
+          bun-version: 1.4.x
+      - run: bun install --frozen-lockfile
+      - run: bun fmt --check
+      - run: bun run lint
+      - run: bun run typecheck
+
+  # The desktop shell (src-tauri); its packages are only built for a release.
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml -- -D warnings
 
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      # Started first so the databases initialize while Deno installs and builds.
+      # Started first so the databases initialize while Bun installs and builds.
       - run: docker compose up -d --quiet-pull postgres mariadb mssql
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.9.x
-          cache: true
-      - run: deno install --frozen --allow-scripts
-      # Builds `.output` and `dist/colwerk`, which enable the API and binary tests.
-      - run: deno task compile
+          bun-version: 1.4.x
+      - run: bun install --frozen-lockfile
+      # Builds `.output` and `dist/colwerk` (the server as a Bun single-file executable), which enable the API and
+      # binary tests.
+      - run: bun run compile
       - run: docker compose up -d --wait postgres mariadb mssql && docker compose run --rm mssql-init
-      - run: deno task test
+      - run: bun test
 
-  # DuckDB FFI, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main; the network
-  # databases are skipped here.
+  # DuckDB's native addon, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main;
+  # the network databases are skipped here.
   platforms:
     if: github.event_name == 'push'
     strategy:
@@ -60,10 +75,9 @@ jobs:
       # Keeps LF line endings on Windows, as in the repository.
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.9.x
-          cache: true
-      - run: deno install --frozen --allow-scripts
-      - run: deno task compile
-      - run: deno task test
+          bun-version: 1.4.x
+      - run: bun install --frozen-lockfile
+      - run: bun run compile
+      - run: bun test

@@ -132,8 +132,7 @@ const sqlFor = (stringAgg: boolean) => {
       join sys.columns rc on rc.object_id = f.referenced_object_id and rc.column_id = f.referenced_column_id
       where f.parent_object_id = c.object_id and f.parent_column_id = c.column_id) fk
     outer apply (
-      select ${
-      agg(
+      select ${agg(
         'i.name',
         'char(10)',
         'i.name',
@@ -142,22 +141,19 @@ const sqlFor = (stringAgg: boolean) => {
       join sys.indexes i on i.object_id = ic.object_id and i.index_id = ic.index_id
       where ic.object_id = c.object_id and ic.column_id = c.column_id
         and i.is_primary_key = 0 and i.name is not null`,
-      )
-    } as idx) ix
+      )} as idx) ix
     where c.object_id = object_id(quotename(@schema) + '.' + quotename(@table))
     order by c.column_id`,
     indexes: `
     select i.name, i.is_unique as [unique], i.is_primary_key as [primary],
-      ${
-      agg(
+      ${agg(
         'c.name',
         'char(10)',
         'ic.key_ordinal',
         `
          from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
         where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`,
-      )
-    } as cols
+      )} as cols
     from sys.indexes i
     where i.object_id = object_id(quotename(@schema) + '.' + quotename(@table)) and i.type > 0 and i.is_hypothetical = 0
     order by i.is_primary_key desc, i.name`,
@@ -171,12 +167,11 @@ const sqlFor = (stringAgg: boolean) => {
     tableDdl: `
     declare @id int = object_id(quotename(@schema) + '.' + quotename(@name), 'U');
     declare @table nvarchar(max) = quotename(@schema) + '.' + quotename(@name);
-    select 'create table ' + @table + ' (' + char(10) + ${
-      agg(
-        `cast('    ' + line as nvarchar(max))`,
-        `',' + char(10)`,
-        'grp, ord',
-        `from (
+    select 'create table ' + @table + ' (' + char(10) + ${agg(
+      `cast('    ' + line as nvarchar(max))`,
+      `',' + char(10)`,
+      'grp, ord',
+      `from (
           select 0 as grp, c.column_id as ord, quotename(c.name) + ' ' + ${COLUMN_TYPE}
             + case when ic.object_id is not null
                 then ' identity(' + cast(ic.seed_value as varchar) + ', ' + cast(ic.increment_value as varchar) + ')' else '' end
@@ -190,24 +185,21 @@ const sqlFor = (stringAgg: boolean) => {
           select 1, case k.type when 'PK' then 0 else 1 end, 'constraint ' + quotename(k.name) + case k.type when 'PK' then ' primary key' else ' unique' end
             + ' (' + cols.list + ')'
           from sys.key_constraints k
-          cross apply (select ${
-          agg(
+          cross apply (select ${agg(
             'quotename(c.name)',
             `', '`,
             'ic.key_ordinal',
             `
             from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
             where ic.object_id = k.parent_object_id and ic.index_id = k.unique_index_id`,
-          )
-        } as list) cols
+          )} as list) cols
           where k.parent_object_id = @id
           union all
           select 2, 0, 'constraint ' + quotename(f.name) + ' foreign key (' + cols.list + ') references '
             + quotename(schema_name(r.schema_id)) + '.' + quotename(r.name) + ' (' + cols.refs + ')'
           from sys.foreign_keys f
           join sys.objects r on r.object_id = f.referenced_object_id
-          cross apply (select ${
-          agg(
+          cross apply (select ${agg(
             'quotename(c.name)',
             `', '`,
             'fc.constraint_column_id',
@@ -215,48 +207,40 @@ const sqlFor = (stringAgg: boolean) => {
             from sys.foreign_key_columns fc
             join sys.columns c on c.object_id = fc.parent_object_id and c.column_id = fc.parent_column_id
             where fc.constraint_object_id = f.object_id`,
-          )
-        } as list,
-              ${
-          agg(
-            'quotename(rc.name)',
-            `', '`,
-            'fc.constraint_column_id',
-            `
+          )} as list,
+              ${agg(
+                'quotename(rc.name)',
+                `', '`,
+                'fc.constraint_column_id',
+                `
             from sys.foreign_key_columns fc
             join sys.columns rc on rc.object_id = fc.referenced_object_id and rc.column_id = fc.referenced_column_id
             where fc.constraint_object_id = f.object_id`,
-          )
-        } as refs) cols
+              )} as refs) cols
           where f.parent_object_id = @id
           union all
           select 3, 0, 'constraint ' + quotename(ch.name) + ' check ' + ch.definition
           from sys.check_constraints ch where ch.parent_object_id = @id
         ) lines`,
-      )
-    } + char(10) + ');'
-      + coalesce(${
-      agg(
+    )} + char(10) + ');'
+      + coalesce(${agg(
         `cast(char(10) + char(10) + 'create ' + case when i.is_unique = 1 then 'unique ' else '' end
             + 'index ' + quotename(i.name) + ' on ' + @table + ' (' + cols.list + ');' as nvarchar(max))`,
         `''`,
         'i.name',
         `
           from sys.indexes i
-          cross apply (select ${
-          agg(
+          cross apply (select ${agg(
             'quotename(c.name)',
             `', '`,
             'ic.key_ordinal',
             `
             from sys.index_columns ic join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
             where ic.object_id = i.object_id and ic.index_id = i.index_id and ic.key_ordinal > 0`,
-          )
-        } as list) cols
+          )} as list) cols
           where i.object_id = @id and i.type > 0 and i.is_hypothetical = 0
             and i.is_primary_key = 0 and i.is_unique_constraint = 0`,
-      )
-    }, '') as ddl
+      )}, '') as ddl
     where @id is not null`,
   }
 }
@@ -269,7 +253,10 @@ class MssqlSession implements Session {
   private stopReason: 'limit' | 'cancel' | null = null
   private SQL: ReturnType<typeof sqlFor>
 
-  constructor(private pool: sql.ConnectionPool, stringAgg: boolean) {
+  constructor(
+    private pool: sql.ConnectionPool,
+    stringAgg: boolean,
+  ) {
     this.SQL = sqlFor(stringAgg)
   }
 
@@ -366,11 +353,14 @@ class MssqlSession implements Session {
       const rows = batch.map((r) => r.map((v, i) => cell(v, types![i]!)))
       batch = []
       request.pause()
-      pending = sink.rows(rows).then(() => void request.resume(), (e) => {
-        failed = e
-        request.resume()
-        request.cancel()
-      })
+      pending = sink.rows(rows).then(
+        () => void request.resume(),
+        (e) => {
+          failed = e
+          request.resume()
+          request.cancel()
+        },
+      )
     }
 
     return new Promise<void>((resolve, reject) => {
@@ -492,16 +482,16 @@ export const mssqlDriver: Driver = {
     // A pool of exactly one long-lived connection: session state (temp tables, transactions) survives between calls.
     const pool = new sql.ConnectionPool({
       server: config.host ?? 'localhost',
-      port: config.instanceName ? undefined : config.port ?? 1433,
+      port: config.instanceName ? undefined : (config.port ?? 1433),
       database: config.database,
       user: config.user,
       password: config.password,
-      domain: config.auth === 'windows' ? config.domain ?? '' : undefined,
+      domain: config.auth === 'windows' ? (config.domain ?? '') : undefined,
       authentication: token ? { type: 'azure-active-directory-access-token', options: { token } } : undefined,
       connectionTimeout: 10_000,
       requestTimeout: 0,
       options: {
-        encrypt: tls ? config.sslStrict ? 'strict' : true : false,
+        encrypt: tls ? (config.sslStrict ? 'strict' : true) : false,
         trustServerCertificate: tls ? !tls.rejectUnauthorized : false,
         cryptoCredentialsDetails: tls?.ca ? { ca: tls.ca } : undefined,
         serverName: tls ? config.sslServerName : undefined,
@@ -519,7 +509,13 @@ export const mssqlDriver: Driver = {
     pool.on('error', () => {})
     try {
       await pool.connect()
-      const stringAgg = await pool.request().query(STRING_AGG_PROBE).then(() => true, () => false)
+      const stringAgg = await pool
+        .request()
+        .query(STRING_AGG_PROBE)
+        .then(
+          () => true,
+          () => false,
+        )
       return new MssqlSession(pool, stringAgg)
     } catch (e) {
       await pool.close().catch(() => {})

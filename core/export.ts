@@ -65,16 +65,20 @@ const STRING: Target = {
   convert: cellText,
 }
 
-const BOOLEANS = new Map([['true', true], ['t', true], ['1', true], ['false', false], ['f', false], ['0', false]])
+const BOOLEANS = new Map([
+  ['true', true],
+  ['t', true],
+  ['1', true],
+  ['false', false],
+  ['f', false],
+  ['0', false],
+])
 
 function integer(bits: 16 | 32 | 64): Target {
   const limit = 2n ** BigInt(bits - 1)
   return {
-    element: bits === 64
-      ? { type: 'INT64' }
-      : bits === 32
-      ? { type: 'INT32' }
-      : { type: 'INT32', converted_type: 'INT_16' },
+    element:
+      bits === 64 ? { type: 'INT64' } : bits === 32 ? { type: 'INT32' } : { type: 'INT32', converted_type: 'INT_16' },
     convert: (v) => {
       const text = typeof v === 'number' || typeof v === 'string' ? String(v).trim() : ''
       if (!/^[+-]?\d+$/.test(text)) return undefined
@@ -142,9 +146,13 @@ function parseTimestamp(v: CellValue): { micros: bigint; time: boolean; zone: bo
   date.setUTCFullYear(y, mo - 1, d)
   // Date rolls invalid fields over (Feb 30 → Mar 2); such values do not convert.
   if (
-    date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d || date.getUTCHours() !== h ||
-    date.getUTCMinutes() !== mi || date.getUTCSeconds() !== s
-  ) return undefined
+    date.getUTCMonth() !== mo - 1 ||
+    date.getUTCDate() !== d ||
+    date.getUTCHours() !== h ||
+    date.getUTCMinutes() !== mi ||
+    date.getUTCSeconds() !== s
+  )
+    return undefined
   const zone = m[8]?.match(/^([+-])(\d{2}):?(\d{2})?$/)
   const offset = zone ? (zone[1] === '-' ? -1 : 1) * (Number(zone[2]) * 60 + Number(zone[3] ?? 0)) * 60_000 : 0
   const micros = BigInt(date.getTime() - offset) * 1000n + BigInt((m[7] ?? '').padEnd(6, '0').slice(0, 6))
@@ -164,8 +172,10 @@ const TIME: Target = {
   convert: (v) => {
     const m = typeof v === 'string' ? v.match(/^(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?$/) : null
     if (!m || Number(m[1]) > 23 || Number(m[2]) > 59 || Number(m[3]) > 59) return undefined
-    return BigInt((Number(m[1]) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1_000_000n +
+    return (
+      BigInt((Number(m[1]) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1_000_000n +
       BigInt((m[4] ?? '').padEnd(6, '0').slice(0, 6))
+    )
   },
 }
 
@@ -193,7 +203,7 @@ function parquetTarget(type: string): Target | undefined {
   if (/^(bool|boolean|bit)$/.test(t)) {
     return {
       element: { type: 'BOOLEAN' },
-      convert: (v) => typeof v === 'boolean' ? v : BOOLEANS.get(String(v).toLowerCase()),
+      convert: (v) => (typeof v === 'boolean' ? v : BOOLEANS.get(String(v).toLowerCase())),
     }
   }
   if (/^(tinyint|smallint|int2|tiny|short|utinyint)$/.test(t)) return integer(16)
@@ -244,10 +254,11 @@ function parquetExporter(write: Write): Exporter {
   let columns: ResultColumn[] | undefined
   let targets: (Target | undefined)[] = []
   let staging: Promise<{ dir: string; file: FileHandle }> | undefined
-  const stage = () => (staging ??= mkdtemp(join(tmpdir(), 'colwerk-export-')).then(async (dir) => ({
-    dir,
-    file: await open(join(dir, 'rows.jsonl'), 'w'),
-  })))
+  const stage = () =>
+    (staging ??= mkdtemp(join(tmpdir(), 'colwerk-export-')).then(async (dir) => ({
+      dir,
+      file: await open(join(dir, 'rows.jsonl'), 'w'),
+    })))
   return {
     columns: (c) => {
       columns = c
@@ -281,15 +292,16 @@ function parquetExporter(write: Write): Exporter {
         await writer.write({
           columnData: names.map((name, i) => ({
             name,
-            data: batch.map((row) => row[i] === null ? null : types[i]!.convert(row[i]!)),
+            data: batch.map((row) => (row[i] === null ? null : types[i]!.convert(row[i]!))),
           })),
           rowGroupSize: ROW_GROUP,
         })
         batch = []
       }
-      for await (
-        const line of createInterface({ input: createReadStream(join(dir, 'rows.jsonl')), crlfDelay: Infinity })
-      ) {
+      for await (const line of createInterface({
+        input: createReadStream(join(dir, 'rows.jsonl')),
+        crlfDelay: Infinity,
+      })) {
         batch.push(JSON.parse(line))
         if (batch.length === ROW_GROUP) await writeGroup()
       }
@@ -297,10 +309,13 @@ function parquetExporter(write: Write): Exporter {
       await writer.finish()
     },
     dispose: async () => {
-      await staging?.then(async ({ dir, file }) => {
-        await file.close().catch(() => {})
-        await rm(dir, { recursive: true, force: true })
-      }, () => {})
+      await staging?.then(
+        async ({ dir, file }) => {
+          await file.close().catch(() => {})
+          await rm(dir, { recursive: true, force: true })
+        },
+        () => {},
+      )
     },
   }
 }
