@@ -5,4 +5,3 @@ singleQuote = true
 
 [test]
 root = "tests"
-preload = ["./tests/setup.ts"]
