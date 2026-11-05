@@ -26,11 +26,12 @@ entirely on your machine and has no telemetry, no analytics and no account.
 
 ## Download
 
-| Platform | Architecture         | Package  |
-| -------- | -------------------- | -------- |
-| macOS    | Apple Silicon, Intel | `.dmg`   |
-| Windows  | x64                  | `.msi`   |
-| Linux    | x64, arm64           | AppImage |
+| Platform | Architecture         | Package          |
+| -------- | -------------------- | ---------------- |
+| macOS    | Apple Silicon, Intel | `.dmg`           |
+| Windows  | x64                  | `.msi`           |
+| Linux    | x64                  | AppImage, `.deb` |
+| Linux    | arm64                | `.deb`           |
 
 **[→ Get the latest release](https://github.com/dennishendricks/colwerk/releases/latest)** — all files and checksums
 are listed there. Install, start Colwerk, add a connection and run your first query.
