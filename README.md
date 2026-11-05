@@ -1,12 +1,66 @@
-# Colwerk
+<p align="center">
+  <img src="public/icon.svg" alt="Colwerk" width="96" height="96">
+</p>
 
-A lightweight SQL editor and database client for the desktop. Supports PostgreSQL, MySQL/MariaDB, Microsoft SQL Server,
-DuckDB and SQLite.
+<h1 align="center">Colwerk · A lightweight SQL editor for the desktop</h1>
+
+<p align="center">
+  <strong>Write SQL. Watch it come alive.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/dennishendricks/colwerk/releases/latest"><img src="https://img.shields.io/github/v/release/dennishendricks/colwerk?label=download" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/dennishendricks/colwerk" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://colwerk.app/"><strong>Website</strong></a> ·
+  <a href="https://github.com/dennishendricks/colwerk/releases/latest"><strong>Download</strong></a> ·
+  <a href="#development">Development</a>
+</p>
+
+---
+
+Colwerk connects to **PostgreSQL, MySQL/MariaDB, Microsoft SQL Server, DuckDB and SQLite**. It is open source, free, runs
+entirely on your machine and has no telemetry, no analytics and no account.
+
+## Download
+
+| Platform | Architecture         | Package  |
+| -------- | -------------------- | -------- |
+| macOS    | Apple Silicon, Intel | `.dmg`   |
+| Windows  | x64                  | `.msi`   |
+| Linux    | x64, arm64           | AppImage |
+
+**[→ Get the latest release](https://github.com/dennishendricks/colwerk/releases/latest)** — all files and checksums
+are listed there. Install, start Colwerk, add a connection and run your first query.
+
+## Features
+
+- **One session per tab** – transactions, temp tables and `SET` options persist per tab; open transactions can be
+  committed or rolled back.
+- **Gentle on the database** – reads only up to the row limit, loads the schema tree on demand and takes table sizes from
+  statistics instead of `COUNT(*)`.
+- **Production guard rails** – color-coded connections and optional confirmation before statements that change data or
+  structure.
+- **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
+- **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
+- **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
+  cursors and a searchable query history.
+- **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).
+- **Local by design** – the server only listens on `127.0.0.1`, passwords are encrypted, the key lives in the OS
+  keychain.
+
+More details, screenshots and the privacy notes: **[colwerk.app](https://colwerk.app/)**
+
+---
+
+## Development
 
 Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro. The server runs on Bun as a single-file executable; the
 desktop app is a Tauri 2 shell around it. Bun is also the development toolchain (scripts, tests, formatting).
 
-## Getting started
+### Getting started
 
 Requirements: Bun 1.4+, Docker (optional, for the test databases). For the desktop app also Rust (stable) and, on
 Linux, Tauri's system packages (`libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev`).
@@ -31,7 +85,7 @@ bun run dev            # dev server; prints the URL including the session token
 
 Tests against Postgres, MariaDB and MSSQL are skipped when the container is not reachable.
 
-## Architecture
+### Architecture
 
 ```
 core/       runtime-agnostic TypeScript on node: APIs: drivers, sessions, export, store, keychain (no Nuxt dependencies)
@@ -58,35 +112,20 @@ Core decisions:
   and opener APIs as a remote page on `127.0.0.1` (`src-tauri/capabilities`).
 - **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas` and `supportsNetwork`; the UI adapts to them.
 
-## Security
+### Security
 
 - The server binds to `127.0.0.1` on a random port.
 - Every `/api/*` request needs a random per-start token (`x-colwerk-token`, constant-time comparison).
 - Requests with a foreign `Host` or `Origin` are rejected (DNS rebinding, cross-site).
 
-## MCP server
-
-Colwerk serves an MCP endpoint at `/mcp`. Clients that start a command use the stdio bridge, which finds the running app
-on its own:
-
-```json
-{
-  "mcpServers": { "colwerk": { "command": "/Applications/Colwerk.app/Contents/MacOS/colwerk-server", "args": ["mcp"] } }
-}
-```
-
-MCP clients authenticate with their own persistent token (`Authorization: Bearer <token>`, stored in the OS keychain,
-overridable via `COLWERK_MCP_TOKEN`). The tools list connections, schemas and tables, run read-only queries and open SQL
-in a new editor tab. Queries run in a separate session inside a transaction that is always rolled back.
-
-## Connections and credentials
+### Connections and credentials
 
 Connections, open tabs and query history are stored as JSON in the data directory
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
 `COLWERK_DATA_DIR`). Passwords are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
 (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
 
-## Drivers and native libraries
+### Drivers and native libraries
 
 A driver implements `Driver` in `core/drivers/<name>.ts`, is registered in `core/registry.ts` and added to the contract
 test in `tests/drivers.test.ts`. `connect()` must open exactly one connection (no pool), and `cancel()` must work
@@ -95,7 +134,7 @@ concurrently with `execute()`.
 Native addons (currently DuckDB, `@duckdb/node-bindings`) are not embedded in the packages but downloaded from npm on
 first use, verified by hash and stored in the data directory.
 
-## Known limitations
+### Known limitations
 
 - MSSQL `DECIMAL`/`MONEY` lose precision beyond ~15 digits (tedious returns JS numbers).
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
