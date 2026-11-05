@@ -411,8 +411,9 @@ class SqliteSession implements Session {
 }
 
 // `:memory:` stands for a temporary file per connection, shared by its sessions and removed with the last one:
-// a real in-memory database only lives in one connection, and the URI of a shared one (`file:x?mode=memory`)
-// is opened as a plain file name unless Deno runs with all permissions.
+// a real in-memory database only lives in one connection, and a shared one (`file:x?mode=memory&cache=shared`)
+// locks per table: while a tab holds an open write transaction, the metadata session fails at once with "database
+// table is locked" (busy_timeout does not apply), where a file still reads the last committed state.
 const memoryFiles = new Map<string, { dir: Promise<string>; sessions: number }>()
 
 async function memoryFile(connectionId: string): Promise<{ path: string; release: () => Promise<void> }> {
