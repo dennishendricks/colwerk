@@ -78,7 +78,7 @@ bun run dev            # dev server; prints the URL including the session token
 | `bun run desktop`   | Desktop app for the host system: installer and .zip in `dist/`                             |
 | `bun run compile`   | Self-hosted binary `dist/colwerk` that opens the default browser                           |
 | `bun run release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release               |
-| `bun test`          | Driver contract tests, API end-to-end test, SQL splitter tests                             |
+| `bun run test`      | Driver contract tests, API end-to-end test, SQL splitter tests                             |
 | `bun run typecheck` | `nuxt typecheck`, including core, launcher, scripts and tests (`tsconfig.bun.json`)        |
 | `bun fmt`           | Formats all files (settings in `bunfig.toml`)                                              |
 | `bun run hooks`     | Enables the pre-commit hook in `.githooks/`                                                |
