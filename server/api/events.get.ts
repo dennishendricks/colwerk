@@ -1,6 +1,4 @@
 // Server-sent events for the editor window: `open-query` (see server/utils/editor.ts).
-// A plain stream instead of h3's createEventStream, which crashes the Deno server with an
-// unhandled rejection when the client disconnects.
 export default defineEventHandler((event) => {
   const encoder = new TextEncoder()
   let off = () => {}
