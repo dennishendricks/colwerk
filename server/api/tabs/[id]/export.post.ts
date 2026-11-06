@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path'
-import { type CellValue, isReadOnlyStatement, type ResultColumn } from '#core'
+import { type CellValue, isReadOnlyStatement, type ResultColumn, sqlDialect } from '#core'
 
 // Two scopes: with `rows` the rows already shown in the grid are encoded as they are; otherwise
 // the statement runs again in the tab's session and its full result is written (no row limit).
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'connectionId and sql, or columns and rows are required' })
   }
   // Running the statement again must not repeat side effects (DML with RETURNING/OUTPUT, scripts).
-  if (!isReadOnlyStatement(sql, (await store.get(connectionId)).dialect)) {
+  if (!isReadOnlyStatement(sql, sqlDialect((await store.get(connectionId)).dialect))) {
     throw createError({
       statusCode: 400,
       message: 'The full result can only be exported for a single read-only statement',

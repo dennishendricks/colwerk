@@ -85,7 +85,7 @@ async function columnsOf(schema: string, table: string) {
 
 async function format(sql: string) {
   const { formatSql } = await import('~/utils/sql-format')
-  return formatSql(sql, driver.value!.dialect)
+  return formatSql(sql, sqlDialect(driver.value!.dialect))
 }
 
 /** Opens `sql` in a new tab of this connection and runs it if `execute` is set. */
@@ -136,6 +136,7 @@ async function generateSql(schema: string, table: string, statement: Statement) 
   let n = 0
   const param = () => {
     n++
+    if (dialect === 'clickhouse') return `{p${n}:String}`
     return dialect === 'mysql' ? '?' : dialect === 'mssql' ? `@p${n}` : `$${n}`
   }
   const pk = cols.filter((c) => c.primaryKey)

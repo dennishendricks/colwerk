@@ -7,6 +7,7 @@ const LANGUAGES: Record<SplitDialect, SqlLanguage> = {
   mysql: 'mysql',
   mssql: 'transactsql',
   sqlite: 'sqlite',
+  clickhouse: 'clickhouse',
 }
 const INDENT = '    '
 const JOIN = /^\s*(?:(?:natural|cross|inner|left|right|full|outer)\s+)*join\b/i

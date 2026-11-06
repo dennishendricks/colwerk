@@ -92,14 +92,14 @@ const SQL = {
 
 const ident = (name: string) => (/^[a-z_][a-z0-9_]*$/.test(name) ? name : `"${name.replaceAll('"', '""')}"`)
 
-class DuckDBSession implements Session {
+export class DuckDBSession implements Session {
   // Statements run one after another: a new statement on the connection invalidates a streaming result,
   // and the connection may only be closed once no native call uses it anymore.
   private queue: Promise<unknown> = Promise.resolve()
 
-  constructor(private conn: Connection) {}
+  constructor(protected conn: Connection) {}
 
-  private serial<T>(fn: () => Promise<T>): Promise<T> {
+  protected serial<T>(fn: () => Promise<T>): Promise<T> {
     const run = this.queue.then(fn)
     this.queue = run.catch(() => {})
     return run
@@ -289,7 +289,7 @@ class DuckDBSession implements Session {
     await this.serial(async () => this.conn.close())
   }
 
-  private rows<T>(sql: string, params: string[] = []): Promise<T[]> {
+  protected rows<T>(sql: string, params: string[] = []): Promise<T[]> {
     return this.serial(async () => {
       const result = await this.conn.query(sql, params)
       try {

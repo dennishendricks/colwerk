@@ -4,6 +4,8 @@ import {
   isSelectStatement,
   type QueryResult,
   type SchemaInfo,
+  type SplitDialect,
+  sqlDialect,
   type TableInfo,
 } from '#core'
 
@@ -52,17 +54,20 @@ export function quoteIdent(name: string, dialect: Dialect): string {
 // Opens a transaction that is never committed: closing the session rolls back whatever the statement
 // changed (SQLite: the session's connection refuses writes). Second line of defence behind `isSelectStatement`,
 // which is a text heuristic.
-const GUARD: Record<Dialect, string> = {
+// ClickHouse has no transactions: `readonly = 2` refuses writes for the rest of the session but still accepts the
+// settings Colwerk sends with every request.
+const GUARD: Record<SplitDialect, string> = {
   postgres: 'begin read only',
   mysql: 'start transaction read only',
   mssql: 'set implicit_transactions on',
   duckdb: 'begin transaction',
   sqlite: 'pragma query_only = on',
+  clickhouse: 'set readonly = 2',
 }
 
 /** Runs one SELECT/WITH statement in a session of its own, closed afterwards. */
 export async function readQuery(connectionId: string, sql: string, rowLimit: number): Promise<QueryResult> {
-  const { dialect } = await connectionOf(connectionId)
+  const dialect = sqlDialect((await connectionOf(connectionId)).dialect)
   if (!isSelectStatement(sql, dialect)) {
     throw createError({ statusCode: 400, message: 'Only a single SELECT or WITH statement is allowed.' })
   }
