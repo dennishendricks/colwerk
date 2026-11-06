@@ -3,8 +3,11 @@ import {
   type ConnectionAuth,
   type Dialect,
   type Driver,
+  type DriverCapabilities,
   type DriverInfo,
   type DriverStatus,
+  isLakehouse,
+  type LakehouseDialect,
 } from './types.ts'
 
 interface RegistryEntry extends DriverInfo {
@@ -86,6 +89,61 @@ const registry: Record<Dialect, RegistryEntry> = {
     },
     load: () => import('./drivers/sqlite.ts').then((m) => m.sqliteDriver),
   },
+  clickhouse: {
+    dialect: 'clickhouse',
+    label: 'ClickHouse',
+    defaultPort: 8123,
+    auths: ['password'],
+    capabilities: {
+      supportsCancel: true,
+      supportsSchemas: false,
+      supportsNetwork: true,
+      supportsDatabases: true,
+      locksDatabase: false,
+    },
+    load: () => import('./drivers/clickhouse.ts').then((m) => m.clickhouseDriver),
+  },
+  // Lakehouses run on DuckDB: an in-memory database per connection with the format's extensions.
+  iceberg: lakehouse('iceberg', 'Apache Iceberg (REST catalog)', ['oauth-client', 'token', 'none'], {
+    supportsSchemas: true,
+    supportsNetwork: true,
+    supportsDatabases: false,
+  }),
+  delta: lakehouse('delta', 'Delta Lake (folder)', [], {
+    supportsSchemas: false,
+    supportsNetwork: false,
+    supportsDatabases: false,
+  }),
+  // Databases are the catalogs of the metastore, attached on selection.
+  unity: lakehouse('unity', 'Databricks Unity Catalog', ['token'], {
+    supportsSchemas: true,
+    supportsNetwork: true,
+    supportsDatabases: true,
+  }),
+  // Databases are the lakehouses of the workspace.
+  onelake: lakehouse('onelake', 'Microsoft Fabric OneLake', entra, {
+    supportsSchemas: true,
+    supportsNetwork: true,
+    supportsDatabases: true,
+  }),
+}
+
+function lakehouse(
+  dialect: LakehouseDialect,
+  label: string,
+  auths: ConnectionAuth[],
+  capabilities: Pick<DriverCapabilities, 'supportsSchemas' | 'supportsNetwork' | 'supportsDatabases'>,
+): RegistryEntry {
+  return {
+    dialect,
+    label,
+    auths,
+    capabilities: { ...capabilities, supportsCancel: true, locksDatabase: false },
+    load: () =>
+      prepareDuckdb()
+        .then(() => import('./drivers/lakehouse.ts'))
+        .then((m) => m.lakehouseDriver(dialect)),
+  }
 }
 
 /**
@@ -128,24 +186,53 @@ export function loadDriver(dialect: Dialect): Promise<Driver> {
 }
 
 let installing: { progress?: number; done: Promise<void> } | undefined
+const installingExtensions = new Map<LakehouseDialect, Promise<void>>()
 
 export async function driverStatus(): Promise<DriverStatus[]> {
   const duckdb = (await duckdbHook()?.installed()) ?? true
-  return drivers.map((d) =>
-    d.dialect === 'duckdb'
-      ? { ...d, installed: duckdb, installProgress: installing?.progress }
-      : { ...d, installed: true },
+  // Extensions can only be looked up with DuckDB's library in place.
+  const extensions = duckdb ? await import('./drivers/lakehouse.ts') : undefined
+  return Promise.all(
+    drivers.map(async (d): Promise<DriverStatus> => {
+      if (d.dialect !== 'duckdb' && !isLakehouse(d.dialect)) return { ...d, installed: true }
+      const installed =
+        duckdb &&
+        (!isLakehouse(d.dialect) ||
+          (!installingExtensions.has(d.dialect) &&
+            !(await extensions!.missingExtensions(d.dialect).catch(() => [d.dialect])).length))
+      return { ...d, installed, installProgress: installing?.progress }
+    }),
   )
 }
 
-/** Downloads the native library of a driver that is not installed yet; concurrent calls share the download. */
-export function installDriver(dialect: Dialect): Promise<void> {
+/**
+ * Downloads the native library of a driver that is not installed yet, and for lakehouses the DuckDB extensions
+ * they need; concurrent calls share the download.
+ */
+export async function installDriver(dialect: Dialect): Promise<void> {
+  if (dialect !== 'duckdb' && !isLakehouse(dialect)) return
+  await installDuckdb()
+  if (!isLakehouse(dialect)) return
+  let done = installingExtensions.get(dialect)
+  if (!done) {
+    done = import('./drivers/lakehouse.ts')
+      .then((m) => m.installExtensions(dialect))
+      .finally(() => installingExtensions.delete(dialect))
+    installingExtensions.set(dialect, done)
+  }
+  await done
+}
+
+function installDuckdb(): Promise<void> {
   const hook = duckdbHook()
-  if (dialect !== 'duckdb' || !hook) return Promise.resolve()
+  if (!hook) return Promise.resolve()
   if (!installing) {
     const state: { progress?: number } = {}
     const done = hook
-      .install((fraction) => (state.progress = fraction))
+      .installed()
+      .then(async (installed) => {
+        if (!installed) await hook.install((fraction) => (state.progress = fraction))
+      })
       .catch((e) => {
         throw new AppError('driverDownloadFailed', `Download of the DuckDB driver failed: ${(e as Error).message}`, {
           params: { detail: (e as Error).message },

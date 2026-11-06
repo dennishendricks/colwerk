@@ -50,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # Started first so the databases initialize while Bun installs and builds.
-      - run: docker compose up -d --quiet-pull postgres mariadb mssql
+      - run: docker compose up -d --quiet-pull postgres mariadb mssql clickhouse
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.x
@@ -58,7 +58,7 @@ jobs:
       # Builds `.output` and `dist/colwerk` (the server as a Bun single-file executable), which enable the API and
       # binary tests.
       - run: bun run compile
-      - run: docker compose up -d --wait postgres mariadb mssql && docker compose run --rm mssql-init
+      - run: docker compose up -d --wait postgres mariadb mssql clickhouse && docker compose run --rm mssql-init
       - run: bun run test
 
   # DuckDB's native addon, keychain and native dialogs differ per OS; Linux is covered by `test`. Only on main;

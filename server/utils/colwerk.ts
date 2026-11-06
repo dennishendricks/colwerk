@@ -10,6 +10,7 @@ import {
   DbError,
   type Dialect,
   drivers,
+  isLakehouse,
   Workbench,
 } from '#core'
 
@@ -87,6 +88,17 @@ export function parseConnection(body: unknown): ConnectionInput {
   ) {
     throw createError({ statusCode: 400, message: 'Invalid number of retries', data: { key: 'invalidRetries' } })
   }
+  if (auth === 'oauth-client' && !str('clientId')) {
+    throw createError({ statusCode: 400, message: 'Client ID is required', data: { key: 'clientIdRequired' } })
+  }
+  // Catalog URL (Iceberg, Unity) or workspace (OneLake); the Delta folder.
+  if (isLakehouse(dialect) && !(dialect === 'delta' ? str('file') : str('host'))) {
+    throw createError({
+      statusCode: 400,
+      message: dialect === 'delta' ? 'Folder is required' : 'Address is required',
+      data: { key: dialect === 'delta' ? 'folderRequired' : 'addressRequired' },
+    })
+  }
   const entra = auth?.startsWith('entra-') ?? false
   return {
     id: str('id') ?? crypto.randomUUID(),
@@ -102,7 +114,7 @@ export function parseConnection(body: unknown): ConnectionInput {
     auth,
     domain: auth === 'windows' ? str('domain') : undefined,
     tenantId: entra ? str('tenantId') : undefined,
-    clientId: entra ? str('clientId') : undefined,
+    clientId: entra || auth === 'oauth-client' ? str('clientId') : undefined,
     socket: str('socket'),
     searchPath: str('searchPath'),
     instanceName: str('instanceName'),
@@ -119,6 +131,9 @@ export function parseConnection(body: unknown): ConnectionInput {
     file: str('file'),
     readOnly: b.readOnly === true,
     v1Storage: b.v1Storage === true,
+    region: dialect === 'unity' ? str('region') : undefined,
+    oauthServerUri: auth === 'oauth-client' ? str('oauthServerUri') : undefined,
+    oauthScope: auth === 'oauth-client' ? str('oauthScope') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,
   }

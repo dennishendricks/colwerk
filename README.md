@@ -21,8 +21,10 @@
 
 ---
 
-Colwerk connects to **PostgreSQL, MySQL/MariaDB, Microsoft SQL Server, DuckDB and SQLite**. It is open source, free, runs
-entirely on your machine and has no telemetry, no analytics and no account.
+Colwerk connects to **PostgreSQL, MySQL/MariaDB, Microsoft SQL Server, ClickHouse, DuckDB and SQLite**, and reads
+lakehouses through DuckDB: **Apache Iceberg** (REST catalog), **Delta Lake** (local folder), **Databricks Unity Catalog**
+and **Microsoft Fabric OneLake**. It is open source, free, runs entirely on your machine and has no telemetry, no
+analytics and no account.
 
 ## Download
 
@@ -69,7 +71,7 @@ Linux, Tauri's system packages (`libwebkit2gtk-4.1-dev libxdo-dev libssl-dev lib
 ```sh
 bun install            # install dependencies
 bun run hooks          # pre-commit hook: formats staged files with bun fmt
-docker compose up -d   # test databases: Postgres :55432, MariaDB :53306, MSSQL :51433
+docker compose up -d   # test databases: Postgres :55432, MariaDB :53306, MSSQL :51433, ClickHouse :58123, Iceberg REST :58181
 bun run dev            # dev server; prints the URL including the session token
 ```
 
@@ -84,7 +86,8 @@ bun run dev            # dev server; prints the URL including the session token
 | `bun fmt`           | Formats all files (settings in `bunfig.toml`)                                              |
 | `bun run hooks`     | Enables the pre-commit hook in `.githooks/`                                                |
 
-Tests against Postgres, MariaDB and MSSQL are skipped when the container is not reachable.
+Tests against Postgres, MariaDB, MSSQL, ClickHouse and the Iceberg REST catalog are skipped when the container is not
+reachable. Unity Catalog and OneLake need cloud accounts and have no automated tests.
 
 ### Architecture
 
@@ -111,7 +114,14 @@ Core decisions:
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
   and opener APIs as a remote page on `127.0.0.1` (`src-tauri/capabilities`).
-- **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas` and `supportsNetwork`; the UI adapts to them.
+- **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas`, `supportsNetwork`, `supportsDatabases` and
+  `locksDatabase`; the UI adapts to them.
+- **ClickHouse over HTTP.** No client library: each statement is one request to the HTTP interface, a `session_id`
+  keeps temporary tables and `SET` options per tab.
+- **Lakehouses on DuckDB.** Each lakehouse connection is an in-memory DuckDB database with the format's extensions
+  (installed from DuckDB's extension repository on first use). Iceberg REST catalogs and Unity catalogs are attached
+  (Unity: the database picker switches the catalog); the Delta tables of a folder or of a OneLake lakehouse become
+  views (OneLake: the database picker switches the lakehouse). Queries are DuckDB SQL.
 
 ### Security
 

@@ -25,3 +25,6 @@ node_modules
 src-tauri/target
 src-tauri/gen
 src-tauri/binaries
+
+# Warehouse of the Iceberg REST catalog in docker-compose.yml
+.iceberg-warehouse

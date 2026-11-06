@@ -1,4 +1,4 @@
-export type SplitDialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite'
+export type SplitDialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite' | 'clickhouse'
 
 export interface StatementRange {
   from: number
@@ -14,8 +14,8 @@ export interface SplitOptions {
 
 /**
  * Splits a script into statement ranges at `;` outside of strings, quoted identifiers and comments.
- * Handles dollar quoting (postgres, duckdb), backslash escapes (mysql), backticks (mysql, sqlite),
- * brackets (mssql, sqlite), `GO` batch separators on their own line (mssql) and trigger bodies (sqlite).
+ * Handles dollar quoting (postgres, duckdb, clickhouse), backslash escapes and `#` comments (mysql, clickhouse),
+ * backticks (mysql, sqlite, clickhouse), brackets (mssql, sqlite), `GO` batch separators on their own line (mssql) and trigger bodies (sqlite).
  * Ranges are trimmed and exclude the delimiter; empty statements are dropped.
  */
 export function splitStatements(
@@ -101,7 +101,8 @@ function literalEnd(sql: string, dialect: SplitDialect, i: number): number | und
     return n
   }
 
-  if ((ch === '-' && next === '-') || (ch === '#' && dialect === 'mysql')) {
+  const escapes = dialect === 'mysql' || dialect === 'clickhouse'
+  if ((ch === '-' && next === '-') || (ch === '#' && escapes)) {
     const eol = sql.indexOf('\n', i)
     return eol === -1 ? n : eol + 1
   }
@@ -109,11 +110,11 @@ function literalEnd(sql: string, dialect: SplitDialect, i: number): number | und
     const end = sql.indexOf('*/', i + 2)
     return end === -1 ? n : end + 2
   }
-  if (ch === "'") return quoted("'", dialect === 'mysql')
-  if (ch === '"') return quoted('"', dialect === 'mysql')
-  if (ch === '`' && (dialect === 'mysql' || dialect === 'sqlite')) return quoted('`', false)
+  if (ch === "'") return quoted("'", escapes)
+  if (ch === '"') return quoted('"', escapes)
+  if (ch === '`' && (escapes || dialect === 'sqlite')) return quoted('`', dialect === 'clickhouse')
   if (ch === '[' && (dialect === 'mssql' || dialect === 'sqlite')) return quoted(']', false)
-  if (ch === '$' && (dialect === 'postgres' || dialect === 'duckdb')) {
+  if (ch === '$' && (dialect === 'postgres' || dialect === 'duckdb' || dialect === 'clickhouse')) {
     const tag = /^\$[A-Za-z_]?\w*\$/.exec(sql.slice(i))?.[0]
     if (!tag) return
     const end = sql.indexOf(tag, i + tag.length)
