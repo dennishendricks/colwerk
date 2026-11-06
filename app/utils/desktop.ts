@@ -47,9 +47,14 @@ export async function showContextMenu(e: MouseEvent, entries: MenuEntry[]): Prom
   await context.popup(new LogicalPosition(e.clientX, e.clientY))
 }
 
-/** Asks for a file to open or save; resolves with its absolute path, null if the user cancelled. */
-export async function fileDialog(kind: 'open' | 'save', title: string, defaultName?: string): Promise<string | null> {
-  if (isDesktop) return kind === 'save' ? save({ title, defaultPath: defaultName }) : open({ title })
+/** Asks for a file to open or save, or a folder; resolves with its absolute path, null if the user cancelled. */
+export async function fileDialog(
+  kind: 'open' | 'save' | 'folder',
+  title: string,
+  defaultName?: string,
+): Promise<string | null> {
+  if (isDesktop)
+    return kind === 'save' ? save({ title, defaultPath: defaultName }) : open({ title, directory: kind === 'folder' })
   const { path } = await api<{ path: string | null }>('/api/dialog', {
     method: 'POST',
     body: { kind, title, defaultName },
