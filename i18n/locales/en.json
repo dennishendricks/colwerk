@@ -321,6 +321,7 @@
   },
   "dialog": {
     "open": "Choose File",
+    "openFolder": "Choose Folder",
     "save": "Save As"
   },
   "errors": {

@@ -178,7 +178,8 @@ const picking = ref(false)
 async function pickFile() {
   picking.value = true
   try {
-    const path = await fileDialog('open', t('dialog.open'))
+    const delta = form.dialect === 'delta'
+    const path = await fileDialog(delta ? 'folder' : 'open', t(delta ? 'dialog.openFolder' : 'dialog.open'))
     if (path) form.file = path
   } catch (e) {
     toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
@@ -551,7 +552,17 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             required
             class="col-span-2"
           >
-            <UInput v-model="form.file" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+            <div class="flex gap-2">
+              <UInput v-model="form.file" class="flex-1" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-folder-open"
+                :label="t('connection.browse')"
+                :loading="picking"
+                @click="pickFile"
+              />
+            </div>
           </UFormField>
           <UFormField v-else :label="t('connection.file')" class="col-span-2" :help="t('connection.fileHelp')">
             <div class="flex gap-2">

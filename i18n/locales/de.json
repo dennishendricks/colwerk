@@ -321,6 +321,7 @@
   },
   "dialog": {
     "open": "Datei auswählen",
+    "openFolder": "Ordner auswählen",
     "save": "Speichern unter"
   },
   "errors": {
