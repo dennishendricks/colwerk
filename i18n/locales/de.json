@@ -73,7 +73,13 @@
     "nextTab": "Nächster Tab",
     "help": "Hilfe",
     "shortcuts": "Tastenkürzel",
-    "privacy": "Datenschutzhinweise"
+    "privacy": "Datenschutzhinweise",
+    "exportDiagnostics": "Diagnose exportieren …"
+  },
+  "diagnostics": {
+    "title": "Diagnose speichern",
+    "saved": "Diagnose gespeichert",
+    "failed": "Diagnose konnte nicht exportiert werden"
   },
   "tabs": {
     "untitled": "Abfrage {n}"

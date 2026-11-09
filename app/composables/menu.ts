@@ -110,6 +110,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         item(t('menu.shortcuts'), 'shortcuts'),
         'separator',
         item(t('menu.privacy'), 'privacy'),
+        item(t('menu.exportDiagnostics'), 'diagnostics'),
       ]),
     ])
   })
@@ -119,6 +120,7 @@ export function useApplicationMenu(view: MenuViewActions) {
     update: () => checkForUpdate(true),
     quit: () => getCurrentWindow().close(),
     privacy: () => openUrl(privacyUrl),
+    diagnostics: exportDiagnostics,
     'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
     'duplicate-tab': () => duplicateTab(activeTab.value),
     open: () => openFile(activeConnectionId.value, activeDatabase.value),

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The app's pages, served by the sidecar on 127.0.0.1 (random port): menus, file dialogs, the title bar's color mode and opening Colwerk's web pages.",
+  "description": "The app's pages, served by the sidecar on 127.0.0.1 (random port): menus, file dialogs, the diagnostics export, the title bar's color mode and opening Colwerk's web pages.",
   "windows": ["main"],
   "remote": {
     "urls": ["http://127.0.0.1:*/*"]
@@ -13,6 +13,7 @@
     "core:window:allow-set-theme",
     "dialog:allow-open",
     "dialog:allow-save",
+    "allow-export-diagnostics",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "https://github.com/*" }, { "url": "https://colwerk.app/*" }]

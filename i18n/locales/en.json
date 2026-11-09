@@ -73,7 +73,13 @@
     "nextTab": "Next Tab",
     "help": "Help",
     "shortcuts": "Keyboard Shortcuts",
-    "privacy": "Privacy Notice"
+    "privacy": "Privacy Notice",
+    "exportDiagnostics": "Export Diagnostics …"
+  },
+  "diagnostics": {
+    "title": "Save diagnostics",
+    "saved": "Diagnostics saved",
+    "failed": "Exporting diagnostics failed"
   },
   "tabs": {
     "untitled": "Query {n}"

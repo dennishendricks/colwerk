@@ -12,8 +12,12 @@
 // Supervision: a health check requests the server's page regularly; a sidecar that stops answering is killed. A
 // sidecar that ends while the app runs is restarted (a few times within a while), and the window navigates to its
 // new URL; beyond that limit the app shows an error naming the log file and quits.
+//
+// Diagnostics: `export_diagnostics` (Help menu) writes the app version, system, sidecar state and log files to one
+// text file, for bug reports.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
@@ -59,6 +63,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(Server(Mutex::new((None, 0))))
+        .invoke_handler(tauri::generate_handler![export_diagnostics])
         .setup(|app| {
             app.handle().plugin(
                 tauri_plugin_log::Builder::new()
@@ -285,6 +290,49 @@ fn redact(line: &str) -> String {
         Some(at) => format!("{}#token=<redacted>", &line[..at]),
         None => line.to_string(),
     }
+}
+
+/// Writes version, system, sidecar state and the log files (oldest first) to `path`. The logs hold no session
+/// token, but may hold SQL and error messages of the server.
+#[tauri::command]
+fn export_diagnostics(app: AppHandle, path: PathBuf) -> Result<(), String> {
+    let running = {
+        let state = app.state::<Server>();
+        let mut server = state.0.lock().unwrap();
+        server
+            .0
+            .as_mut()
+            .is_some_and(|child| matches!(child.try_wait(), Ok(None)))
+    };
+    let mut out = String::new();
+    let _ = writeln!(out, "Colwerk {}", app.package_info().version);
+    let _ = writeln!(
+        out,
+        "System: {} {}",
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    let _ = writeln!(out, "Data directory: {}", data_dir(&app).display());
+    let _ = writeln!(
+        out,
+        "Server: {}, restarts: {}",
+        if running { "running" } else { "not running" },
+        RESTARTS.load(Ordering::SeqCst)
+    );
+    let mut logs: Vec<PathBuf> = std::fs::read_dir(log_dir(&app))
+        .map(|dir| dir.filter_map(Result::ok).map(|e| e.path()).collect())
+        .unwrap_or_default();
+    logs.sort_by_key(|p| std::fs::metadata(p).and_then(|m| m.modified()).ok());
+    for log in logs {
+        let text = std::fs::read(&log).map_err(|e| format!("{}: {e}", log.display()))?;
+        let name = log.file_name().unwrap_or_default().to_string_lossy();
+        let _ = write!(
+            out,
+            "\n===== {name} =====\n{}",
+            String::from_utf8_lossy(&text)
+        );
+    }
+    std::fs::write(&path, out).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// Closes the sidecar's stdin, so it ends on its own and removes its instance file; killed if that takes too long.
