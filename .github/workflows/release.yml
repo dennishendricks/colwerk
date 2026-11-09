@@ -10,21 +10,23 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    uses: ./.github/workflows/tests.yml
-
+  # Builds and tests every target in one job, so the tests run against the shipped server executable (the sidecar)
+  # and nothing is built twice. A failing test on any system stops the release.
   build:
-    needs: test
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, macos-15-intel, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       # LF line endings on Windows too, so the files shared by all builds (LICENSE) are identical.
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
+      # The network databases only run on x64 Linux (no arm64 image of MSSQL); elsewhere their tests are skipped.
+      # Started first so they initialize during the build.
+      - if: matrix.os == 'ubuntu-latest'
+        run: docker compose up -d --quiet-pull postgres mariadb mssql clickhouse
       # Without cache: the release is built only from bun.lock and Cargo.lock, not from a cache written by another run.
       - uses: oven-sh/setup-bun@v2
         with:
@@ -43,6 +45,11 @@ jobs:
       - run: bun run desktop --verbose
         env:
           NO_STRIP: true
+      - if: matrix.os == 'ubuntu-latest'
+        run: docker compose up -d --wait postgres mariadb mssql clickhouse && docker compose run --rm mssql-init
+      # `.output` comes from the build above; the binary tests use the sidecar it built.
+      - shell: bash
+        run: COLWERK_BINARY="$(ls src-tauri/binaries/colwerk-server-*)" bun run test
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.os }}

@@ -7,7 +7,8 @@ import { assertEquals } from './assert.ts'
 import type { ConnectionConfig } from '../core/types.ts'
 import { reachable, tempDir, testConnections } from './helpers.ts'
 
-const binary = `dist/colwerk${process.platform === 'win32' ? '.exe' : ''}`
+// COLWERK_BINARY: another build of the same executable, e.g. the sidecar of `bun run desktop` in the release.
+const binary = process.env.COLWERK_BINARY ?? `dist/colwerk${process.platform === 'win32' ? '.exe' : ''}`
 const built = await stat(binary).then(
   () => true,
   () => false,
