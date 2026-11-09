@@ -413,6 +413,25 @@ call delim_p(); select count(*) as n from delim_t; drop procedure delim_p;`,
       assertMatch(tz[0]!, /^2024-01-0[12]T\d{2}:\d{2}:05[+-]\d{2}:\d{2}$/)
     })
 
+    test.skipIf(ignore)(`${name}: generated columns in table DDL`, async () => {
+      const s = await session()
+      const virtual = rows(
+        await s.execute(`select current_setting('server_version_num')::int >= 180000`, { rowLimit: 1 }),
+      )[0]![0]
+      await s.execute('drop table if exists public.colwerk_gen_so', { rowLimit: 1 })
+      await s.execute(
+        `create table public.colwerk_gen_so (a int, s int generated always as (a * 2) stored${virtual ? ', v int generated always as (a * 3) virtual' : ''})`,
+        { rowLimit: 1 },
+      )
+      try {
+        const ddl = await s.introspect({ kind: 'ddl', schema: 'public', name: 'colwerk_gen_so', object: 'table' })
+        assertMatch(ddl, /s integer generated always as \(\(?a \* 2\)?\) stored/)
+        if (virtual) assertMatch(ddl, /v integer generated always as \(\(?a \* 3\)?\) virtual/)
+      } finally {
+        await s.execute('drop table public.colwerk_gen_so', { rowLimit: 1 })
+      }
+    })
+
     test.skipIf(ignore)(`${name}: search path`, async () => {
       const s = await (await loadDriver(name)).connect({ ...c.config, searchPath: 'sales, public' })
       try {

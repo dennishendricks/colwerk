@@ -182,6 +182,10 @@ const sqlFor = (v: number) => ({
               v >= 120000
                 ? `when a.attgenerated = 's' then format(' generated always as (%s) stored', pg_get_expr(d.adbin, d.adrelid))`
                 : ''
+            }${
+              v >= 180000
+                ? `when a.attgenerated = 'v' then format(' generated always as (%s) virtual', pg_get_expr(d.adbin, d.adrelid))`
+                : ''
             }
                     when d.adbin is not null then ' default ' || pg_get_expr(d.adbin, d.adrelid) else '' end
             || ${v >= 100000 ? IDENTITY : `''`}
