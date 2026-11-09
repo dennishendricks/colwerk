@@ -60,7 +60,7 @@ const theme = EditorView.theme({
   // Not on `&` alone: the tooltip container in the body carries the theme classes too and would extend the page.
   '&.cm-editor': { height: '100%' },
   '&.cm-focused': { outline: 'none' },
-  '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+  '.cm-scroller': { fontFamily: 'var(--font-mono)' },
   // Colors from the theme tokens so both color modes keep a readable contrast (WCAG AA):
   // `drawSelection` draws its own cursor, which is black by default and invisible in dark mode.
   '.cm-gutters': { backgroundColor: 'var(--ui-bg-muted)', color: 'var(--ui-text-muted)', border: 'none' },

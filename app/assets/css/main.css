@@ -2,6 +2,8 @@
 @import '@nuxt/ui';
 
 @theme static {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
   --color-brand-50: #fffaf0;
   --color-brand-100: #fff3dc;
   --color-brand-200: #ffe7bd;
