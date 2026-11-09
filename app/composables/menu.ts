@@ -6,6 +6,7 @@ interface MenuViewActions {
   openMcp: () => void
   openHistory: () => void
   openShortcuts: () => void
+  openAbout: () => void
   openConnection: () => void
   toggleSidebar: () => void
 }
@@ -43,6 +44,8 @@ export function useApplicationMenu(view: MenuViewActions) {
     setApplicationMenu([
       // macOS replaces the label of the first menu with the app name.
       submenu('Colwerk', [
+        // On Windows and Linux in the Help menu.
+        ...(macOS.value ? [item(t('menu.about'), 'about'), 'separator' as const] : []),
         item(t('menu.setupMcp'), 'mcp'),
         item(t('menu.checkUpdates'), 'update'),
         'separator',
@@ -112,6 +115,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         'separator',
         item(t('menu.privacy'), 'privacy'),
         item(t('menu.exportDiagnostics'), 'diagnostics'),
+        ...(macOS.value ? [] : ['separator' as const, item(t('menu.about'), 'about')]),
       ]),
     ])
   })
@@ -148,5 +152,6 @@ export function useApplicationMenu(view: MenuViewActions) {
     'next-tab': () => cycleTab(1),
     ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
     shortcuts: view.openShortcuts,
+    about: view.openAbout,
   })
 }

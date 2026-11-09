@@ -105,6 +105,7 @@ watch(
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
+const aboutOpen = ref(false)
 
 // Inline rename on double-click; the input takes the width of the label it replaces.
 const renaming = ref<string>()
@@ -160,6 +161,7 @@ useApplicationMenu({
   openMcp: () => (mcpOpen.value = true),
   openHistory: () => (historyOpen.value = true),
   openShortcuts: () => (shortcutsOpen.value = true),
+  openAbout: () => (aboutOpen.value = true),
   openConnection: () => openModal(),
   toggleSidebar,
 })
@@ -341,6 +343,16 @@ useApplicationMenu({
             :title="t('app.shortcuts')"
             @click="shortcutsOpen = true"
           />
+          <!-- In the desktop app it is in the application menu. -->
+          <UButton
+            v-if="!isDesktop"
+            icon="i-lucide-info"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :title="t('app.about')"
+            @click="aboutOpen = true"
+          />
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
@@ -361,6 +373,7 @@ useApplicationMenu({
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
     <ReleaseNotesModal />
+    <LazyAboutModal v-model:open="aboutOpen" />
     <LazyHistoryModal
       v-model:open="historyOpen"
       :connection-id="activeTab?.connectionId ?? activeConnectionId"
