@@ -19,6 +19,11 @@
 // Single instance: launching Colwerk again (tauri-plugin-single-instance) starts no second app and sidecar, but
 // brings the existing window to the front.
 //
+// Opening files: Colwerk is registered for query files (.sql) and DuckDB and SQLite databases (bundle.fileAssociations
+// in tauri.conf.json). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
+// through the single-instance plugin) or with `RunEvent::Opened` (macOS). They wait in `Opened` until the page takes
+// them with `take_opened_files`: once it has loaded, and on the `open-files` event while it runs.
+//
 // Updates: tauri-plugin-updater, driven by the page (app/utils/update.ts). On Windows the installer replaces
 // `colwerk-server.exe`, which must not be running then: the page stops it with `pause_server` before installing,
 // and `resume_server` starts it again if the installation fails.
@@ -27,7 +32,7 @@
 use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Condvar, Mutex};
@@ -35,13 +40,21 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::webview::PageLoadEvent;
-use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{
+    AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tauri_plugin_window_state::StateFlags;
 
 /// The running sidecar with the number of its start (see `watch_health`); the child is taken on exit.
 struct Server(Mutex<(Option<Child>, u32)>);
+
+/// Files the system asked Colwerk to open, until the page takes them (`take_opened_files`).
+struct Opened(Mutex<Vec<PathBuf>>);
+
+/// Extensions of the file associations in tauri.conf.json; other arguments are no files to open.
+const OPENED_EXTENSIONS: [&str; 4] = ["sql", "duckdb", "sqlite", "sqlite3"];
 
 /// Set once the app exits, when the sidecar ending is expected.
 static EXITING: AtomicBool = AtomicBool::new(false);
@@ -66,8 +79,12 @@ const HEALTH_FAILURES: u32 = 4;
 fn main() {
     tauri::Builder::default()
         // Registered first, so a second instance ends before any other plugin starts.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            focus(app)
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            focus(app);
+            open_files(
+                app,
+                args.iter().skip(1).map(|arg| Path::new(&cwd).join(arg)),
+            );
         }))
         // Without VISIBLE: the window stays hidden until the app has loaded (see below), not shown on restore.
         .plugin(
@@ -80,10 +97,12 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(Server(Mutex::new((None, 0))))
+        .manage(Opened(Mutex::new(Vec::new())))
         .invoke_handler(tauri::generate_handler![
             export_diagnostics,
             pause_server,
-            resume_server
+            resume_server,
+            take_opened_files
         ])
         .setup(|app| {
             app.handle().plugin(
@@ -100,6 +119,11 @@ fn main() {
                     .build(),
             )?;
             log::info!("Colwerk {} started", app.package_info().version);
+            let cwd = std::env::current_dir().unwrap_or_default();
+            open_files(
+                app.handle(),
+                std::env::args_os().skip(1).map(|arg| cwd.join(arg)),
+            );
             // Size and position of the last run are restored by the window-state plugin. The window is shown
             // once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
             // native window nor the splash in the system's color mode flashes up before it.
@@ -135,10 +159,14 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("failed to start Colwerk")
-        .run(|app, event| {
-            if let RunEvent::Exit = event {
-                stop_server(app);
+        .run(|app, event| match event {
+            RunEvent::Exit => stop_server(app),
+            #[cfg(target_os = "macos")]
+            RunEvent::Opened { urls } => {
+                focus(app);
+                open_files(app, urls.iter().filter_map(|url| url.to_file_path().ok()));
             }
+            _ => {}
         });
 }
 
@@ -232,6 +260,31 @@ fn focus(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+/// Queues the files among `paths` (absolute) for the page and tells it about them.
+fn open_files(app: &AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
+    let files: Vec<PathBuf> = paths
+        .into_iter()
+        .filter(|path| {
+            path.is_file()
+                && path.extension().is_some_and(|ext| {
+                    OPENED_EXTENSIONS.contains(&ext.to_string_lossy().to_lowercase().as_str())
+                })
+        })
+        .collect();
+    if files.is_empty() {
+        return;
+    }
+    log::info!("opening {} file(s)", files.len());
+    app.state::<Opened>().0.lock().unwrap().extend(files);
+    let _ = app.emit_to("main", "open-files", ());
+}
+
+/// Hands the files queued by `open_files` to the page, each once.
+#[tauri::command]
+fn take_opened_files(opened: tauri::State<Opened>) -> Vec<PathBuf> {
+    std::mem::take(&mut *opened.0.lock().unwrap())
 }
 
 fn navigate(window: &WebviewWindow, url: &str) -> Result<(), String> {

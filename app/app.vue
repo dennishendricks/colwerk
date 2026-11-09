@@ -2,10 +2,12 @@
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
 import type { QueryTab } from '~/composables/tabs'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, load } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, load, openDatabaseFile } = useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -24,6 +26,7 @@ const {
   saveFile,
 } = useTabs()
 const { t, locale } = useI18n()
+const toast = useToast()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -52,7 +55,9 @@ async function init() {
     if (!listening) {
       listening = true
       subscribe('/api/events', onServerEvent)
+      if (isDesktop) await listen('open-files', openSystemFiles)
     }
+    if (isDesktop) openSystemFiles()
   } catch (e) {
     loadError.value = errorMessage(e)
   }
@@ -68,6 +73,28 @@ function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
   const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string; sql: string; title?: string }
   openInNewTab(connectionId, sql, title)
+}
+
+// Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
+// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection.
+async function openSystemFiles() {
+  for (const path of await invoke<string[]>('take_opened_files')) {
+    const dialect = /\.duckdb$/i.test(path) ? 'duckdb' : /\.sqlite3?$/i.test(path) ? 'sqlite' : undefined
+    if (!dialect) {
+      await openFile(activeConnectionId.value, activeDatabase.value, path)
+      continue
+    }
+    try {
+      await openDatabaseFile(path, dialect)
+    } catch (e) {
+      toast.add({
+        title: t('app.openFailed'),
+        description: errorMessage(e),
+        color: 'error',
+        icon: 'i-lucide-circle-alert',
+      })
+    }
+  }
 }
 
 function openInNewTab(connectionId: string, sql: string, title?: string) {

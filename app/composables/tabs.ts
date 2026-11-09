@@ -165,10 +165,13 @@ export function useTabs() {
   const failed = (title: string, e: unknown) =>
     toast.add({ title, description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
 
-  /** Asks for a query file in a native dialog and opens it in a new tab (or switches to the tab that already has it). */
-  async function openFile(connectionId?: string, database?: string) {
+  /**
+   * Opens a query file in a new tab (or switches to the tab that already has it): `path` (a file opened from the
+   * system), otherwise one asked for in a native dialog.
+   */
+  async function openFile(connectionId?: string, database?: string, path?: string) {
     try {
-      const path = await fileDialog('open', t('dialog.open'))
+      path ??= (await fileDialog('open', t('dialog.open'))) ?? undefined
       if (!path) return
       const { sql } = await api<{ sql: string }>('/api/files/read', { method: 'POST', body: { path } })
       const existing = tabs.value.find((t) => t.path === path)

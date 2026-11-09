@@ -6,6 +6,7 @@ fn main() {
             "export_diagnostics",
             "pause_server",
             "resume_server",
+            "take_opened_files",
         ]),
     ))
     .expect("failed to run tauri-build");
