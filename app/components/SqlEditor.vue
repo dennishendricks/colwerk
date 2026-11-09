@@ -2,7 +2,7 @@
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
-import { MSSQL, MySQL, PostgreSQL, sql, type SQLDialect, SQLite } from '@codemirror/lang-sql'
+import { MSSQL, MySQL, PostgreSQL, sql, SQLDialect, SQLite } from '@codemirror/lang-sql'
 import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
 import {
@@ -20,6 +20,7 @@ import {
 } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
+import type { SplitDialect } from '~/utils/sql-split'
 
 const props = defineProps<{
   dialect?: Dialect
@@ -31,13 +32,19 @@ const props = defineProps<{
 const emit = defineEmits<{ run: []; explain: [] }>()
 const model = defineModel<string>({ required: true })
 
-// DuckDB's grammar is close to PostgreSQL's.
-const DIALECTS: Record<Dialect, SQLDialect> = {
+// DuckDB's grammar (also of the lakehouses) is close to PostgreSQL's.
+const DIALECTS: Record<SplitDialect, SQLDialect> = {
   postgres: PostgreSQL,
   duckdb: PostgreSQL,
   mysql: MySQL,
   mssql: MSSQL,
   sqlite: SQLite,
+  clickhouse: SQLDialect.define({
+    backslashEscapes: true,
+    hashComments: true,
+    identifierQuotes: '"`',
+    doubleDollarQuotedStrings: true,
+  }),
 }
 
 const highlight = HighlightStyle.define([
@@ -155,7 +162,7 @@ let view: EditorView | undefined
 
 function languageExtension() {
   return sql({
-    dialect: DIALECTS[props.dialect ?? 'postgres'],
+    dialect: DIALECTS[sqlDialect(props.dialect ?? 'postgres')],
     schema: props.schema,
     defaultSchema: props.defaultSchema,
     upperCaseKeywords: false,
@@ -262,7 +269,7 @@ function runnableSql(): { sql: string; from: number } {
   const sel = state.selection.main
   if (!sel.empty) return { sql: state.sliceDoc(sel.from, sel.to), from: sel.from }
   const doc = state.doc.toString()
-  const range = statementAt(doc, props.dialect ?? 'postgres', sel.head)
+  const range = statementAt(doc, sqlDialect(props.dialect ?? 'postgres'), sel.head)
   if (!range) return { sql: '', from: 0 }
   // Select what is about to run, so it is visible which statement was executed.
   view.dispatch({ selection: { anchor: range.from, head: range.to } })

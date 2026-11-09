@@ -27,7 +27,11 @@ function run(
  * Shows an open or save dialog; resolves with the chosen absolute path, undefined if cancelled. `title` comes
  * from the UI in its language; like the name, it never goes into script text.
  */
-export async function fileDialog(kind: 'open' | 'save', defaultName = '', title = ''): Promise<string | undefined> {
+export async function fileDialog(
+  kind: 'open' | 'save' | 'folder',
+  defaultName = '',
+  title = '',
+): Promise<string | undefined> {
   const r =
     process.platform === 'darwin'
       ? await macos(kind, defaultName, title)
@@ -43,12 +47,14 @@ export async function fileDialog(kind: 'open' | 'save', defaultName = '', title 
   return r.stdout.replace(/\r?\n$/, '') || undefined
 }
 
-async function macos(kind: 'open' | 'save', name: string, title: string) {
+async function macos(kind: 'open' | 'save' | 'folder', name: string, title: string) {
   // Name and title go in as arguments, not into the script text. `activate` brings the dialog to the front.
   const choose =
     kind === 'save'
       ? 'choose file name with prompt (item 2 of argv) default name (item 1 of argv)'
-      : 'choose file with prompt (item 2 of argv)'
+      : kind === 'folder'
+        ? 'choose folder with prompt (item 2 of argv)'
+        : 'choose file with prompt (item 2 of argv)'
   const r = await run('osascript', [
     '-e',
     'on run argv',
@@ -65,8 +71,19 @@ async function macos(kind: 'open' | 'save', name: string, title: string) {
   return r && { ...r, cancelled: r.code !== 0 && r.stderr.includes('-128') }
 }
 
-async function windows(kind: 'open' | 'save', name: string, title: string) {
-  const script = `
+async function windows(kind: 'open' | 'save' | 'folder', name: string, title: string) {
+  const script =
+    kind === 'folder'
+      ? `
+Add-Type -AssemblyName System.Windows.Forms
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$d = New-Object System.Windows.Forms.FolderBrowserDialog
+$d.Description = $env:COLWERK_DIALOG_TITLE
+$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }
+if ($d.ShowDialog($owner) -ne 'OK') { exit 1 }
+[Console]::Out.Write($d.SelectedPath)
+`
+      : `
 Add-Type -AssemblyName System.Windows.Forms
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $d = New-Object System.Windows.Forms.${kind === 'save' ? 'SaveFileDialog' : 'OpenFileDialog'}
@@ -84,13 +101,19 @@ if ($d.ShowDialog($owner) -ne 'OK') { exit 1 }
   return r && { ...r, cancelled: r.code === 1 }
 }
 
-async function linux(kind: 'open' | 'save', name: string, title: string) {
+async function linux(kind: 'open' | 'save' | 'folder', name: string, title: string) {
   // Both exit with 1 when cancelled.
   const zenity = await run('zenity', [
     '--file-selection',
     `--title=${title}`,
-    ...(kind === 'save' ? ['--save', `--filename=${name}`] : []),
+    ...(kind === 'save' ? ['--save', `--filename=${name}`] : kind === 'folder' ? ['--directory'] : []),
   ])
-  const r = zenity ?? (await run('kdialog', kind === 'save' ? ['--getsavefilename', name] : ['--getopenfilename']))
+  const kdialog =
+    kind === 'save'
+      ? ['--getsavefilename', name]
+      : kind === 'folder'
+        ? ['--getexistingdirectory']
+        : ['--getopenfilename']
+  const r = zenity ?? (await run('kdialog', kdialog))
   return r && { ...r, cancelled: r.code === 1 }
 }

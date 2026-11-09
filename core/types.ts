@@ -1,6 +1,17 @@
 // Runtime-agnostic contracts shared by drivers, the server layer and (type-only) the UI.
+import type { SplitDialect } from './sql-split.ts'
 
-export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite'
+export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite' | 'clickhouse' | LakehouseDialect
+
+/** Lakehouse formats, read through DuckDB and its extensions (core/drivers/lakehouse.ts); their SQL is DuckDB's. */
+export const lakehouseDialects = ['iceberg', 'delta', 'unity', 'onelake'] as const
+export type LakehouseDialect = (typeof lakehouseDialects)[number]
+
+export const isLakehouse = (dialect: Dialect): dialect is LakehouseDialect =>
+  (lakehouseDialects as readonly string[]).includes(dialect)
+
+/** The SQL a connection of `dialect` speaks: lakehouses speak DuckDB's. */
+export const sqlDialect = (dialect: Dialect): SplitDialect => (isLakehouse(dialect) ? 'duckdb' : dialect)
 
 /** Marking colors for connections, e.g. red for production. */
 export const connectionColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'] as const
@@ -12,6 +23,9 @@ export type ConnectionColor = (typeof connectionColors)[number]
  * - `entra-default`: Microsoft Entra token from the environment (Azure CLI `az login`, Azure PowerShell, azd, environment variables)
  * - `entra-interactive`: Microsoft Entra login in the system browser (with MFA); `user` is the account to suggest
  * - `entra-service-principal`: Microsoft Entra application with `clientId`, `tenantId` and the client secret in `password`
+ * - `token`: bearer token (e.g. a Databricks personal access token) in `password`
+ * - `oauth-client`: OAuth2 client credentials with `clientId` and the client secret in `password`
+ * - `none`: no login (e.g. a local Iceberg REST catalog)
  */
 export const connectionAuths = [
   'password',
@@ -19,6 +33,9 @@ export const connectionAuths = [
   'entra-default',
   'entra-interactive',
   'entra-service-principal',
+  'token',
+  'oauth-client',
+  'none',
 ] as const
 export type ConnectionAuth = (typeof connectionAuths)[number]
 
@@ -32,8 +49,10 @@ export interface ConnectionConfig {
   /** Folder in the connection list (one level, empty = top level). */
   folder?: string
   dialect: Dialect
+  /** Network databases: server name. Iceberg: URL of the REST catalog; Unity: URL of the workspace; OneLake: workspace. */
   host?: string
   port?: number
+  /** Iceberg: warehouse; Unity: default catalog; OneLake: default lakehouse. */
   database?: string
   user?: string
   password?: string
@@ -70,12 +89,18 @@ export interface ConnectionConfig {
   sslStrict?: boolean
   /** SQL Server TLS: host name the server certificate must be issued for, when connecting through an IP address or alias. */
   sslServerName?: string
-  /** DuckDB, SQLite: path to the database file, or `:memory:`. */
+  /** DuckDB, SQLite: path to the database file, or `:memory:`. Delta: folder of the Delta tables (or of one table). */
   file?: string
   /** DuckDB, SQLite: open the database file read-only. */
   readOnly?: boolean
   /** DuckDB: create a new database file in the storage format of DuckDB 1.4, so that DuckDB 1.x can open it. */
   v1Storage?: boolean
+  /** Unity Catalog: AWS region of the S3 storage the tables are in. */
+  region?: string
+  /** Iceberg `oauth-client`: token endpoint; undefined = `<catalog URL>/v1/oauth/tokens`. */
+  oauthServerUri?: string
+  /** Iceberg `oauth-client`: requested scope, e.g. `PRINCIPAL_ROLE:ALL` (Apache Polaris). */
+  oauthScope?: string
   /** Marks the connection in the UI (connection list, tabs, query toolbar). */
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */

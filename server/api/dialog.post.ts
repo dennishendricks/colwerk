@@ -4,7 +4,8 @@ import { fileDialog } from '#core'
 // once it is closed; `path` is null if the user cancelled.
 export default defineEventHandler(async (event) => {
   const { kind, defaultName, title } = await readBody<{ kind?: string; defaultName?: string; title?: string }>(event)
-  if (kind !== 'open' && kind !== 'save') throw createError({ statusCode: 400, message: 'kind must be open or save' })
+  if (kind !== 'open' && kind !== 'save' && kind !== 'folder')
+    throw createError({ statusCode: 400, message: 'kind must be open, save or folder' })
   return {
     path:
       (await dbCall(() =>

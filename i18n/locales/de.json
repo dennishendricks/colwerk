@@ -106,7 +106,10 @@
       "windows": "Windows (NTLM)",
       "entra-default": "Microsoft Entra: Azure CLI / Umgebung",
       "entra-interactive": "Microsoft Entra: Browser (MFA)",
-      "entra-service-principal": "Microsoft Entra: Service Principal"
+      "entra-service-principal": "Microsoft Entra: Service Principal",
+      "token": "Zugriffstoken",
+      "oauth-client": "OAuth2-Client-Credentials",
+      "none": "Keine"
     },
     "domain": "Domäne",
     "tenantId": "Tenant-ID",
@@ -114,6 +117,26 @@
     "clientId": "Client-ID",
     "clientIdHelp": "Eigene App-Registrierung. Leer = Microsofts Entwickler-App",
     "clientSecret": "Client-Secret",
+    "token": "Token",
+    "catalogUrl": "Katalog-URL",
+    "catalogUrlHelp": "Iceberg-REST-Katalog, z. B. Apache Polaris, Lakekeeper oder Nessie",
+    "warehouse": "Warehouse",
+    "warehouseHelp": "Wie im Katalog eingerichtet",
+    "workspaceUrl": "Workspace-URL",
+    "catalog": "Katalog",
+    "catalogHelp": "Standardkatalog; die übrigen sind in der Werkzeugleiste wählbar",
+    "workspace": "Workspace",
+    "workspaceHelp": "Name oder ID des Fabric-Workspace",
+    "lakehouse": "Lakehouse",
+    "lakehouseHelp": "Standard-Lakehouse; die übrigen sind in der Werkzeugleiste wählbar",
+    "oauthServerUri": "Token-Endpunkt",
+    "oauthServerUriHelp": "Leer = Katalog-URL + /v1/oauth/tokens",
+    "oauthScope": "Scope",
+    "oauthScopeHelp": "Z. B. PRINCIPAL_ROLE:ALL bei Apache Polaris",
+    "region": "AWS-Region",
+    "regionHelp": "Region des S3-Speichers, z. B. eu-central-1. Unter Azure und Google Cloud nicht nötig",
+    "deltaFolder": "Ordner",
+    "deltaFolderHelp": "Absoluter Pfad eines Ordners mit Delta-Tabellen (Unterordner mit _delta_log) oder einer einzelnen Tabelle",
     "account": "Konto",
     "accountHelp": "Optional, wird bei der Anmeldung vorgeschlagen",
     "entraUserHelp": "Entra-Benutzer oder -Gruppe, wie in der Datenbank angelegt",
@@ -298,6 +321,7 @@
   },
   "dialog": {
     "open": "Datei auswählen",
+    "openFolder": "Ordner auswählen",
     "save": "Speichern unter"
   },
   "errors": {
@@ -321,6 +345,10 @@
     "entraFailed": "Anmeldung bei Microsoft Entra fehlgeschlagen: {detail}",
     "servicePrincipalRequired": "Für einen Service Principal Tenant-ID und Client-ID angeben.",
     "invalidRetries": "Ungültige Anzahl an Verbindungsversuchen.",
-    "entraLoginRequired": "Anmeldung bei Microsoft Entra erforderlich: Verbindung in Colwerk öffnen und im Browser anmelden."
+    "entraLoginRequired": "Anmeldung bei Microsoft Entra erforderlich: Verbindung in Colwerk öffnen und im Browser anmelden.",
+    "clientIdRequired": "Für OAuth2-Client-Credentials eine Client-ID angeben.",
+    "addressRequired": "Bitte die Adresse des Katalogs oder Workspace angeben.",
+    "folderRequired": "Bitte den Ordner der Delta-Tabellen angeben.",
+    "extensionFailed": "Die DuckDB-Erweiterung {name} konnte nicht geladen werden: {detail}"
   }
 }

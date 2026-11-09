@@ -25,6 +25,11 @@ test('mysql backslash escapes, backticks and hash comments', () => {
   assertEquals(texts(sql, 'mysql'), [`select 'it\\'s;' from \`a;b\``, '# x;y\nselect 2'])
 })
 
+test('clickhouse backslash escapes, backticks, hash comments and heredocs', () => {
+  const sql = `select 'it\\'s;', "x\\";y" from \`a\\\`;b\`; # x;y\nselect $$;$$`
+  assertEquals(texts(sql, 'clickhouse'), [`select 'it\\'s;', "x\\";y" from \`a\\\`;b\``, '# x;y\nselect $$;$$'])
+})
+
 test('mssql brackets and GO batches', () => {
   const sql = `select [a;b] from t\nGO\ncreate view v as select 1\ngo\nselect 2`
   assertEquals(texts(sql, 'mssql'), ['select [a;b] from t', 'create view v as select 1', 'select 2'])

@@ -10,6 +10,7 @@ import {
   type QueryResult,
   type RowSink,
   type Session,
+  sqlDialect,
 } from './types.ts'
 
 // Error codes meaning the connection itself is gone; the session is dropped and reopened on next use.
@@ -85,7 +86,8 @@ export class Workbench {
 
   /**
    * The execution plan of exactly one statement as text, in the tab's session (same session state as `execute`).
-   * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server or SQLite.
+   * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server, SQLite
+   * or ClickHouse.
    */
   async explain(
     tabId: string,
@@ -95,12 +97,18 @@ export class Workbench {
     timeoutSeconds: number,
     database?: string,
   ): Promise<{ plan: string; durationMs: number }> {
-    const { dialect } = await this.resolveConfig(connectionId)
+    const dialect = sqlDialect((await this.resolveConfig(connectionId)).dialect)
     // Checked here, not only in the UI: Postgres and DuckDB would run a second statement as such.
     const ranges = splitStatements(sql, dialect)
     if (ranges.length !== 1) throw new AppError('explainSingle', 'Only a single statement can be explained.')
     const statement = sql.slice(ranges[0]!.from, ranges[0]!.to)
-    if (analyze && (dialect === 'mssql' || dialect === 'sqlite' || !isReadOnlyStatement(statement, dialect))) {
+    if (
+      analyze &&
+      (dialect === 'mssql' ||
+        dialect === 'sqlite' ||
+        dialect === 'clickhouse' ||
+        !isReadOnlyStatement(statement, dialect))
+    ) {
       throw new AppError(
         'analyzeReadOnly',
         'ANALYZE executes the statement and is only available for read-only statements.',
@@ -125,11 +133,12 @@ export class Workbench {
           duckdb: analyze ? 'explain analyze' : 'explain',
           mysql: analyze ? 'analyze format=json' : 'explain format=json',
           sqlite: 'explain query plan',
+          clickhouse: 'explain indexes = 1',
         }[dialect]
         result = await run(`${prefix} ${statement}`)
       }
-      // The plan is in the last column (Postgres: one row per line, DuckDB: explain_value, MySQL: one JSON document,
-      // SQLite: one row per step, indented below its parent step).
+      // The plan is in the last column (Postgres and ClickHouse: one row per line, DuckDB: explain_value, MySQL: one
+      // JSON document, SQLite: one row per step, indented below its parent step).
       const depth = new Map<unknown, number>()
       const line = (r: CellValue[]) => {
         if (dialect !== 'sqlite') return String(r.at(-1))

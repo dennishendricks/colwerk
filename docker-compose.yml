@@ -48,3 +48,25 @@ services:
     entrypoint:
       ['/opt/mssql-tools18/bin/sqlcmd', '-C', '-S', 'mssql', '-U', 'sa', '-P', 'Dbm_Passw0rd!', '-b', '-i', '/init.sql']
     restart: 'no'
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    environment:
+      CLICKHOUSE_USER: dbm
+      CLICKHOUSE_PASSWORD: dbm
+      CLICKHOUSE_DB: dbm
+    ports: ['127.0.0.1:58123:8123']
+    volumes: ['./docker/init/clickhouse.sql:/docker-entrypoint-initdb.d/init.sql:ro']
+    healthcheck:
+      test: ['CMD', 'clickhouse-client', '--user', 'dbm', '--password', 'dbm', '-q', 'select 1']
+      interval: 2s
+      retries: 30
+
+  # Iceberg REST catalog for the lakehouse tests. The warehouse is a host directory mounted at the same absolute
+  # path, so that the catalog (metadata) and DuckDB in the tests (data files) write to the same files.
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:1.10.0
+    environment:
+      CATALOG_WAREHOUSE: ${PWD}/.iceberg-warehouse
+    ports: ['127.0.0.1:58181:8181']
+    volumes: ['./.iceberg-warehouse:${PWD}/.iceberg-warehouse']

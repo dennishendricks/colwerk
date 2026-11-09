@@ -1,10 +1,10 @@
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ConnectionConfig, Dialect } from '../core/types.ts'
+import type { ConnectionConfig } from '../core/types.ts'
 
 /** Connections to the databases from docker-compose.yml. */
-export const testConnections: Record<Exclude<Dialect, 'duckdb' | 'sqlite'>, ConnectionConfig> = {
+export const testConnections: Record<'postgres' | 'mysql' | 'mssql' | 'clickhouse', ConnectionConfig> = {
   postgres: {
     id: 'pg',
     name: 'pg',
@@ -34,6 +34,16 @@ export const testConnections: Record<Exclude<Dialect, 'duckdb' | 'sqlite'>, Conn
     database: 'dbm',
     user: 'sa',
     password: 'Dbm_Passw0rd!',
+  },
+  clickhouse: {
+    id: 'ch',
+    name: 'ch',
+    dialect: 'clickhouse',
+    host: '127.0.0.1',
+    port: 58123,
+    database: 'dbm',
+    user: 'dbm',
+    password: 'dbm',
   },
 }
 

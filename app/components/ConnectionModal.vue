@@ -49,6 +49,9 @@ watch(
       file: c?.file ?? '',
       readOnly: c?.readOnly ?? false,
       v1Storage: c?.v1Storage ?? false,
+      region: c?.region ?? '',
+      oauthServerUri: c?.oauthServerUri ?? '',
+      oauthScope: c?.oauthScope ?? '',
       color: c?.color,
       confirmWrites: c?.confirmWrites ?? false,
     })
@@ -68,7 +71,10 @@ watch(
         c.sslCa ||
         c.sslInsecure ||
         c.sslStrict ||
-        c.sslServerName)
+        c.sslServerName ||
+        c.region ||
+        c.oauthServerUri ||
+        c.oauthScope)
     )
   },
   { immediate: true },
@@ -90,10 +96,58 @@ watch(
   { immediate: true },
 )
 const isEntra = computed(() => form.auth?.startsWith('entra-') ?? false)
+// Lakehouses: the address is the catalog URL (Iceberg, Unity) or the workspace (OneLake), the database its
+// warehouse, catalog or lakehouse; they log in with a token or an Entra login, without user name.
+const lakehouse = computed(() => !!form.dialect && isLakehouse(form.dialect))
+const hostField = computed(
+  () =>
+    ({
+      iceberg: { label: 'catalogUrl', help: 'catalogUrlHelp', placeholder: 'https://catalog.example.com/api/catalog' },
+      unity: {
+        label: 'workspaceUrl',
+        help: undefined,
+        placeholder: 'https://adb-1234567890123456.7.azuredatabricks.net',
+      },
+      onelake: { label: 'workspace', help: 'workspaceHelp', placeholder: '' },
+    })[form.dialect as string] ?? { label: 'host', help: undefined, placeholder: '' },
+)
+const databaseField = computed(
+  () =>
+    ({
+      iceberg: { label: 'warehouse', help: 'warehouseHelp' },
+      unity: { label: 'catalog', help: 'catalogHelp' },
+      onelake: { label: 'lakehouse', help: 'lakehouseHelp' },
+    })[form.dialect as string] ?? { label: 'database', help: undefined },
+)
+// A host prefilled for a server is no catalog URL or workspace.
+watch(lakehouse, (isLake) => {
+  if (isLake && form.host === '127.0.0.1') form.host = ''
+  else if (!isLake && !form.host) form.host = '127.0.0.1'
+})
 // SQL Server takes the user from the Entra token; PostgreSQL and MySQL need the database user that belongs to it.
-const showUser = computed(() => !isEntra.value || form.dialect !== 'mssql' || form.auth === 'entra-interactive')
-const showPassword = computed(
-  () => form.auth === 'password' || form.auth === 'windows' || form.auth === 'entra-service-principal',
+const showUser = computed(
+  () => !lakehouse.value && (!isEntra.value || form.dialect !== 'mssql' || form.auth === 'entra-interactive'),
+)
+const showPassword = computed(() =>
+  (['password', 'windows', 'entra-service-principal', 'token', 'oauth-client'] as (string | undefined)[]).includes(
+    form.auth,
+  ),
+)
+const passwordLabel = computed(() =>
+  form.auth === 'entra-service-principal' || form.auth === 'oauth-client'
+    ? t('connection.clientSecret')
+    : form.auth === 'token'
+      ? t('connection.token')
+      : t('connection.password'),
+)
+// Lakehouses have further options only for some logins.
+const hasAdvanced = computed(
+  () =>
+    !lakehouse.value ||
+    form.auth === 'oauth-client' ||
+    form.auth === 'entra-default' ||
+    form.auth === 'entra-interactive' ||
+    form.dialect === 'unity',
 )
 
 // `default` stands for no SET DATEFORMAT (the session language decides); select items cannot have an empty value.
@@ -124,7 +178,8 @@ const picking = ref(false)
 async function pickFile() {
   picking.value = true
   try {
-    const path = await fileDialog('open', t('dialog.open'))
+    const delta = form.dialect === 'delta'
+    const path = await fileDialog(delta ? 'folder' : 'open', t(delta ? 'dialog.openFolder' : 'dialog.open'))
     if (path) form.file = path
   } catch (e) {
     toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
@@ -184,18 +239,35 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
         </UFormField>
 
         <template v-if="driver?.capabilities.supportsNetwork">
-          <UFormField :label="t('connection.host')">
-            <UInput v-model="form.host" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+          <UFormField
+            :label="t(`connection.${hostField.label}`)"
+            :help="hostField.help && t(`connection.${hostField.help}`)"
+            :required="lakehouse"
+            :class="lakehouse ? 'col-span-2' : undefined"
+          >
+            <UInput
+              v-model="form.host"
+              class="w-full"
+              :placeholder="hostField.placeholder"
+              autocorrect="off"
+              autocapitalize="off"
+              :spellcheck="false"
+            />
           </UFormField>
-          <UFormField :label="t('connection.port')">
+          <UFormField v-if="!lakehouse" :label="t('connection.port')">
+            <!-- ClickHouse serves HTTPS on another port. -->
             <UInput
               v-model.number="form.port"
               type="number"
-              :placeholder="String(driver.defaultPort ?? '')"
+              :placeholder="form.dialect === 'clickhouse' && form.ssl ? '8443' : String(driver.defaultPort ?? '')"
               class="w-full"
             />
           </UFormField>
-          <UFormField :label="t('connection.database')" class="col-span-2">
+          <UFormField
+            :label="t(`connection.${databaseField.label}`)"
+            :help="databaseField.help && t(`connection.${databaseField.help}`)"
+            class="col-span-2"
+          >
             <UInput v-model="form.database" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
           </UFormField>
           <UFormField v-if="authItems.length > 1" :label="t('connection.auth')" class="col-span-2">
@@ -203,6 +275,16 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           </UFormField>
           <UFormField v-if="form.auth === 'windows'" :label="t('connection.domain')" class="col-span-2">
             <UInput v-model="form.domain" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+          </UFormField>
+          <UFormField v-if="form.auth === 'oauth-client'" :label="t('connection.clientId')" required class="col-span-2">
+            <UInput
+              v-model="form.clientId"
+              class="w-full"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              :spellcheck="false"
+            />
           </UFormField>
           <template v-if="form.auth === 'entra-service-principal'">
             <UFormField :label="t('connection.tenantId')" required>
@@ -251,11 +333,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               :spellcheck="false"
             />
           </UFormField>
-          <UFormField
-            v-if="showPassword"
-            :label="form.auth === 'entra-service-principal' ? t('connection.clientSecret') : t('connection.password')"
-            :class="showUser ? undefined : 'col-span-2'"
-          >
+          <UFormField v-if="showPassword" :label="passwordLabel" :class="showUser ? undefined : 'col-span-2'">
             <UInput
               v-model="form.password"
               type="password"
@@ -279,11 +357,12 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               {{ t(`connection.entraHelp.${form.auth}`) }}
             </p>
           </UFormField>
-          <UFormField class="col-span-2">
+          <!-- Lakehouses take https from their URL. -->
+          <UFormField v-if="!lakehouse" class="col-span-2">
             <USwitch v-model="form.ssl" :label="t('connection.useTls')" />
           </UFormField>
 
-          <UCollapsible v-model:open="showAdvanced" class="col-span-2">
+          <UCollapsible v-if="hasAdvanced" v-model:open="showAdvanced" class="col-span-2">
             <UButton
               color="neutral"
               variant="ghost"
@@ -294,6 +373,49 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             />
             <template #content>
               <div class="grid grid-cols-2 gap-3 pt-3">
+                <template v-if="form.auth === 'oauth-client'">
+                  <UFormField
+                    :label="t('connection.oauthServerUri')"
+                    :help="t('connection.oauthServerUriHelp')"
+                    class="col-span-2"
+                  >
+                    <UInput
+                      v-model="form.oauthServerUri"
+                      class="w-full"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      :spellcheck="false"
+                    />
+                  </UFormField>
+                  <UFormField
+                    :label="t('connection.oauthScope')"
+                    :help="t('connection.oauthScopeHelp')"
+                    class="col-span-2"
+                  >
+                    <UInput
+                      v-model="form.oauthScope"
+                      class="w-full"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      :spellcheck="false"
+                    />
+                  </UFormField>
+                </template>
+                <UFormField
+                  v-if="form.dialect === 'unity'"
+                  :label="t('connection.region')"
+                  :help="t('connection.regionHelp')"
+                  class="col-span-2"
+                >
+                  <UInput
+                    v-model="form.region"
+                    class="w-full"
+                    placeholder="eu-central-1"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    :spellcheck="false"
+                  />
+                </UFormField>
                 <template v-if="form.auth === 'entra-interactive' || form.auth === 'entra-default'">
                   <UFormField :label="t('connection.tenantId')" :help="t('connection.tenantIdHelp')">
                     <UInput
@@ -423,7 +545,26 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
         </template>
 
         <template v-else>
-          <UFormField :label="t('connection.file')" class="col-span-2" :help="t('connection.fileHelp')">
+          <UFormField
+            v-if="form.dialect === 'delta'"
+            :label="t('connection.deltaFolder')"
+            :help="t('connection.deltaFolderHelp')"
+            required
+            class="col-span-2"
+          >
+            <div class="flex gap-2">
+              <UInput v-model="form.file" class="flex-1" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-folder-open"
+                :label="t('connection.browse')"
+                :loading="picking"
+                @click="pickFile"
+              />
+            </div>
+          </UFormField>
+          <UFormField v-else :label="t('connection.file')" class="col-span-2" :help="t('connection.fileHelp')">
             <div class="flex gap-2">
               <UInput
                 v-model="form.file"
@@ -443,7 +584,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               />
             </div>
           </UFormField>
-          <UFormField class="col-span-2">
+          <UFormField v-if="!lakehouse" class="col-span-2">
             <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
           </UFormField>
           <UFormField

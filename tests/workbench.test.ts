@@ -105,7 +105,8 @@ test('duckdb: disconnect releases the file until connect', async () => {
 // The plan is taken in the tab's session, so it sees the session's temp table.
 // DuckDB plans a table as "Empty Result" when its statistics rule out every row, so its table gets rows
 // and the filter is one the statistics cannot decide.
-const explainCases: { config: ConnectionConfig; create: string; table: string; analyze: boolean }[] = [
+// ClickHouse names no table in the plan of a temporary (Memory) table.
+const explainCases: { config: ConnectionConfig; create: string; table: string; analyze: boolean; plan?: RegExp }[] = [
   {
     config: { id: 'wb-explain', name: 'duck', dialect: 'duckdb', file: ':memory:' },
     create: 'create temp table wb_explain_t as from (values (1), (3)) v(x)',
@@ -130,6 +131,13 @@ const explainCases: { config: ConnectionConfig; create: string; table: string; a
     table: '#wb_explain_t',
     analyze: false,
   },
+  {
+    config: testConnections.clickhouse,
+    create: 'create temporary table wb_explain_t (x Int32)',
+    table: 'wb_explain_t',
+    analyze: false,
+    plan: /ReadFromMemoryStorage/,
+  },
 ]
 
 for (const c of explainCases) {
@@ -139,7 +147,7 @@ for (const c of explainCases) {
     const id = c.config.id
     await wb.execute('tab', id, c.create, 1, 10)
     const select = `select x from ${c.table} where x % 2 = 0;`
-    assertMatch((await wb.explain('tab', id, select, false, 10)).plan, /wb_explain_t/)
+    assertMatch((await wb.explain('tab', id, select, false, 10)).plan, c.plan ?? /wb_explain_t/)
     if (c.analyze) assert((await wb.explain('tab', id, select, true, 10)).plan.trim())
     await assertRejects(() => wb.explain('tab', id, `insert into ${c.table} values (1)`, true, 10), Error, 'read-only')
     await assertRejects(() => wb.explain('tab', id, 'select 1; select 2', false, 10), Error, 'single statement')
@@ -155,6 +163,7 @@ const databaseCases: { config: ConnectionConfig; current: string; other: string 
   { config: testConnections.postgres, current: 'select current_database()', other: 'postgres' },
   { config: testConnections.mysql, current: 'select database()', other: 'information_schema' },
   { config: testConnections.mssql, current: 'select db_name()', other: 'master' },
+  { config: testConnections.clickhouse, current: 'select currentDatabase()', other: 'default' },
 ]
 
 for (const c of databaseCases) {

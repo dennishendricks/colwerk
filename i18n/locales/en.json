@@ -106,7 +106,10 @@
       "windows": "Windows (NTLM)",
       "entra-default": "Microsoft Entra: Azure CLI / environment",
       "entra-interactive": "Microsoft Entra: browser (MFA)",
-      "entra-service-principal": "Microsoft Entra: service principal"
+      "entra-service-principal": "Microsoft Entra: service principal",
+      "token": "Access token",
+      "oauth-client": "OAuth2 client credentials",
+      "none": "None"
     },
     "domain": "Domain",
     "tenantId": "Tenant ID",
@@ -114,6 +117,26 @@
     "clientId": "Client ID",
     "clientIdHelp": "Your own app registration. Empty = Microsoft's developer app",
     "clientSecret": "Client secret",
+    "token": "Token",
+    "catalogUrl": "Catalog URL",
+    "catalogUrlHelp": "Iceberg REST catalog, e.g. Apache Polaris, Lakekeeper or Nessie",
+    "warehouse": "Warehouse",
+    "warehouseHelp": "As configured in the catalog",
+    "workspaceUrl": "Workspace URL",
+    "catalog": "Catalog",
+    "catalogHelp": "Default catalog; the others can be selected in the toolbar",
+    "workspace": "Workspace",
+    "workspaceHelp": "Name or ID of the Fabric workspace",
+    "lakehouse": "Lakehouse",
+    "lakehouseHelp": "Default lakehouse; the others can be selected in the toolbar",
+    "oauthServerUri": "Token endpoint",
+    "oauthServerUriHelp": "Empty = catalog URL + /v1/oauth/tokens",
+    "oauthScope": "Scope",
+    "oauthScopeHelp": "E.g. PRINCIPAL_ROLE:ALL for Apache Polaris",
+    "region": "AWS region",
+    "regionHelp": "Region of the S3 storage, e.g. eu-central-1. Not needed on Azure and Google Cloud",
+    "deltaFolder": "Folder",
+    "deltaFolderHelp": "Absolute path of a folder with Delta tables (subfolders with _delta_log), or of one table",
     "account": "Account",
     "accountHelp": "Optional, suggested when signing in",
     "entraUserHelp": "Entra user or group as created in the database",
@@ -298,6 +321,7 @@
   },
   "dialog": {
     "open": "Choose File",
+    "openFolder": "Choose Folder",
     "save": "Save As"
   },
   "errors": {
@@ -321,6 +345,10 @@
     "entraFailed": "Microsoft Entra sign-in failed: {detail}",
     "servicePrincipalRequired": "A service principal needs a tenant ID and a client ID.",
     "invalidRetries": "Invalid number of connection attempts.",
-    "entraLoginRequired": "Microsoft Entra sign-in required: open the connection in Colwerk and sign in in the browser."
+    "entraLoginRequired": "Microsoft Entra sign-in required: open the connection in Colwerk and sign in in the browser.",
+    "clientIdRequired": "OAuth2 client credentials need a client ID.",
+    "addressRequired": "Please enter the address of the catalog or workspace.",
+    "folderRequired": "Please enter the folder of the Delta tables.",
+    "extensionFailed": "The DuckDB extension {name} could not be loaded: {detail}"
   }
 }

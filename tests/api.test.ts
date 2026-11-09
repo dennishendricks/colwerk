@@ -98,7 +98,7 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     assertEquals(await rawStatus(port, `evil.example:${port}`, token), 403)
     assertEquals(await rawStatus(port, `127.0.0.1:${port}`, token), 200)
     const ok = await call('/api/drivers', {}, { 'x-colwerk-token': token, origin: base })
-    assertEquals((await json(ok)).length, 5)
+    assertEquals((await json(ok)).length, 10)
   })
 
   test('serves the SPA shell without token', async () => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
-import type { Dialect } from '#core'
+import type { SplitDialect } from '~/utils/sql-split'
 import type { QueryTab } from '~/composables/workspace'
 
 const props = defineProps<{ tab: QueryTab }>()
@@ -45,7 +45,7 @@ onBeforeUnmount(() => clearTimeout(preloadTimer))
 
 async function preloadColumns() {
   const target = schemaTarget.value
-  const dialect = driver.value?.dialect
+  const dialect = driver.value && sqlDialect(driver.value.dialect)
   if (!target || !dialect) return
   const s = state(target)
   for (const ref of referencedTables(props.tab.sql, dialect).slice(0, 20)) {
@@ -65,8 +65,9 @@ const pending = ref<{ sql: string; from: number }>()
 
 function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (connection.value?.confirmWrites && mayWrite(runnable.sql, connection.value.dialect)) pending.value = runnable
-  else run(props.tab, runnable.sql, runnable.from)
+  if (connection.value?.confirmWrites && mayWrite(runnable.sql, sqlDialect(connection.value.dialect))) {
+    pending.value = runnable
+  } else run(props.tab, runnable.sql, runnable.from)
 }
 
 function confirmRun() {
@@ -76,7 +77,7 @@ function confirmRun() {
 
 // isReadOnlyStatement is false for any script with several statements, so check them one by one:
 // a script of SELECTs runs without asking, a single write in it asks.
-function mayWrite(sql: string, dialect: Dialect) {
+function mayWrite(sql: string, dialect: SplitDialect) {
   return splitStatements(sql, dialect).some((r) => !isReadOnlyStatement(sql.slice(r.from, r.to), dialect))
 }
 
@@ -84,10 +85,10 @@ function showPlan(analyze = false) {
   explain(props.tab, editor.value?.runnableSql().sql ?? '', analyze)
 }
 
-// SQL Server and SQLite have no plan with runtime statistics without executing the statement as usual.
+// SQL Server, SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
   { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-  ...(driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite'
+  ...(driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
     ? []
     : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
 ])
@@ -112,7 +113,7 @@ const formatItems = [
 // The full result runs the statement again, which must not repeat side effects.
 const canExportFull = computed(() => {
   const source = props.tab.source
-  return !!source && isReadOnlyStatement(source.sql, driverOf(source.connectionId)?.dialect ?? 'postgres')
+  return !!source && isReadOnlyStatement(source.sql, sqlDialect(driverOf(source.connectionId)?.dialect ?? 'postgres'))
 })
 const scopeItems = computed(() => [
   { label: t('query.shownRows', { n: shown.value?.rows.length.toLocaleString(locale.value) }), value: 'shown' },
@@ -149,7 +150,7 @@ async function download() {
 async function format() {
   try {
     const { formatSql } = await import('~/utils/sql-format')
-    props.tab.sql = formatSql(props.tab.sql, driver.value?.dialect ?? 'postgres')
+    props.tab.sql = formatSql(props.tab.sql, sqlDialect(driver.value?.dialect ?? 'postgres'))
     editor.value?.focus()
   } catch (e) {
     toast.add({
