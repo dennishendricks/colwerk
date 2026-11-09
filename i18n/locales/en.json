@@ -73,7 +73,13 @@
     "nextTab": "Next Tab",
     "help": "Help",
     "shortcuts": "Keyboard Shortcuts",
-    "privacy": "Privacy Notice"
+    "privacy": "Privacy Notice",
+    "exportDiagnostics": "Export Diagnostics …"
+  },
+  "diagnostics": {
+    "title": "Save diagnostics",
+    "saved": "Diagnostics saved",
+    "failed": "Exporting diagnostics failed"
   },
   "tabs": {
     "untitled": "Query {n}"
@@ -83,6 +89,9 @@
     "installed": "Installed is {version}.",
     "available": "Colwerk {version} is available",
     "download": "Download",
+    "install": "Install and Restart",
+    "installing": "Installing update …",
+    "installFailed": "Installing the update failed",
     "failed": "Checking for updates failed"
   },
   "connection": {

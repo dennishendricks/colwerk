@@ -1,7 +1,8 @@
 // `bun run release`: bumps the version in package.json and pushes the commit with the tag `v<version>`.
 // The tag starts .github/workflows/release.yml, which builds all desktop targets and creates a draft GitHub
-// release with the contents of `dist`, their SHA-256 sums and build provenance attestations. The draft is not
-// visible to the update check (app/utils/update.ts) until it is published on GitHub.
+// release with the contents of `dist` (including the signed update packages and their `latest.json`), their SHA-256
+// sums and build provenance attestations. The draft is not visible to the update check (app/utils/update.ts) and
+// the auto update until it is published on GitHub.
 
 async function exec(cmd: string, args: string[]) {
   console.log(`$ ${cmd} ${args.join(' ')}`)

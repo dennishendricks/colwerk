@@ -73,7 +73,13 @@
     "nextTab": "Nächster Tab",
     "help": "Hilfe",
     "shortcuts": "Tastenkürzel",
-    "privacy": "Datenschutzhinweise"
+    "privacy": "Datenschutzhinweise",
+    "exportDiagnostics": "Diagnose exportieren …"
+  },
+  "diagnostics": {
+    "title": "Diagnose speichern",
+    "saved": "Diagnose gespeichert",
+    "failed": "Diagnose konnte nicht exportiert werden"
   },
   "tabs": {
     "untitled": "Abfrage {n}"
@@ -83,6 +89,9 @@
     "installed": "Installiert ist {version}.",
     "available": "Colwerk {version} ist verfügbar",
     "download": "Herunterladen",
+    "install": "Installieren und neu starten",
+    "installing": "Update wird installiert …",
+    "installFailed": "Update konnte nicht installiert werden",
     "failed": "Suche nach Updates fehlgeschlagen"
   },
   "connection": {

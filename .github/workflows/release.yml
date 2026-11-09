@@ -42,9 +42,12 @@ jobs:
       # NO_STRIP: the strip bundled with linuxdeploy (AppImage) fails on current ELF files; the binaries are
       # already stripped by Cargo, and the Bun sidecar must not be stripped.
       # --verbose: shows the output of the bundlers (e.g. linuxdeploy), which Tauri hides otherwise.
+      # The signing key signs the update packages for tauri-plugin-updater (public key in tauri.conf.json).
       - run: bun run desktop --verbose
         env:
           NO_STRIP: true
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - if: matrix.os == 'ubuntu-latest'
         run: docker compose up -d --wait postgres mariadb mssql clickhouse && docker compose run --rm mssql-init
       # `.output` comes from the build above; the binary tests use the sidecar it built.
@@ -66,10 +69,16 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.x
       - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
+      # Manifest of the auto update; the app reads it once the release is published.
+      - run: bun scripts/update-manifest.ts dist "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
       - name: Checksums
         working-directory: dist
         run: sha256sum * > SHA256SUMS.txt

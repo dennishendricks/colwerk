@@ -77,10 +77,14 @@ if (mode === 'desktop') {
   const { version } = await Bun.file('package.json').json()
   const name = `Colwerk-${version}-${os === 'darwin' ? 'macos' : os}-${cpu}`
 
+  // Update packages for tauri-plugin-updater, signed with the key of the release workflow (signatures `.sig`,
+  // collected into `latest.json` by scripts/update-manifest.ts). Without the key they are not built.
+  const signed = !!process.env.TAURI_SIGNING_PRIVATE_KEY
   // The sidecar and the license files only exist after this build, so they are added here and not in
   // tauri.conf.json, which `tauri dev` uses as well.
   const config = {
     bundle: {
+      createUpdaterArtifacts: signed,
       externalBin: ['binaries/colwerk-server'],
       resources: { '../LICENSE': 'LICENSE', '../.output/THIRD_PARTY_LICENSES.txt': 'THIRD_PARTY_LICENSES.txt' },
     },
@@ -102,18 +106,21 @@ if (mode === 'desktop') {
     '--locked',
   ])
 
-  // Packages: the installer of the platform, and the unpacked app as a .zip.
+  // Packages: the installer of the platform (macOS: the update package as well), with the signature of each
+  // update package, and the unpacked app as a .zip.
   const release = resolve('src-tauri/target/release')
   const bundle = join(release, 'bundle')
   const outputs: [string, string][] =
     os === 'darwin'
-      ? [['dmg', '.dmg']]
+      ? [['dmg', '.dmg'], ...(signed ? [['macos', '.app.tar.gz'] as [string, string]] : [])]
       : windows
         ? [['msi', '.msi']]
         : [...(appImage ? [['appimage', '.AppImage'] as [string, string]] : []), ['deb', '.deb']]
   for (const [dir, ext] of outputs) {
     const file = (await readdir(join(bundle, dir))).find((f) => f.endsWith(ext))!
     await rename(join(bundle, dir, file), resolve(`dist/${name}${ext}`))
+    const sig = join(bundle, dir, `${file}.sig`)
+    if (await Bun.file(sig).exists()) await rename(sig, resolve(`dist/${name}${ext}.sig`))
   }
   const zip = resolve(`dist/${name}.zip`)
   await rm(zip, { force: true })
