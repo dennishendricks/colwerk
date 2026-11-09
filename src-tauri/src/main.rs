@@ -5,9 +5,13 @@
 // Startup: the sidecar starts first, then the window opens with a blank page (splash/), so both start up at the
 // same time. Once it listens, the sidecar prints `Colwerk: <url>` with the session token in the fragment, and the
 // window navigates there.
+//
+// Logging: everything the sidecar prints (stdout and stderr) and the shell's own events go to a rotating log file in
+// `logs/` of the data directory (core/data-dir.ts), without the session token.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
+use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,6 +21,7 @@ use std::time::Duration;
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tauri_plugin_window_state::StateFlags;
 
 /// The running sidecar; taken on exit.
@@ -37,6 +42,20 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .manage(Server(Mutex::new(None)))
         .setup(|app| {
+            app.handle().plugin(
+                tauri_plugin_log::Builder::new()
+                    .clear_targets()
+                    .target(Target::new(TargetKind::Stdout))
+                    .target(Target::new(TargetKind::Folder {
+                        path: log_dir(app.handle()),
+                        file_name: Some("colwerk".into()),
+                    }))
+                    .level(log::LevelFilter::Info)
+                    .max_file_size(5_000_000)
+                    .rotation_strategy(RotationStrategy::KeepSome(3))
+                    .build(),
+            )?;
+            log::info!("Colwerk {} started", app.package_info().version);
             let server = start_server(app.handle());
             // Size and position of the last run are restored by the window-state plugin. The window is shown
             // once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
@@ -59,6 +78,7 @@ fn main() {
                 if let Err(message) = server.and_then(|stdout| show_server(&window, stdout))
                     && !EXITING.load(Ordering::SeqCst)
                 {
+                    log::error!("{message}");
                     handle
                         .dialog()
                         .message(message)
@@ -94,7 +114,8 @@ fn start_server(app: &AppHandle) -> Result<Option<ChildStdout>, String> {
     command
         .env("COLWERK_DESKTOP", "1")
         .stdin(Stdio::piped())
-        .stdout(Stdio::piped());
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -105,6 +126,10 @@ fn start_server(app: &AppHandle) -> Result<Option<ChildStdout>, String> {
         .spawn()
         .map_err(|e| format!("{}: {e}", exe.display()))?;
     let stdout = child.stdout.take();
+    if let Some(stderr) = child.stderr.take() {
+        thread::spawn(move || log_lines(stderr, log::Level::Warn));
+    }
+    log::info!("server started (pid {})", child.id());
     app.state::<Server>().0.lock().unwrap().replace(child);
     Ok(stdout)
 }
@@ -119,15 +144,43 @@ fn show_server(window: &WebviewWindow, stdout: Option<ChildStdout>) -> Result<()
     let Some(stdout) = stdout else {
         return navigate(&std::env::var("COLWERK_URL").unwrap_or_default());
     };
-    // Everything else the sidecar prints is passed through, as a log.
+    // Everything else the sidecar prints goes to the log.
     for line in BufReader::new(stdout).lines() {
         let line = line.map_err(|e| e.to_string())?;
-        println!("{line}");
+        log::info!("server: {}", redact(&line));
         if let Some(url) = line.trim().strip_prefix("Colwerk: ") {
             navigate(url)?;
         }
     }
     Err("The Colwerk server stopped unexpectedly.".into())
+}
+
+/// The data directory of core/data-dir.ts: `COLWERK_DATA_DIR`, otherwise `colwerk` in the platform's config
+/// directory (`~/Library/Application Support`, `%APPDATA%`, `$XDG_CONFIG_HOME` or `~/.config`).
+fn data_dir(app: &AppHandle) -> PathBuf {
+    std::env::var_os("COLWERK_DATA_DIR")
+        .map(PathBuf::from)
+        .or_else(|| app.path().config_dir().ok().map(|dir| dir.join("colwerk")))
+        .unwrap_or_else(|| PathBuf::from("colwerk"))
+}
+
+fn log_dir(app: &AppHandle) -> PathBuf {
+    data_dir(app).join("logs")
+}
+
+/// Logs each line of the sidecar's `stream` (stderr) until it closes.
+fn log_lines(stream: impl Read, level: log::Level) {
+    for line in BufReader::new(stream).lines().map_while(Result::ok) {
+        log::log!(level, "server: {}", redact(&line));
+    }
+}
+
+/// The session token travels in the URL fragment (`#token=…`) and must not end up in the log.
+fn redact(line: &str) -> String {
+    match line.find("#token=") {
+        Some(at) => format!("{}#token=<redacted>", &line[..at]),
+        None => line.to_string(),
+    }
 }
 
 /// Closes the sidecar's stdin, so it ends on its own and removes its instance file; killed if that takes too long.
