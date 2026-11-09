@@ -34,6 +34,22 @@ function* tarFiles(tar: Uint8Array): Generator<{ name: string; data: Uint8Array 
   }
 }
 
+/**
+ * On Windows, renaming a directory fails with EPERM/EACCES while a virus scanner still holds the freshly
+ * written `.node`/`.dll` open; like graceful-fs, retry for a while.
+ */
+async function renameRetrying(from: string, to: string) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (attempt >= 50 || (code !== 'EPERM' && code !== 'EACCES')) throw e
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+  }
+}
+
 /** The globals the server reads. */
 export function duckdbGlobals(manifest: DuckdbManifest) {
   const root = join(defaultDataDir(), 'drivers')
@@ -71,7 +87,7 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
         if (NATIVE.test(name)) await writeFile(join(tmp, basename(name)), data, { mode: 0o755 })
       }
       // Another instance of the app may have finished first.
-      await rename(tmp, dir).catch(async (e) => {
+      await renameRetrying(tmp, dir).catch(async (e) => {
         if (!(await installed())) throw e
       })
     } finally {
