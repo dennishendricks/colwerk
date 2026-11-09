@@ -360,6 +360,7 @@ useApplicationMenu({
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
+    <ReleaseNotesModal />
     <LazyHistoryModal
       v-model:open="historyOpen"
       :connection-id="activeTab?.connectionId ?? activeConnectionId"

@@ -94,6 +94,11 @@
     "installFailed": "Installing the update failed",
     "failed": "Checking for updates failed"
   },
+  "releaseNotes": {
+    "title": "What's new in Colwerk {version}",
+    "unavailable": "Colwerk has been updated. The release notes could not be loaded.",
+    "release": "Release on GitHub"
+  },
   "connection": {
     "edit": "Edit connection",
     "new": "New connection",

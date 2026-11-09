@@ -94,6 +94,11 @@
     "installFailed": "Update konnte nicht installiert werden",
     "failed": "Suche nach Updates fehlgeschlagen"
   },
+  "releaseNotes": {
+    "title": "Neu in Colwerk {version}",
+    "unavailable": "Colwerk wurde aktualisiert. Die Versionshinweise konnten nicht geladen werden.",
+    "release": "Release auf GitHub"
+  },
   "connection": {
     "edit": "Verbindung bearbeiten",
     "new": "Neue Verbindung",
