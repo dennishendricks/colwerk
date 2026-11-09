@@ -1,5 +1,5 @@
-// Desktop shell of Colwerk. The app itself is served by the sidecar `colwerk-server` (launcher/main.ts, a Node
-// single executable next to this binary) on 127.0.0.1; this shell shows the window, which the page fills with
+// Desktop shell of Colwerk. The app itself is served by the sidecar `colwerk-server` (launcher/main.ts, a Bun
+// single-file executable next to this binary) on 127.0.0.1; this shell shows the window, which the page fills with
 // native menus and dialogs through Tauri's JS API (app/utils/desktop.ts).
 //
 // Startup: the sidecar starts first, then the window opens with a blank page (splash/), so both start up at the
