@@ -45,6 +45,9 @@
         "exportedType": { "identifier": "app.colwerk.sqlite", "conformsTo": ["public.database", "public.data"] }
       }
     ],
+    "windows": {
+      "webviewInstallMode": { "type": "skip" }
+    },
     "macOS": {
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"
