@@ -39,7 +39,9 @@ await copyFile('.output/THIRD_PARTY_LICENSES.txt', 'dist/THIRD_PARTY_LICENSES.tx
 const { version: duckdbVersion } = await Bun.file('node_modules/@duckdb/node-bindings/package.json').json()
 const duckdbPlatform = `${process.platform}-${cpu}`
 const registry = `https://registry.npmjs.org/@duckdb/node-bindings-${duckdbPlatform}/${duckdbVersion}`
-const { dist: duckdbDist } = await (await fetch(registry)).json()
+const response = await fetch(registry)
+if (!response.ok) throw new Error(`${registry}: ${response.status} ${response.statusText}`)
+const { dist: duckdbDist } = await response.json()
 const duckdb = {
   version: duckdbVersion,
   platform: duckdbPlatform,
