@@ -31,6 +31,7 @@
     "lightDesign": "Helles Design",
     "darkDesign": "Dunkles Design",
     "shortcuts": "Tastenkürzel (?)",
+    "about": "Über Colwerk",
     "copySuffix": "{title} (Kopie)",
     "openFailed": "Öffnen fehlgeschlagen",
     "saveFailed": "Speichern fehlgeschlagen",
@@ -42,6 +43,7 @@
     "disconnectConfirm": "Trennen"
   },
   "menu": {
+    "about": "Über Colwerk",
     "quit": "Beenden",
     "setupMcp": "MCP einrichten …",
     "checkUpdates": "Nach Updates suchen …",
@@ -224,6 +226,16 @@
     "empty": "Keine Abfragen gefunden.",
     "deletedConnection": "Gelöschte Verbindung",
     "clear": "Verlauf leeren"
+  },
+  "about": {
+    "title": "Über Colwerk",
+    "version": "Version {version}",
+    "tagline": "Ein schlanker SQL-Editor für den Desktop",
+    "website": "Website",
+    "repository": "GitHub",
+    "releaseNotes": "Versionshinweise",
+    "reportIssue": "Problem melden",
+    "license": "MIT-Lizenz"
   },
   "mcp": {
     "title": "MCP einrichten",
