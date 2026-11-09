@@ -15,6 +15,7 @@ services:
 
   mariadb:
     image: mariadb:11
+    command: ['--innodb-buffer-pool-size=16M']
     environment:
       MARIADB_USER: dbm
       MARIADB_PASSWORD: dbm
@@ -57,6 +58,7 @@ services:
       CLICKHOUSE_DB: dbm
     ports: ['127.0.0.1:58123:8123']
     volumes: ['./docker/init/clickhouse.sql:/docker-entrypoint-initdb.d/init.sql:ro']
+    configs: [{ source: clickhouse-lowmem, target: /etc/clickhouse-server/config.d/lowmem.xml }]
     healthcheck:
       test: ['CMD', 'clickhouse-client', '--user', 'dbm', '--password', 'dbm', '-q', 'select 1']
       interval: 2s
@@ -70,3 +72,41 @@ services:
       CATALOG_WAREHOUSE: ${PWD}/.iceberg-warehouse
     ports: ['127.0.0.1:58181:8181']
     volumes: ['./.iceberg-warehouse:${PWD}/.iceberg-warehouse']
+
+configs:
+  # Tests only read schema metadata, so drop ClickHouse's system log tables and shrink caches/pools
+  # (they otherwise cost ~1 GB RAM and constant background CPU).
+  clickhouse-lowmem:
+    content: |
+      <clickhouse>
+        <logger><level>warning</level></logger>
+        <mark_cache_size>67108864</mark_cache_size>
+        <index_mark_cache_size>0</index_mark_cache_size>
+        <uncompressed_cache_size>0</uncompressed_cache_size>
+        <background_schedule_pool_size>8</background_schedule_pool_size>
+        <background_common_pool_size>2</background_common_pool_size>
+        <background_move_pool_size>1</background_move_pool_size>
+        <background_fetches_pool_size>1</background_fetches_pool_size>
+        <background_buffer_flush_schedule_pool_size>1</background_buffer_flush_schedule_pool_size>
+        <background_message_broker_schedule_pool_size>1</background_message_broker_schedule_pool_size>
+        <background_distributed_schedule_pool_size>1</background_distributed_schedule_pool_size>
+        <asynchronous_metrics_update_period_s>60</asynchronous_metrics_update_period_s>
+        <query_log remove="1"/>
+        <query_thread_log remove="1"/>
+        <query_views_log remove="1"/>
+        <query_metric_log remove="1"/>
+        <part_log remove="1"/>
+        <trace_log remove="1"/>
+        <text_log remove="1"/>
+        <metric_log remove="1"/>
+        <latency_log remove="1"/>
+        <error_log remove="1"/>
+        <asynchronous_metric_log remove="1"/>
+        <asynchronous_insert_log remove="1"/>
+        <processors_profile_log remove="1"/>
+        <opentelemetry_span_log remove="1"/>
+        <session_log remove="1"/>
+        <backup_log remove="1"/>
+        <blob_storage_log remove="1"/>
+        <s3queue_log remove="1"/>
+      </clickhouse>
