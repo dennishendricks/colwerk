@@ -4,8 +4,8 @@
 // (`releases/latest/download/latest.json`, see src-tauri/tauri.conf.json), so a draft is not offered until it is
 // published.
 //
-// Keys are `<os>-<arch>` or `<os>-<arch>-<installer>`. Linux only gets `linux-x86_64-appimage`: without a plain
-// `linux-x86_64` key, a .deb installation finds no update and the app falls back to the release page.
+// Keys are `<os>-<arch>`. Linux has no update package: a .deb installation finds no update and the app falls back to
+// the release page.
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -18,9 +18,7 @@ if (!dir || !tag || !repo) {
 /** Update package (suffix of the file name from scripts/package.ts) → manifest key. */
 const PLATFORMS: Record<string, string> = {
   '-macos-arm64.app.tar.gz': 'darwin-aarch64',
-  '-macos-x64.app.tar.gz': 'darwin-x86_64',
-  '-windows-x64.msi': 'windows-x86_64',
-  '-linux-x64.AppImage': 'linux-x86_64-appimage',
+  '-windows-x64-setup.exe': 'windows-x86_64',
 }
 
 const platforms: Record<string, { signature: string; url: string }> = {}

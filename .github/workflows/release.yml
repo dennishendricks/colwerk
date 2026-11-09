@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, macos-15-intel, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
+        os: [macos-latest, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -36,7 +36,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev
       - run: bun install --frozen-lockfile
       # hdiutil sometimes cannot eject the DMG ("Resource busy") because Spotlight or XProtect still holds the
       # mounted image, a known flaw of the GitHub macOS runners.
@@ -45,13 +45,10 @@ jobs:
           sudo mdutil -a -i off
           sudo pkill -9 XProtect || true
       # Builds the host's target into `dist`.
-      # NO_STRIP: the strip bundled with linuxdeploy (AppImage) fails on current ELF files; the binaries are
-      # already stripped by Cargo, and the Bun sidecar must not be stripped.
-      # --verbose: shows the output of the bundlers (e.g. linuxdeploy), which Tauri hides otherwise.
+      # --verbose: shows the output of the bundlers (e.g. NSIS), which Tauri hides otherwise.
       # The signing key signs the update packages for tauri-plugin-updater (public key in tauri.conf.json).
       - run: bun run desktop --verbose
         env:
-          NO_STRIP: true
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - if: matrix.os == 'ubuntu-latest'
@@ -84,7 +81,10 @@ jobs:
           path: dist
           merge-multiple: true
       # Manifest of the auto update; the app reads it once the release is published.
-      - run: bun scripts/update-manifest.ts dist "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+      # The signatures are embedded in latest.json, so their files are not uploaded.
+      - run: |
+          bun scripts/update-manifest.ts dist "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+          rm dist/*.sig
       # Software bill of materials (CycloneDX) of both lockfiles: the npm packages of bun.lock without dev
       # dependencies (bundled into the client and the sidecar) and the crates of src-tauri/Cargo.lock. One file for
       # all targets; it lists every crate in Cargo.lock, including those of other systems and build tools.

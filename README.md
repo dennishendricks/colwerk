@@ -28,12 +28,11 @@ analytics and no account.
 
 ## Download
 
-| Platform | Architecture         | Package          |
-| -------- | -------------------- | ---------------- |
-| macOS    | Apple Silicon, Intel | `.dmg`           |
-| Windows  | x64                  | `.msi`           |
-| Linux    | x64                  | AppImage, `.deb` |
-| Linux    | arm64                | `.deb`           |
+| Platform | Architecture  | Package      |
+| -------- | ------------- | ------------ |
+| macOS    | Apple Silicon | `.dmg`       |
+| Windows  | x64           | `-setup.exe` |
+| Linux    | x64, arm64    | `.deb`       |
 
 **[→ Get the latest release](https://github.com/dennishendricks/colwerk/releases/latest)** — all files and checksums
 are listed there, along with a software bill of materials of the npm packages and Rust crates
@@ -83,7 +82,7 @@ bun run dev            # dev server; prints the URL including the session token
 | Command             | Description                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------ |
 | `bun run dev`       | Nuxt dev server on `127.0.0.1`, random port, fresh token (`--desktop`: in the Tauri shell) |
-| `bun run desktop`   | Desktop app for the host system: installer and .zip in `dist/`                             |
+| `bun run desktop`   | Desktop app for the host system: installer in `dist/`                                      |
 | `bun run compile`   | Self-hosted binary `dist/colwerk` that opens the default browser                           |
 | `bun run release`   | Version bump and tag; GitHub Actions builds all targets and drafts a release               |
 | `bun run test`      | Driver contract tests, API end-to-end test, SQL splitter tests                             |
