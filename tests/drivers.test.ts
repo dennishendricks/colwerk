@@ -87,7 +87,7 @@ const cases: Case[] = [
   },
   {
     config: testConnections.mssql,
-    values: `select cast(9007199254740993 as bigint) as big, cast(1234567890.125 as decimal(18,3)) as dec,
+    values: `select cast(9007199254740993 as bigint) as big, cast(12345678901234567890.123 as decimal(38,3)) as dec,
       cast('2024-01-02 03:04:05.123' as datetime2(3)) as ts, 0xDEADBEEF as bin, null as n`,
     ts: '2024-01-02T03:04:05.123',
     schema: 'sales',
@@ -180,8 +180,7 @@ for (const c of cases) {
     )
     const [big, dec, ts, bin, n] = r.rows[0]!
     assertEquals(big, '9007199254740993')
-    assertEquals(typeof dec, 'string')
-    if (name !== 'mssql') assertEquals(dec, '12345678901234567890.123')
+    assertEquals(dec, '12345678901234567890.123')
     assertEquals(ts, c.ts)
     assertEquals(String(bin).toLowerCase(), '0xdeadbeef')
     assertEquals(n, null)
@@ -411,6 +410,34 @@ for (const c of cases) {
   }
 
   if (name === 'mssql') {
+    test.skipIf(ignore)(`${name}: DECIMAL, NUMERIC and MONEY are exact`, async () => {
+      const r = await (
+        await session()
+      ).execute(
+        `select cast('-99999999999999999999999999999999999999' as decimal(38,0)) as d0,
+          cast('1234567890123456789012345678.0123456789' as numeric(38,10)) as d10,
+          cast('-0.000000000000000000000000000000000001' as decimal(38,36)) as d36,
+          cast(0 as decimal(5,2)) as zero,
+          cast('922337203685477.5807' as money) as mmax, cast('-922337203685477.5808' as money) as mmin,
+          cast('12.5' as money) as m, cast('-214748.3648' as smallmoney) as smin,
+          cast(cast('0.1' as decimal(9,3)) as sql_variant) as v`,
+        { rowLimit: 1 },
+      )
+      assertEquals(rows(r), [
+        [
+          '-99999999999999999999999999999999999999',
+          '1234567890123456789012345678.0123456789',
+          '-0.000000000000000000000000000000000001',
+          '0.00',
+          '922337203685477.5807',
+          '-922337203685477.5808',
+          '12.5000',
+          '-214748.3648',
+          '0.100',
+        ],
+      ])
+    })
+
     test.skipIf(ignore)(`${name}: GO separates batches`, async () => {
       const r = await (
         await session()

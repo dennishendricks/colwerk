@@ -147,7 +147,6 @@ first use, verified by hash and stored in the data directory.
 
 ### Known limitations
 
-- MSSQL `DECIMAL`/`MONEY` lose precision beyond ~15 digits (tedious returns JS numbers).
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
 - SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and
   drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the
