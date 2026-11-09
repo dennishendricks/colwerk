@@ -10,10 +10,14 @@ import {
   type PredefinedMenuItemOptions,
   type SubmenuOptions,
 } from '@tauri-apps/api/menu'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { api } from './api'
 
 export const isDesktop = isTauri()
+
+/** The window the page runs in: `main`, or `window-<n>` for tabs moved out of a window (src-tauri). */
+export const windowLabel = isDesktop ? getCurrentWindow().label : 'main'
 
 /** Items with `checked` show a checkmark. Roles are the platform's own items (see `PredefinedMenuItemOptions`). */
 export type MenuEntry =

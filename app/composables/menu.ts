@@ -1,4 +1,4 @@
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { exit } from '@tauri-apps/plugin-process'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
 
 /** Actions of the menu that open or toggle parts of the page owned by the caller. */
@@ -118,7 +118,7 @@ export function useApplicationMenu(view: MenuViewActions) {
   defineMenuHandlers({
     mcp: view.openMcp,
     update: () => checkForUpdate(true),
-    quit: () => getCurrentWindow().close(),
+    quit: () => exit(),
     privacy: () => openUrl(privacyUrl),
     diagnostics: exportDiagnostics,
     'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),

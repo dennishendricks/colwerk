@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The app's pages, served by the sidecar on 127.0.0.1 (random port): menus, file dialogs, the diagnostics export, updates, files opened from the system, the title bar's color mode and opening Colwerk's web pages.",
-  "windows": ["main"],
+  "description": "The app's pages, served by the sidecar on 127.0.0.1 (random port), in the main window and the windows tabs were moved to: menus, file dialogs, windows, the diagnostics export, updates, files opened from the system, the title bar's color mode and opening Colwerk's web pages.",
+  "windows": ["main", "window-*"],
   "remote": {
     "urls": ["http://127.0.0.1:*/*"]
   },
@@ -10,11 +10,15 @@
     "core:menu:default",
     "core:resources:default",
     "core:event:allow-listen",
+    "core:event:allow-emit-to",
     "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-get-all-windows",
     "core:window:allow-set-theme",
     "dialog:allow-open",
     "dialog:allow-save",
     "allow-export-diagnostics",
+    "allow-open-window",
     "allow-pause-server",
     "allow-resume-server",
     "allow-take-opened-files",
@@ -22,6 +26,7 @@
     "updater:allow-download",
     "updater:allow-install",
     "process:allow-restart",
+    "process:allow-exit",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "https://github.com/*" }, { "url": "https://colwerk.app/*" }]

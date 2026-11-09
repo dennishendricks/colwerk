@@ -19,6 +19,9 @@
 // Single instance: launching Colwerk again (tauri-plugin-single-instance) starts no second app and sidecar, but
 // brings the existing window to the front.
 //
+// Windows: besides `main`, the page opens windows `window-<n>` for tabs moved out of a window (`open_window`). All
+// show the same server; closing `main` ends the app.
+//
 // Opening files: Colwerk is registered for query files (.sql) and DuckDB and SQLite databases (bundle.fileAssociations
 // in tauri.conf.json). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
 // through the single-instance plugin) or with `RunEvent::Opened` (macOS). They wait in `Opened` until the page takes
@@ -40,15 +43,16 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::webview::PageLoadEvent;
-use tauri::{
-    AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tauri_plugin_window_state::StateFlags;
 
 /// The running sidecar with the number of its start (see `watch_health`); the child is taken on exit.
 struct Server(Mutex<(Option<Child>, u32)>);
+
+/// URL of the running server (with the session token), which every window shows.
+struct ServerUrl(Mutex<Option<String>>);
 
 /// Files the system asked Colwerk to open, until the page takes them (`take_opened_files`).
 struct Opened(Mutex<Vec<PathBuf>>);
@@ -98,8 +102,10 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .manage(Server(Mutex::new((None, 0))))
         .manage(Opened(Mutex::new(Vec::new())))
+        .manage(ServerUrl(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             export_diagnostics,
+            open_window,
             pause_server,
             resume_server,
             take_opened_files
@@ -124,25 +130,10 @@ fn main() {
                 app.handle(),
                 std::env::args_os().skip(1).map(|arg| cwd.join(arg)),
             );
-            // Size and position of the last run are restored by the window-state plugin. The window is shown
-            // once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
-            // native window nor the splash in the system's color mode flashes up before it.
-            let window =
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("Colwerk")
-                    .inner_size(1400.0, 900.0)
-                    .visible(false)
-                    .on_page_load(|window, payload| {
-                        if payload.event() == PageLoadEvent::Finished
-                            && payload.url().path() != "/index.html"
-                        {
-                            let _ = window.show();
-                        }
-                    })
-                    .build()?;
+            app_window(app.handle(), "main", WebviewUrl::App("index.html".into())).build()?;
             let handle = app.handle().clone();
             thread::spawn(move || {
-                if let Err(message) = supervise(&handle, &window)
+                if let Err(message) = supervise(&handle)
                     && !EXITING.load(Ordering::SeqCst)
                 {
                     log::error!("{message}");
@@ -156,6 +147,11 @@ fn main() {
                 }
             });
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, WindowEvent::CloseRequested { .. }) {
+                window.app_handle().exit(0);
+            }
         })
         .build(tauri::generate_context!())
         .expect("failed to start Colwerk")
@@ -209,13 +205,13 @@ fn start_server(app: &AppHandle) -> Result<Option<ChildStdout>, String> {
 
 /// Starts the sidecar and shows it in the window; restarts it when it ends while the app runs. Returns when the app
 /// exits, or with the message to show when the sidecar cannot be started or keeps ending.
-fn supervise(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
+fn supervise(app: &AppHandle) -> Result<(), String> {
     let mut restarts: Vec<Instant> = Vec::new();
     loop {
         let Some(stdout) = start_server(app)? else {
-            return navigate(window, &std::env::var("COLWERK_URL").unwrap_or_default());
+            return navigate(app, &std::env::var("COLWERK_URL").unwrap_or_default());
         };
-        show_server(app, window, stdout)?;
+        show_server(app, stdout)?;
         let child = app.state::<Server>().0.lock().unwrap().0.take();
         if let Some(mut child) = child {
             match child.wait() {
@@ -287,21 +283,60 @@ fn take_opened_files(opened: tauri::State<Opened>) -> Vec<PathBuf> {
     std::mem::take(&mut *opened.0.lock().unwrap())
 }
 
-fn navigate(window: &WebviewWindow, url: &str) -> Result<(), String> {
-    window
-        .navigate(url.parse().map_err(|e| format!("{url}: {e}"))?)
+/// A window of the app. Size and position of the last run are restored by the window-state plugin. The window is
+/// shown once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank native window
+/// nor the splash in the system's color mode flashes up before it.
+fn app_window<'a>(
+    app: &'a AppHandle,
+    label: &str,
+    url: WebviewUrl,
+) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
+    WebviewWindowBuilder::new(app, label, url)
+        .title("Colwerk")
+        .inner_size(1400.0, 900.0)
+        .visible(false)
+        .on_page_load(|window, payload| {
+            if payload.event() == PageLoadEvent::Finished && payload.url().path() != "/index.html" {
+                let _ = window.show();
+            }
+        })
+}
+
+/// Opens the window `label` (`window-<n>`) on the server, unless it is open already. Async: creating a window in a
+/// synchronous command deadlocks on Windows.
+#[tauri::command]
+async fn open_window(app: AppHandle, label: String) -> Result<(), String> {
+    if app.get_webview_window(&label).is_some() {
+        return Ok(());
+    }
+    let url = app.state::<ServerUrl>().0.lock().unwrap().clone();
+    let url = url.ok_or("the server has not started yet")?;
+    let url = url.parse().map_err(|e| format!("{e}"))?;
+    app_window(&app, &label, WebviewUrl::External(url))
+        .build()
+        .map(|_| ())
         .map_err(|e| e.to_string())
 }
 
-/// Navigates the window to the server once it listens and starts its health check; returns when the sidecar's
+/// Shows the server at `url` in every window, and in the windows opened later.
+fn navigate(app: &AppHandle, url: &str) -> Result<(), String> {
+    let parsed: tauri::Url = url.parse().map_err(|e| format!("{url}: {e}"))?;
+    *app.state::<ServerUrl>().0.lock().unwrap() = Some(url.to_string());
+    for window in app.webview_windows().values() {
+        window.navigate(parsed.clone()).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Navigates the windows to the server once it listens and starts its health check; returns when the sidecar's
 /// stdout closes (it ended or was killed).
-fn show_server(app: &AppHandle, window: &WebviewWindow, stdout: ChildStdout) -> Result<(), String> {
+fn show_server(app: &AppHandle, stdout: ChildStdout) -> Result<(), String> {
     let start = app.state::<Server>().0.lock().unwrap().1;
     // Everything else the sidecar prints goes to the log.
     for line in BufReader::new(stdout).lines().map_while(Result::ok) {
         log::info!("server: {}", redact(&line));
         if let Some(url) = line.trim().strip_prefix("Colwerk: ") {
-            navigate(window, url)?;
+            navigate(app, url)?;
             if let Some(port) = url.parse::<tauri::Url>().ok().and_then(|u| u.port()) {
                 let app = app.clone();
                 thread::spawn(move || watch_health(&app, port, start));

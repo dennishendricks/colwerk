@@ -108,14 +108,23 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
   })
 
   test('saves and restores the open tabs', async () => {
-    assertEquals(await json(await call('/api/workspace')), { tabs: [] })
-    const workspace = {
+    assertEquals(await json(await call('/api/workspace')), { windows: {} })
+    const main = {
       tabs: [{ id: 't1', title: 'Abfrage 1', sql: 'select 1', rowLimit: 200, timeout: 60 }],
       activeTabId: 't1',
     }
-    await json(await call('/api/workspace', { method: 'POST', body: JSON.stringify(workspace) }))
-    assertEquals(await json(await call('/api/workspace')), workspace)
-    const bad = await call('/api/workspace', { method: 'POST', body: '{}' })
+    const moved = {
+      tabs: [{ id: 't2', title: 'Abfrage 2', sql: 'select 2', rowLimit: 200, timeout: 60 }],
+      activeTabId: 't2',
+    }
+    const save = (window: string, workspace: object) =>
+      call('/api/workspace', { method: 'POST', body: JSON.stringify({ window, ...workspace }) }).then(json)
+    await Promise.all([save('main', main), save('window-2', moved)])
+    assertEquals(await json(await call('/api/workspace')), { windows: { main, 'window-2': moved } })
+    // A window without tabs is removed.
+    await save('window-2', { tabs: [] })
+    assertEquals(await json(await call('/api/workspace')), { windows: { main } })
+    const bad = await call('/api/workspace', { method: 'POST', body: JSON.stringify({ tabs: [] }) })
     assertEquals((bad.body?.cancel(), bad.status), 400)
   })
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
-import type { QueryTab } from '~/composables/tabs'
+import type { QueryTab, ReturnedTab } from '~/composables/tabs'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -18,6 +18,12 @@ const {
   restoreTabs,
   addTab,
   duplicateTab,
+  canMove,
+  moveToNewWindow,
+  canReturn,
+  moveToMainWindow,
+  returnTabs,
+  takeTabs,
   requestClose,
   confirmClose,
   selectTab,
@@ -52,19 +58,24 @@ async function init() {
       }
     }
     if (!tabs.value.length) addTab(activeConnectionId.value)
+    // Queries from MCP clients and files from the system open in the main window.
     if (!listening) {
       listening = true
-      subscribe('/api/events', onServerEvent)
-      if (isDesktop) await listen('open-files', openSystemFiles)
+      if (windowLabel === 'main') subscribe('/api/events', onServerEvent)
+      if (isDesktop && windowLabel === 'main') {
+        await listen('open-files', openSystemFiles)
+        await listen<ReturnedTab[]>('tabs-returned', (e) => takeTabs(e.payload))
+      }
+      if (isDesktop && windowLabel !== 'main') await getCurrentWindow().onCloseRequested(returnTabs)
     }
-    if (isDesktop) openSystemFiles()
+    if (isDesktop && windowLabel === 'main') openSystemFiles()
   } catch (e) {
     loadError.value = errorMessage(e)
   }
 }
 
 watch(sessionToken, init, { immediate: true })
-checkForUpdate()
+if (windowLabel === 'main') checkForUpdate()
 
 const { version } = useRuntimeConfig().public
 
@@ -146,6 +157,16 @@ async function startRename(tab: QueryTab, e: MouseEvent) {
   await nextTick()
   renameInput.value?.[0]?.focus()
   renameInput.value?.[0]?.select()
+}
+
+// Desktop app only: a native context menu. In the browser the browser's own menu stays.
+function onTabContextmenu(e: MouseEvent, tab: QueryTab) {
+  return showContextMenu(e, [
+    { label: t('app.moveToWindow'), enabled: canMove(tab), action: () => moveToNewWindow(tab) },
+    ...(windowLabel === 'main'
+      ? []
+      : [{ label: t('app.moveToMainWindow'), enabled: canReturn(tab), action: () => moveToMainWindow(tab) }]),
+  ])
 }
 
 function commitRename(tab: QueryTab) {
@@ -277,6 +298,7 @@ useApplicationMenu({
               tab.id === activeTabId ? 'border-default bg-default' : 'border-transparent text-muted hover:text-default'
             "
             @click="activeTabId = tab.id"
+            @contextmenu="isDesktop && onTabContextmenu($event, tab)"
           >
             <UIcon v-if="tab.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
             <UIcon
