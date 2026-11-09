@@ -31,6 +31,7 @@
     "lightDesign": "Light appearance",
     "darkDesign": "Dark appearance",
     "shortcuts": "Keyboard shortcuts (?)",
+    "about": "About Colwerk",
     "copySuffix": "{title} (copy)",
     "openFailed": "Opening failed",
     "saveFailed": "Saving failed",
@@ -42,6 +43,7 @@
     "disconnectConfirm": "Disconnect"
   },
   "menu": {
+    "about": "About Colwerk",
     "quit": "Quit",
     "setupMcp": "Set Up MCP …",
     "checkUpdates": "Check for Updates …",
@@ -224,6 +226,16 @@
     "empty": "No queries found.",
     "deletedConnection": "Deleted connection",
     "clear": "Clear history"
+  },
+  "about": {
+    "title": "About Colwerk",
+    "version": "Version {version}",
+    "tagline": "A lightweight SQL editor for the desktop",
+    "website": "Website",
+    "repository": "GitHub",
+    "releaseNotes": "Release notes",
+    "reportIssue": "Report an issue",
+    "license": "MIT License"
   },
   "mcp": {
     "title": "Set up MCP",
