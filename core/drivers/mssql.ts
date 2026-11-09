@@ -63,8 +63,7 @@ function cell(value: unknown, type: string): CellValue {
     if (type === 'datetimeoffset') return iso
     return iso.slice(0, -1)
   }
-  // DECIMAL/NUMERIC/MONEY arrive as JS numbers (see README: known limitations); keep the unified string form.
-  if (typeof value === 'number' && /^(decimal|numeric|money|smallmoney)/.test(type)) return String(value)
+  // DECIMAL/NUMERIC/MONEY arrive as exact strings already (patches/tedious@*.patch).
   return normalizeValue(value)
 }
 
