@@ -108,6 +108,7 @@ export function useApplicationMenu(view: MenuViewActions) {
       ]),
       submenu(t('menu.help'), [
         item(t('menu.shortcuts'), 'shortcuts'),
+        item(t('menu.releaseNotes'), 'release-notes'),
         'separator',
         item(t('menu.privacy'), 'privacy'),
         item(t('menu.exportDiagnostics'), 'diagnostics'),

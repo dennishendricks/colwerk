@@ -73,6 +73,7 @@
     "nextTab": "Nächster Tab",
     "help": "Hilfe",
     "shortcuts": "Tastenkürzel",
+    "releaseNotes": "Versionshinweise",
     "privacy": "Datenschutzhinweise",
     "exportDiagnostics": "Diagnose exportieren …"
   },
@@ -96,7 +97,7 @@
   },
   "releaseNotes": {
     "title": "Neu in Colwerk {version}",
-    "unavailable": "Colwerk wurde aktualisiert. Die Versionshinweise konnten nicht geladen werden.",
+    "unavailable": "Die Versionshinweise konnten nicht geladen werden.",
     "release": "Release auf GitHub"
   },
   "connection": {

@@ -3,6 +3,7 @@
 // the server (server/api/release-notes.get.ts). The version of the last start is kept in a cookie, like the language
 // (app/utils/locale.ts); on the first start there is none, so nothing is shown. If the notes cannot be loaded
 // (offline, rate limit), the modal still tells about the update and links the release page, as it shows only once.
+// Help > Release Notes opens it again at any time.
 const { version, repository } = useRuntimeConfig().public
 const { t } = useI18n()
 
@@ -10,16 +11,21 @@ const open = ref(false)
 const notes = ref<string>()
 const releaseUrl = `https://github.com/${repository}/releases/tag/v${version}`
 
+function show() {
+  if (notes.value) return (open.value = true)
+  api<{ html: string }>('/api/release-notes')
+    .then(({ html }) => (notes.value = html))
+    .catch((e) => console.warn('Release notes:', e))
+    .finally(() => (open.value = true))
+}
+
 const seen = useCookie<string | undefined>('colwerk-version', { maxAge: 10 * 365 * 24 * 3600 })
 if (isDesktop) {
-  if (seen.value && version.localeCompare(seen.value, undefined, { numeric: true }) > 0) {
-    api<{ html: string }>('/api/release-notes')
-      .then(({ html }) => (notes.value = html))
-      .catch((e) => console.warn('Release notes:', e))
-      .finally(() => (open.value = true))
-  }
+  if (seen.value && version.localeCompare(seen.value, undefined, { numeric: true }) > 0) show()
   seen.value = version
 }
+
+defineMenuHandlers({ 'release-notes': show })
 
 // Links open in the browser, not in the app's window.
 function onClick(e: MouseEvent) {
