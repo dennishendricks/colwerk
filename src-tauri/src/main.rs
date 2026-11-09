@@ -8,15 +8,20 @@
 //
 // Logging: everything the sidecar prints (stdout and stderr) and the shell's own events go to a rotating log file in
 // `logs/` of the data directory (core/data-dir.ts), without the session token.
+//
+// Supervision: a health check requests the server's page regularly; a sidecar that stops answering is killed. A
+// sidecar that ends while the app runs is restarted (a few times within a while), and the window navigates to its
+// new URL; beyond that limit the app shows an error naming the log file and quits.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -24,11 +29,24 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tauri_plugin_window_state::StateFlags;
 
-/// The running sidecar; taken on exit.
-struct Server(Mutex<Option<Child>>);
+/// The running sidecar with the number of its start (see `watch_health`); the child is taken on exit.
+struct Server(Mutex<(Option<Child>, u32)>);
 
 /// Set once the app exits, when the sidecar ending is expected.
 static EXITING: AtomicBool = AtomicBool::new(false);
+
+/// Restarts since the app started.
+static RESTARTS: AtomicU32 = AtomicU32::new(0);
+
+/// More restarts than this within `RESTART_WINDOW` end the app.
+const MAX_RESTARTS: usize = 3;
+const RESTART_WINDOW: Duration = Duration::from_secs(300);
+
+/// A sidecar that has not answered for `HEALTH_FAILURES` checks in a row (about two minutes) is considered hung.
+/// Lenient, since a busy event loop (e.g. a large export) may delay the answer for a while.
+const HEALTH_INTERVAL: Duration = Duration::from_secs(20);
+const HEALTH_TIMEOUT: Duration = Duration::from_secs(10);
+const HEALTH_FAILURES: u32 = 4;
 
 fn main() {
     tauri::Builder::default()
@@ -40,7 +58,7 @@ fn main() {
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(Server(Mutex::new(None)))
+        .manage(Server(Mutex::new((None, 0))))
         .setup(|app| {
             app.handle().plugin(
                 tauri_plugin_log::Builder::new()
@@ -56,7 +74,6 @@ fn main() {
                     .build(),
             )?;
             log::info!("Colwerk {} started", app.package_info().version);
-            let server = start_server(app.handle());
             // Size and position of the last run are restored by the window-state plugin. The window is shown
             // once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
             // native window nor the splash in the system's color mode flashes up before it.
@@ -75,7 +92,7 @@ fn main() {
                     .build()?;
             let handle = app.handle().clone();
             thread::spawn(move || {
-                if let Err(message) = server.and_then(|stdout| show_server(&window, stdout))
+                if let Err(message) = supervise(&handle, &window)
                     && !EXITING.load(Ordering::SeqCst)
                 {
                     log::error!("{message}");
@@ -130,29 +147,116 @@ fn start_server(app: &AppHandle) -> Result<Option<ChildStdout>, String> {
         thread::spawn(move || log_lines(stderr, log::Level::Warn));
     }
     log::info!("server started (pid {})", child.id());
-    app.state::<Server>().0.lock().unwrap().replace(child);
+    let state = app.state::<Server>();
+    let mut server = state.0.lock().unwrap();
+    *server = (Some(child), server.1 + 1);
     Ok(stdout)
 }
 
-/// Navigates the window to the server once it listens; returns when the sidecar has ended (always an error).
-fn show_server(window: &WebviewWindow, stdout: Option<ChildStdout>) -> Result<(), String> {
-    let navigate = |url: &str| {
-        window
-            .navigate(url.parse().map_err(|e| format!("{url}: {e}"))?)
-            .map_err(|e| e.to_string())
-    };
-    let Some(stdout) = stdout else {
-        return navigate(&std::env::var("COLWERK_URL").unwrap_or_default());
-    };
+/// Starts the sidecar and shows it in the window; restarts it when it ends while the app runs. Returns when the app
+/// exits, or with the message to show when the sidecar cannot be started or keeps ending.
+fn supervise(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
+    let mut restarts: Vec<Instant> = Vec::new();
+    loop {
+        let Some(stdout) = start_server(app)? else {
+            return navigate(window, &std::env::var("COLWERK_URL").unwrap_or_default());
+        };
+        show_server(app, window, stdout)?;
+        let child = app.state::<Server>().0.lock().unwrap().0.take();
+        if let Some(mut child) = child {
+            match child.wait() {
+                Ok(status) => log::warn!("server ended: {status}"),
+                Err(e) => log::warn!("server ended: {e}"),
+            }
+        }
+        if EXITING.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        restarts.retain(|t| t.elapsed() < RESTART_WINDOW);
+        if restarts.len() >= MAX_RESTARTS {
+            return Err(format!(
+                "The Colwerk server stopped unexpectedly.\n\nDetails are in the log: {}",
+                log_dir(app).display()
+            ));
+        }
+        restarts.push(Instant::now());
+        RESTARTS.fetch_add(1, Ordering::SeqCst);
+        log::warn!("restarting server ({}/{MAX_RESTARTS})", restarts.len());
+    }
+}
+
+fn navigate(window: &WebviewWindow, url: &str) -> Result<(), String> {
+    window
+        .navigate(url.parse().map_err(|e| format!("{url}: {e}"))?)
+        .map_err(|e| e.to_string())
+}
+
+/// Navigates the window to the server once it listens and starts its health check; returns when the sidecar's
+/// stdout closes (it ended or was killed).
+fn show_server(app: &AppHandle, window: &WebviewWindow, stdout: ChildStdout) -> Result<(), String> {
+    let start = app.state::<Server>().0.lock().unwrap().1;
     // Everything else the sidecar prints goes to the log.
-    for line in BufReader::new(stdout).lines() {
-        let line = line.map_err(|e| e.to_string())?;
+    for line in BufReader::new(stdout).lines().map_while(Result::ok) {
         log::info!("server: {}", redact(&line));
         if let Some(url) = line.trim().strip_prefix("Colwerk: ") {
-            navigate(url)?;
+            navigate(window, url)?;
+            if let Some(port) = url.parse::<tauri::Url>().ok().and_then(|u| u.port()) {
+                let app = app.clone();
+                thread::spawn(move || watch_health(&app, port, start));
+            }
         }
     }
-    Err("The Colwerk server stopped unexpectedly.".into())
+    Ok(())
+}
+
+/// Checks the sidecar of the given start regularly and kills it once it has stopped answering; ends with it.
+fn watch_health(app: &AppHandle, port: u16, start: u32) {
+    let state = app.state::<Server>();
+    let mut failures = 0;
+    loop {
+        thread::sleep(HEALTH_INTERVAL);
+        let current = || {
+            let server = state.0.lock().unwrap();
+            server.1 == start && server.0.is_some()
+        };
+        if EXITING.load(Ordering::SeqCst) || !current() {
+            return;
+        }
+        if responds(port) {
+            failures = 0;
+            continue;
+        }
+        failures += 1;
+        log::warn!("server did not answer the health check ({failures}/{HEALTH_FAILURES})");
+        if failures >= HEALTH_FAILURES {
+            let mut server = state.0.lock().unwrap();
+            if server.1 == start
+                && let Some(child) = server.0.as_mut()
+            {
+                log::error!("server hangs, ending it");
+                let _ = child.kill();
+            }
+            return;
+        }
+    }
+}
+
+/// Any HTTP answer counts: the page itself needs the token, but an answer shows that the server works.
+fn responds(port: u16) -> bool {
+    let probe = || -> std::io::Result<bool> {
+        let mut stream =
+            TcpStream::connect_timeout(&SocketAddr::from(([127, 0, 0, 1], port)), HEALTH_TIMEOUT)?;
+        stream.set_read_timeout(Some(HEALTH_TIMEOUT))?;
+        stream.set_write_timeout(Some(HEALTH_TIMEOUT))?;
+        write!(
+            stream,
+            "GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+        )?;
+        let mut head = [0; 5];
+        stream.read_exact(&mut head)?;
+        Ok(&head == b"HTTP/")
+    };
+    probe().unwrap_or(false)
 }
 
 /// The data directory of core/data-dir.ts: `COLWERK_DATA_DIR`, otherwise `colwerk` in the platform's config
@@ -186,7 +290,7 @@ fn redact(line: &str) -> String {
 /// Closes the sidecar's stdin, so it ends on its own and removes its instance file; killed if that takes too long.
 fn stop_server(app: &AppHandle) {
     EXITING.store(true, Ordering::SeqCst);
-    let Some(mut child) = app.state::<Server>().0.lock().unwrap().take() else {
+    let Some(mut child) = app.state::<Server>().0.lock().unwrap().0.take() else {
         return;
     };
     drop(child.stdin.take());
