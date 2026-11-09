@@ -182,7 +182,12 @@ async function pickFile() {
     const path = await fileDialog(delta ? 'folder' : 'open', t(delta ? 'dialog.openFolder' : 'dialog.open'))
     if (path) form.file = path
   } catch (e) {
-    toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({
+      title: t('common.error'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
   } finally {
     picking.value = false
   }
@@ -195,7 +200,12 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
     toast.add({ title: success, color: 'success', icon: 'i-lucide-check' })
     if (kind === 'save' || kind === 'delete') open.value = false
   } catch (e) {
-    toast.add({ title: t('common.error'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
+    toast.add({
+      title: t('common.error'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
   } finally {
     busy.value = undefined
   }

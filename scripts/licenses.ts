@@ -19,7 +19,12 @@ async function licenseText(dir: string): Promise<string | undefined> {
 
 async function npmPackage(dir: string): Promise<Package> {
   const { name, version, license } = await Bun.file(join(dir, 'package.json')).json()
-  return { name, version, license: typeof license === 'string' ? license : license?.type, text: await licenseText(dir) }
+  return {
+    name,
+    version,
+    license: typeof license === 'string' ? license : license?.type,
+    text: await licenseText(dir),
+  }
 }
 
 interface CargoMetadata {

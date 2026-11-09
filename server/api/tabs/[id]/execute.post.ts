@@ -20,7 +20,14 @@ export default defineEventHandler(async (event) => {
   try {
     const result = await dbCall(() => workbench.execute(tabId, connectionId, sql, limit, seconds, db))
     const { durationMs, affectedRows, resultSets } = result
-    recordHistory({ connectionId, sql, executedAt, durationMs, rowCount: resultSets.at(-1)?.rows.length, affectedRows })
+    recordHistory({
+      connectionId,
+      sql,
+      executedAt,
+      durationMs,
+      rowCount: resultSets.at(-1)?.rows.length,
+      affectedRows,
+    })
     return result
   } catch (e) {
     recordHistory({
