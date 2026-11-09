@@ -1,0 +1,74 @@
+diff --git a/lib/value-parser.js b/lib/value-parser.js
+index 9cfae8cae1cea9602f0e4b81b1ece9b22d228776..230ee41ae1b9320f43ae6ba0d3435ce476ba3bb3 100644
+--- a/lib/value-parser.js
++++ b/lib/value-parser.js
+@@ -48,7 +48,8 @@ function readSmallMoney(buf, offset) {
+     offset,
+     value
+   } = (0, _helpers.readInt32LE)(buf, offset));
+-  return new _helpers.Result(value / MONEY_DIVISOR, offset);
++  // colwerk: exact decimal string instead of a lossy number
++  return new _helpers.Result(decimalString(BigInt(value), 4), offset);
+ }
+ function readMoney(buf, offset) {
+   let high;
+@@ -61,7 +62,14 @@ function readMoney(buf, offset) {
+     offset,
+     value: low
+   } = (0, _helpers.readUInt32LE)(buf, offset));
+-  return new _helpers.Result((low + 0x100000000 * high) / MONEY_DIVISOR, offset);
++  // colwerk: exact decimal string instead of a lossy number
++  return new _helpers.Result(decimalString((BigInt(high) << 32n) + BigInt(low), 4), offset);
++}
++// colwerk: `value` / 10^scale as an exact decimal string with `scale` decimals.
++function decimalString(value, scale) {
++  const digits = (value < 0n ? -value : value).toString().padStart(scale + 1, '0');
++  const sign = value < 0n ? '-' : '';
++  return scale ? `${sign}${digits.slice(0, -scale)}.${digits.slice(-scale)}` : `${sign}${digits}`;
+ }
+ function readBit(buf, offset) {
+   let value;
+@@ -458,32 +466,19 @@ function readNumeric(buf, offset, dataLength, _precision, scale) {
+     offset,
+     value: sign
+   } = (0, _helpers.readUInt8)(buf, offset));
+-  sign = sign === 1 ? 1 : -1;
+-  let value;
+-  if (dataLength === 5) {
+-    ({
+-      offset,
+-      value
+-    } = (0, _helpers.readUInt32LE)(buf, offset));
+-  } else if (dataLength === 9) {
+-    ({
+-      offset,
+-      value
+-    } = (0, _helpers.readUNumeric64LE)(buf, offset));
+-  } else if (dataLength === 13) {
+-    ({
+-      offset,
+-      value
+-    } = (0, _helpers.readUNumeric96LE)(buf, offset));
+-  } else if (dataLength === 17) {
+-    ({
+-      offset,
+-      value
+-    } = (0, _helpers.readUNumeric128LE)(buf, offset));
+-  } else {
++  if (dataLength !== 5 && dataLength !== 9 && dataLength !== 13 && dataLength !== 17) {
+     throw new Error(`Unsupported numeric dataLength ${dataLength}`);
+   }
+-  return new _helpers.Result(value * sign / Math.pow(10, scale), offset);
++  // colwerk: the unsigned little-endian integer read exactly, as an exact decimal string instead of a lossy number
++  const length = dataLength - 1;
++  if (buf.length < offset + length) {
++    throw new _helpers.NotEnoughDataError(offset + length);
++  }
++  let value = 0n;
++  for (let i = length - 4; i >= 0; i -= 4) {
++    value = (value << 32n) + BigInt(buf.readUInt32LE(offset + i));
++  }
++  return new _helpers.Result(decimalString(sign === 1 ? value : -value, scale), offset + length);
+ }
+ function readVariant(buf, offset, options, dataLength) {
+   let baseType;

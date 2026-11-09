@@ -59,5 +59,8 @@
     "eslint": "^10.14.0",
     "typescript": "6.0.3",
     "vue-tsc": "^3.3.14"
+  },
+  "patchedDependencies": {
+    "tedious@20.3.8": "patches/tedious@20.3.8.patch"
   }
 }
