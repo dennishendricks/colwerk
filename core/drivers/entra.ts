@@ -1,10 +1,4 @@
-import {
-  AuthenticationRequiredError,
-  ClientSecretCredential,
-  DefaultAzureCredential,
-  InteractiveBrowserCredential,
-  type TokenCredential,
-} from '@azure/identity'
+import type { TokenCredential } from '@azure/identity'
 import { isLoginForbidden } from '../login.ts'
 import { AppError, type ConnectionConfig } from '../types.ts'
 
@@ -22,7 +16,11 @@ const LOGIN_TIMEOUT = 5 * 60_000
 // need no new login.
 const credentials = new Map<string, TokenCredential>()
 
-function credential(c: ConnectionConfig): TokenCredential {
+// @azure/identity is heavy, so it is loaded only on the first Entra login.
+const identity = () => import('@azure/identity')
+
+async function credential(c: ConnectionConfig): Promise<TokenCredential> {
+  const { ClientSecretCredential, DefaultAzureCredential, InteractiveBrowserCredential } = await identity()
   const key = JSON.stringify([
     c.auth,
     c.tenantId,
@@ -55,7 +53,8 @@ export const isEntra = (c: ConnectionConfig) => c.auth?.startsWith('entra-') ?? 
 
 /** Access token of the connection's Entra login for `scope`; the interactive login may open the system browser (not inside `withoutLogin`). */
 export async function entraToken(c: ConnectionConfig, scope: string): Promise<string> {
-  const cred = credential(c)
+  const { AuthenticationRequiredError, InteractiveBrowserCredential } = await identity()
+  const cred = await credential(c)
   const options = { abortSignal: AbortSignal.timeout(LOGIN_TIMEOUT) }
   let detail: string
   try {
