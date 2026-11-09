@@ -16,6 +16,9 @@
 // Diagnostics: `export_diagnostics` (Help menu) writes the app version, system, sidecar state and log files to one
 // text file, for bug reports.
 //
+// Single instance: launching Colwerk again (tauri-plugin-single-instance) starts no second app and sidecar, but
+// brings the existing window to the front.
+//
 // Updates: tauri-plugin-updater, driven by the page (app/utils/update.ts). On Windows the installer replaces
 // `colwerk-server.exe`, which must not be running then: the page stops it with `pause_server` before installing,
 // and `resume_server` starts it again if the installation fails.
@@ -62,6 +65,10 @@ const HEALTH_FAILURES: u32 = 4;
 
 fn main() {
     tauri::Builder::default()
+        // Registered first, so a second instance ends before any other plugin starts.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            focus(app)
+        }))
         // Without VISIBLE: the window stays hidden until the app has loaded (see below), not shown on restore.
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -213,6 +220,17 @@ fn supervise(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
         restarts.push(Instant::now());
         RESTARTS.fetch_add(1, Ordering::SeqCst);
         log::warn!("restarting server ({}/{MAX_RESTARTS})", restarts.len());
+    }
+}
+
+/// Shows the window, unminimized and focused; not while it still waits for the app page (see `main`).
+fn focus(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main")
+        && window.url().is_ok_and(|url| url.path() != "/index.html")
+    {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 }
 
