@@ -63,9 +63,7 @@ More details, screenshots and the privacy notes: **[colwerk.app](https://colwerk
 Built with Nuxt 4 (SPA), Nuxt UI 4, CodeMirror 6 and Nitro. The server runs on Bun as a single-file executable; the
 desktop app is a Tauri 2 shell around it. Bun is also the development toolchain (scripts, tests, formatting).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute, [SECURITY.md](SECURITY.md) for reporting vulnerabilities,
-[CHANGELOG.md](CHANGELOG.md) for the release history and [docs/adr](docs/adr/README.md) for the architecture decisions
-behind the runtime and packaging.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
 ### Getting started
 

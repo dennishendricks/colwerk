@@ -46,19 +46,11 @@ as ISO 8601, binary as `0x` hex.
 - Branch from `main`: `feature/<topic>`, `fix/<topic>`, `refactor/<topic>`, `chore/<topic>` or `docs/<topic>`.
 - Keep one topic per pull request, split into commits that each make sense on their own.
 - Commit messages are English, in the imperative ("Add …", "Fix …"), with a short subject line.
-- Add user-visible changes to the `Unreleased` section of [CHANGELOG.md](CHANGELOG.md).
-
-## Architecture decisions
-
-A change that replaces a runtime, toolchain or packaging approach, or changes how the parts of the app talk to each
-other, gets an Architecture Decision Record in [docs/adr](docs/adr/README.md), in the same pull request. Update the
-README and code comments that describe the old approach as well.
 
 ## Releases
 
 Maintainers release from a clean `main` that matches `origin/main`:
 
-1. Move the `Unreleased` entries in CHANGELOG.md to a new version section, and merge that.
 2. `bun run release` bumps the version in package.json, commits it and pushes the tag `v<version>`.
 3. The release workflow builds and tests every target and creates a **draft** release with the packages, their
    checksums and build provenance attestations.
