@@ -3,6 +3,7 @@ import { assertEquals } from './assert.ts'
 import {
   isReadOnlyStatement,
   isSelectStatement,
+  mysqlServerScript,
   type SplitDialect,
   splitStatements,
   statementAt,
@@ -135,4 +136,133 @@ test('select statement detection', () => {
   ]) {
     assertEquals(isSelectStatement(sql, 'postgres'), false, sql)
   }
+})
+
+test('postgres: identifiers with $, positional parameters and tags', () => {
+  assertEquals(texts('select a$b$c from t; select $1, x$y$ from u', 'postgres'), [
+    'select a$b$c from t',
+    'select $1, x$y$ from u',
+  ])
+  assertEquals(texts('select $_t$;$_t$; select $ä$;$ä$', 'postgres'), ['select $_t$;$_t$', 'select $ä$;$ä$'])
+})
+
+test('postgres and duckdb: E strings with backslash escapes', () => {
+  for (const d of ['postgres', 'duckdb'] as const) {
+    assertEquals(texts(`select E'it\\'s;'; select 2`, d), [`select E'it\\'s;'`, 'select 2'])
+  }
+  // Without the E prefix a backslash is an ordinary character.
+  assertEquals(texts(`select 'a\\'; select 2`, 'postgres'), [`select 'a\\'`, 'select 2'])
+  assertEquals(texts(`select name'x\\'; select 2`, 'postgres'), [`select name'x\\'`, 'select 2'])
+})
+
+test('nested block comments where the dialect nests them', () => {
+  const sql = 'select 1 /* a /* b */ ; */; select 2'
+  for (const d of ['postgres', 'duckdb', 'mssql', 'clickhouse'] as const) {
+    assertEquals(texts(sql, d), ['select 1 /* a /* b */ ; */', 'select 2'], d)
+  }
+  for (const d of ['mysql', 'sqlite'] as const) {
+    assertEquals(texts(sql, d), ['select 1 /* a /* b */', '*/', 'select 2'], d)
+  }
+})
+
+test('postgres: semicolons inside parentheses (create rule)', () => {
+  const sql = 'create rule r as on insert to t do also (insert into a values (1); delete from b); select 1'
+  assertEquals(texts(sql, 'postgres'), [sql.slice(0, sql.lastIndexOf(';')), 'select 1'])
+})
+
+test('postgres: begin atomic bodies', () => {
+  const fn = `create or replace function f() returns int language sql
+begin atomic
+  select case when true then 1 end;
+  select 2;
+end`
+  assertEquals(texts(`${fn};\nselect 3`, 'postgres'), [fn, 'select 3'])
+})
+
+test('mysql: -- starts a comment only before whitespace', () => {
+  assertEquals(texts('select 1--1; select 2', 'mysql'), ['select 1--1', 'select 2'])
+  assertEquals(texts('select 1 -- x;\nselect 2;--\nselect 3', 'mysql'), ['select 1 -- x;\nselect 2', '--\nselect 3'])
+  assertEquals(texts('select 1--1; select 2', 'postgres'), ['select 1--1; select 2'])
+})
+
+test('mysql: DELIMITER', () => {
+  const proc = `create procedure p()
+begin
+  select 1;
+  select 2;
+end`
+  const sql = `-- setup
+DELIMITER //
+${proc} //
+select ';' //
+DELIMITER ;
+select 3; select 4`
+  assertEquals(texts(sql, 'mysql'), [proc, `select ';'`, 'select 3', 'select 4'])
+  // Only at the start of a statement, and only in mysql.
+  assertEquals(texts('select 1\ndelimiter //\n;', 'mysql'), ['select 1\ndelimiter //'])
+  assertEquals(texts(`select 'x\ndelimiter //\n'; select 2`, 'mysql'), [`select 'x\ndelimiter //\n'`, 'select 2'])
+  assertEquals(texts('delimiter $$\nselect 1$$', 'postgres'), ['delimiter $$\nselect 1$$'])
+})
+
+test('mysql: server script without DELIMITER lines keeps positions', () => {
+  const sql = 'DELIMITER //\ncreate procedure p() begin select 1; end //\nselect 2 //\nDELIMITER ;\nselect 3;'
+  const server = mysqlServerScript(sql)
+  assertEquals(server.length, sql.length)
+  assertEquals(server.split('\n').length, sql.split('\n').length)
+  assertEquals(server.replace(/\s+/g, ' ').trim(), 'create procedure p() begin select 1; end ; select 2 ; select 3;')
+  assertEquals(mysqlServerScript('select 1; select 2'), 'select 1; select 2')
+})
+
+test('mysql: routine bodies without DELIMITER', () => {
+  const proc = `create definer=\`root\`@\`%\` procedure p(x int)
+begin
+  if x > 0 then
+    delete from t;
+  end if;
+  label: loop
+    leave label;
+  end loop;
+end`
+  assertEquals(texts(`${proc};\nselect 1`, 'mysql'), [proc, 'select 1'])
+  const at = statementAt(proc, 'mysql', proc.indexOf('delete'))!
+  assertEquals(proc.slice(at.from, at.to), proc)
+})
+
+test('mssql: GO with count and comment, case-insensitive', () => {
+  const sql = `insert into t values (1)\nGo 3\nselect 2\n  go -- done\nselect 3\ngone\nselect 4`
+  assertEquals(texts(sql, 'mssql'), ['insert into t values (1)', 'select 2', 'select 3\ngone\nselect 4'])
+  assertEquals(
+    splitStatements(sql, 'mssql', { semicolons: false }).map((r) => sql.slice(r.from, r.to)),
+    [
+      'insert into t values (1)',
+      'insert into t values (1)',
+      'insert into t values (1)',
+      'select 2',
+      'select 3\ngone\nselect 4',
+    ],
+  )
+  // GO inside strings and comments, and not on its own line, separates nothing.
+  const quoted = `select 'a\nGO\nb' /*\nGO\n*/ ; select 1 go`
+  assertEquals(splitStatements(quoted, 'mssql', { semicolons: false }).length, 1)
+})
+
+test('mssql: procedure bodies run to the end of the batch', () => {
+  const proc = `create or alter procedure p as
+begin
+  delete from t;
+
+  select 1;
+end`
+  const sql = `${proc}\nGO\nselect 2`
+  assertEquals(texts(sql, 'mssql'), [proc, 'select 2'])
+  const at = statementAt(sql, 'mssql', sql.indexOf('select 1'))!
+  assertEquals(sql.slice(at.from, at.to), proc)
+})
+
+test('sqlite: temp triggers and nested case', () => {
+  const trigger = `create temp trigger tr after update on t begin
+  select case when 1 then case when 2 then 3 end end;
+  insert into log values ('end;');
+end`
+  assertEquals(texts(`${trigger}; select 1`, 'sqlite'), [trigger, 'select 1'])
 })
