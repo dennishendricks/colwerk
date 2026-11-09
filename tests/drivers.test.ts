@@ -361,6 +361,20 @@ for (const c of cases) {
       })
       assertEquals(rows(res), [['SRID=4326;POINT (1 2)', 'LINESTRING (0 0, 1 1)']])
     })
+
+    test.skipIf(ignore)(`${name}: scripts with DELIMITER create routines`, async () => {
+      const s = await session()
+      const res = await s.execute(
+        `DELIMITER //
+create temporary table if not exists delim_t (x int) //
+drop procedure if exists delim_p //
+create procedure delim_p() begin insert into delim_t values (1); insert into delim_t values (2); end //
+DELIMITER ;
+call delim_p(); select count(*) as n from delim_t; drop procedure delim_p;`,
+        { rowLimit: 10 },
+      )
+      assertEquals(rows(res), [['2']])
+    })
   }
 
   if (name === 'postgres') {

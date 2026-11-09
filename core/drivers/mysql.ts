@@ -1,7 +1,7 @@
 import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
 import { mysqlGeometryToText } from '../geometry.ts'
-import { splitStatements } from '../sql-split.ts'
+import { mysqlServerScript, splitStatements } from '../sql-split.ts'
 import {
   AppError,
   type ColumnInfo,
@@ -164,6 +164,8 @@ class MysqlSession implements Session {
   ) {}
 
   execute(sql: string, { rowLimit }: { rowLimit: number }): Promise<QueryResult> {
+    // `DELIMITER` lines are for the mysql client; the server gets the script without them (same positions).
+    sql = mysqlServerScript(sql)
     const started = performance.now()
     this.running = true
     this.stopReason = null
@@ -219,6 +221,7 @@ class MysqlSession implements Session {
   }
 
   stream(sql: string, sink: RowSink): Promise<void> {
+    sql = mysqlServerScript(sql)
     this.running = true
     this.stopReason = null
     let resultSets = 0
