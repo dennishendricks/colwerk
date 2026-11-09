@@ -1,5 +1,6 @@
 // Desktop app only: the native application menu (menu bar on macOS, window menu on Windows and Linux). In the
 // browser there is no such menu and these functions do nothing.
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { createMenu, isDesktop, type MenuEntry } from './desktop'
 
 /** An application menu entry: items name their handler by id instead of carrying an action. */
@@ -21,6 +22,13 @@ export function defineMenuHandlers(handlers: MaybeRefOrGetter<Partial<Record<str
 let shown: ApplicationMenuItem[] = []
 let current = ''
 let queue = Promise.resolve()
+// Each window sets its own menu, whose items act on that window: only the focused window's menu is shown.
+let focused = true
+if (isDesktop)
+  void getCurrentWindow().onFocusChanged(({ payload }) => {
+    focused = payload
+    if (focused && shown.length) setApplicationMenu(shown, true)
+  })
 
 function withActions(entry: ApplicationMenuItem): MenuEntry {
   if (entry === 'separator' || 'role' in entry) return entry
@@ -43,6 +51,7 @@ export function setApplicationMenu(menu: ApplicationMenuItem[], force = false) {
   if (!isDesktop || (json === current && !force)) return
   current = json
   shown = menu
+  if (!focused) return
   // One after another, so the last menu set is the one shown.
   queue = queue
     .then(async () => {

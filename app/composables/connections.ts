@@ -35,6 +35,13 @@ export function useConnections() {
     return saved
   }
 
+  /** Selects the saved connection of a database file, or first saves one named after the file. */
+  async function openDatabaseFile(path: string, dialect: 'duckdb' | 'sqlite') {
+    const existing = connections.value.find((c) => c.file === path)
+    if (existing) activeConnectionId.value = existing.id
+    else await saveConnection({ name: path.split(/[\\/]/).pop(), dialect, file: path })
+  }
+
   async function removeConnection(id: string) {
     await api(`/api/connections/${id}`, { method: 'DELETE' })
     connections.value = connections.value.filter((c) => c.id !== id)
@@ -81,6 +88,7 @@ export function useConnections() {
     load,
     driverOf,
     saveConnection,
+    openDatabaseFile,
     removeConnection,
     setConnected,
     testConnection,

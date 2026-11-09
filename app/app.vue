@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
-import type { QueryTab } from '~/composables/tabs'
+import type { QueryTab, ReturnedTab } from '~/composables/tabs'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, load } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, load, openDatabaseFile } = useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -16,6 +18,12 @@ const {
   restoreTabs,
   addTab,
   duplicateTab,
+  canMove,
+  moveToNewWindow,
+  canReturn,
+  moveToMainWindow,
+  returnTabs,
+  takeTabs,
   requestClose,
   confirmClose,
   selectTab,
@@ -24,6 +32,7 @@ const {
   saveFile,
 } = useTabs()
 const { t, locale } = useI18n()
+const toast = useToast()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -49,17 +58,24 @@ async function init() {
       }
     }
     if (!tabs.value.length) addTab(activeConnectionId.value)
+    // Queries from MCP clients and files from the system open in the main window.
     if (!listening) {
       listening = true
-      subscribe('/api/events', onServerEvent)
+      if (windowLabel === 'main') subscribe('/api/events', onServerEvent)
+      if (isDesktop && windowLabel === 'main') {
+        await listen('open-files', openSystemFiles)
+        await listen<ReturnedTab[]>('tabs-returned', (e) => takeTabs(e.payload))
+      }
+      if (isDesktop && windowLabel !== 'main') await getCurrentWindow().onCloseRequested(returnTabs)
     }
+    if (isDesktop && windowLabel === 'main') openSystemFiles()
   } catch (e) {
     loadError.value = errorMessage(e)
   }
 }
 
 watch(sessionToken, init, { immediate: true })
-checkForUpdate()
+if (windowLabel === 'main') checkForUpdate()
 
 const { version } = useRuntimeConfig().public
 
@@ -68,6 +84,28 @@ function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
   const { connectionId, sql, title } = JSON.parse(data) as { connectionId: string; sql: string; title?: string }
   openInNewTab(connectionId, sql, title)
+}
+
+// Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
+// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection.
+async function openSystemFiles() {
+  for (const path of await invoke<string[]>('take_opened_files')) {
+    const dialect = /\.duckdb$/i.test(path) ? 'duckdb' : /\.sqlite3?$/i.test(path) ? 'sqlite' : undefined
+    if (!dialect) {
+      await openFile(activeConnectionId.value, activeDatabase.value, path)
+      continue
+    }
+    try {
+      await openDatabaseFile(path, dialect)
+    } catch (e) {
+      toast.add({
+        title: t('app.openFailed'),
+        description: errorMessage(e),
+        color: 'error',
+        icon: 'i-lucide-circle-alert',
+      })
+    }
+  }
 }
 
 function openInNewTab(connectionId: string, sql: string, title?: string) {
@@ -120,6 +158,16 @@ async function startRename(tab: QueryTab, e: MouseEvent) {
   await nextTick()
   renameInput.value?.[0]?.focus()
   renameInput.value?.[0]?.select()
+}
+
+// Desktop app only: a native context menu. In the browser the browser's own menu stays.
+function onTabContextmenu(e: MouseEvent, tab: QueryTab) {
+  return showContextMenu(e, [
+    { label: t('app.moveToWindow'), enabled: canMove(tab), action: () => moveToNewWindow(tab) },
+    ...(windowLabel === 'main'
+      ? []
+      : [{ label: t('app.moveToMainWindow'), enabled: canReturn(tab), action: () => moveToMainWindow(tab) }]),
+  ])
 }
 
 function commitRename(tab: QueryTab) {
@@ -252,6 +300,7 @@ useApplicationMenu({
               tab.id === activeTabId ? 'border-default bg-default' : 'border-transparent text-muted hover:text-default'
             "
             @click="activeTabId = tab.id"
+            @contextmenu="isDesktop && onTabContextmenu($event, tab)"
           >
             <UIcon v-if="tab.running" name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
             <UIcon

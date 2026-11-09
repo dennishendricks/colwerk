@@ -19,6 +19,32 @@
     "category": "DeveloperTool",
     "shortDescription": "SQL editor and database client",
     "license": "MIT",
+    "fileAssociations": [
+      {
+        "ext": ["sql"],
+        "name": "SQL Query",
+        "description": "SQL Query",
+        "role": "Editor",
+        "mimeType": "application/sql",
+        "exportedType": { "identifier": "app.colwerk.sql", "conformsTo": ["public.plain-text"] }
+      },
+      {
+        "ext": ["duckdb"],
+        "name": "DuckDB Database",
+        "description": "DuckDB Database",
+        "role": "Editor",
+        "mimeType": "application/x-duckdb",
+        "exportedType": { "identifier": "app.colwerk.duckdb", "conformsTo": ["public.database", "public.data"] }
+      },
+      {
+        "ext": ["sqlite", "sqlite3"],
+        "name": "SQLite Database",
+        "description": "SQLite Database",
+        "role": "Editor",
+        "mimeType": "application/vnd.sqlite3",
+        "exportedType": { "identifier": "app.colwerk.sqlite", "conformsTo": ["public.database", "public.data"] }
+      }
+    ],
     "macOS": {
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"

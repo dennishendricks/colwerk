@@ -1,5 +1,8 @@
 import type { Ref } from 'vue'
 import type { QueryResult } from '#core'
+import { invoke } from '@tauri-apps/api/core'
+import { emitTo } from '@tauri-apps/api/event'
+import { getAllWindows, getCurrentWindow } from '@tauri-apps/api/window'
 
 // Editor tabs: each tab owns a dedicated server-side session (keyed by tab id).
 
@@ -41,29 +44,33 @@ const closing = ref<string>()
 const closingTab = computed(() => tabs.value.find((t) => t.id === closing.value))
 let tabCounter = 0
 
-// Editor content and settings of the open tabs are saved on the server (results are not).
+// Editor content and settings of the open tabs are saved on the server per window (results are not).
 type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'path' | 'rowLimit' | 'timeout'>
 interface SavedWorkspace {
   tabs: SavedTab[]
   activeTabId?: string
 }
+/** A tab handed back to the main window when its window closes, with its transaction still open on the server. */
+export type ReturnedTab = SavedTab & Pick<QueryTab, 'transaction'>
+const returned = (tab: QueryTab): ReturnedTab => ({ ...saved(tab), transaction: tab.transaction })
+
+const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout }: QueryTab): SavedTab => ({
+  id,
+  title,
+  connectionId,
+  database,
+  sql,
+  path,
+  rowLimit,
+  timeout,
+})
+
+const saveWorkspace = (window: string, workspace: SavedWorkspace) =>
+  api('/api/workspace', { method: 'POST', body: { window, ...workspace } })
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 watch(
-  () =>
-    JSON.stringify({
-      tabs: tabs.value.map(({ id, title, connectionId, database, sql, path, rowLimit, timeout }): SavedTab => ({
-        id,
-        title,
-        connectionId,
-        database,
-        sql,
-        path,
-        rowLimit,
-        timeout,
-      })),
-      activeTabId: activeTabId.value,
-    } satisfies SavedWorkspace),
+  () => JSON.stringify({ window: windowLabel, tabs: tabs.value.map(saved), activeTabId: activeTabId.value }),
   (body) => {
     clearTimeout(saveTimer)
     saveTimer = setTimeout(() => api('/api/workspace', { method: 'POST', body }), 300)
@@ -93,9 +100,15 @@ export function useTabs() {
   const toast = useToast()
 
   async function restoreTabs() {
-    const saved = await api<SavedWorkspace>('/api/workspace')
-    tabs.value = saved.tabs.map((t) => ({ ...t, running: false, resultIndex: 0 }))
-    activeTabId.value = tabs.value.some((t) => t.id === saved.activeTabId) ? saved.activeTabId : tabs.value[0]?.id
+    const { windows } = await api<{ windows: Record<string, SavedWorkspace> }>('/api/workspace')
+    const own = windows[windowLabel] ?? { tabs: [] }
+    tabs.value = own.tabs.map((t) => ({ ...t, running: false, resultIndex: 0 }))
+    activeTabId.value = tabs.value.some((t) => t.id === own.activeTabId) ? own.activeTabId : tabs.value[0]?.id
+    // The main window opens the other windows of the last run again.
+    if (isDesktop && windowLabel === 'main') {
+      for (const label of Object.keys(windows).filter((l) => l !== 'main'))
+        invoke('open_window', { label }).catch((e) => failed(t('app.openFailed'), e))
+    }
     // Only titles in the current language count; those of another language may repeat a number.
     const untitled = new RegExp(`^${t('tabs.untitled', { n: '(\\d+)' })}$`)
     tabCounter = Math.max(0, ...tabs.value.map((tab) => Number(tab.title.match(untitled)?.[1] ?? 0)))
@@ -130,12 +143,72 @@ export function useTabs() {
     })
   }
 
-  async function closeTab(id: string) {
+  /** Removes the tab from the window; its session on the server stays. */
+  function removeTab(id: string) {
     const index = tabs.value.findIndex((t) => t.id === id)
-    if (index === -1) return
+    if (index === -1) return false
     tabs.value.splice(index, 1)
     if (activeTabId.value === id) activeTabId.value = tabs.value[Math.max(0, index - 1)]?.id
+    return true
+  }
+
+  async function closeTab(id: string) {
+    if (!removeTab(id)) return
     await api(`/api/tabs/${id}`, { method: 'DELETE' }).catch(() => {})
+    // A window the tabs were moved to closes with its last tab.
+    if (!tabs.value.length && windowLabel !== 'main') await getCurrentWindow().close()
+  }
+
+  /**
+   * Moves the tab to a new window (desktop app): saved as that window's only tab, which the window restores. Not
+   * while it runs, as the result would be lost, or has a transaction open, which only the window's tabs know about.
+   */
+  const canMove = (tab: QueryTab) => tabs.value.length > 1 && !tab.running && !tab.exporting && !tab.transaction
+
+  async function moveToNewWindow(tab: QueryTab) {
+    const open = new Set((await getAllWindows()).map((w) => w.label))
+    let n = 2
+    while (open.has(`window-${n}`)) n++
+    const label = `window-${n}`
+    try {
+      await saveWorkspace(label, { tabs: [saved(tab)], activeTabId: tab.id })
+      await invoke('open_window', { label })
+    } catch (e) {
+      saveWorkspace(label, { tabs: [] }).catch(() => {})
+      failed(t('app.moveFailed'), e)
+      return
+    }
+    removeTab(tab.id)
+  }
+
+  /**
+   * Moves the tab back to the main window (windows other than `main`), with its transaction; not while it runs, as
+   * the result would be lost. The window closes with its last tab.
+   */
+  const canReturn = (tab: QueryTab) => !tab.running && !tab.exporting
+
+  async function moveToMainWindow(tab: QueryTab) {
+    try {
+      await emitTo('main', 'tabs-returned', [returned(tab)])
+    } catch (e) {
+      failed(t('app.moveFailed'), e)
+      return
+    }
+    removeTab(tab.id)
+    if (!tabs.value.length) await getCurrentWindow().close()
+  }
+
+  /** As a window other than `main` closes: hands its tabs to the main window, so no query is lost. */
+  async function returnTabs() {
+    clearTimeout(saveTimer)
+    if (tabs.value.length) await emitTo('main', 'tabs-returned', tabs.value.map(returned))
+    await saveWorkspace(windowLabel, { tabs: [] }).catch(() => {})
+  }
+
+  /** Main window: takes tabs moved back from another window (`moveToMainWindow`, `returnTabs`). */
+  function takeTabs(taken: ReturnedTab[]) {
+    tabs.value.push(...taken.map((tab) => ({ ...tab, running: false, resultIndex: 0 })))
+    activeTabId.value = taken.at(-1)?.id ?? activeTabId.value
   }
 
   /** Closes the tab, or asks first (`closing`) while it still contains a query or an open transaction. */
@@ -165,10 +238,13 @@ export function useTabs() {
   const failed = (title: string, e: unknown) =>
     toast.add({ title, description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
 
-  /** Asks for a query file in a native dialog and opens it in a new tab (or switches to the tab that already has it). */
-  async function openFile(connectionId?: string, database?: string) {
+  /**
+   * Opens a query file in a new tab (or switches to the tab that already has it): `path` (a file opened from the
+   * system), otherwise one asked for in a native dialog.
+   */
+  async function openFile(connectionId?: string, database?: string, path?: string) {
     try {
-      const path = await fileDialog('open', t('dialog.open'))
+      path ??= (await fileDialog('open', t('dialog.open'))) ?? undefined
       if (!path) return
       const { sql } = await api<{ sql: string }>('/api/files/read', { method: 'POST', body: { path } })
       const existing = tabs.value.find((t) => t.path === path)
@@ -208,6 +284,12 @@ export function useTabs() {
     addTab,
     duplicateTab,
     closeTab,
+    canMove,
+    moveToNewWindow,
+    canReturn,
+    moveToMainWindow,
+    returnTabs,
+    takeTabs,
     requestClose,
     confirmClose,
     selectTab,

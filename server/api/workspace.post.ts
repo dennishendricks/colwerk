@@ -1,16 +1,8 @@
-import { mkdir, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { defaultDataDir } from '#core'
-
-// A file instead of localStorage: the app's origin (port) changes with every start.
+// Saves the open tabs of one window (see server/utils/workspace.ts).
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ tabs?: unknown }>(event)
-  if (!Array.isArray(body?.tabs)) throw createError({ statusCode: 400, message: 'tabs is required' })
-  const dir = defaultDataDir()
-  await mkdir(dir, { recursive: true })
-  const file = join(dir, 'workspace.json')
-  const tmp = `${file}.${crypto.randomUUID()}.tmp`
-  await writeFile(tmp, JSON.stringify(body), { mode: 0o600 })
-  await rename(tmp, file)
+  const body = await readBody<{ window?: unknown; tabs?: unknown; activeTabId?: string }>(event)
+  if (typeof body?.window !== 'string' || !Array.isArray(body.tabs))
+    throw createError({ statusCode: 400, message: 'window and tabs are required' })
+  await saveWindowWorkspace(body.window, { tabs: body.tabs, activeTabId: body.activeTabId })
   return { ok: true }
 })
