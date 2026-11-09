@@ -75,6 +75,7 @@
     "nextTab": "Nächster Tab",
     "help": "Hilfe",
     "shortcuts": "Tastenkürzel",
+    "releaseNotes": "Versionshinweise",
     "privacy": "Datenschutzhinweise",
     "exportDiagnostics": "Diagnose exportieren …"
   },
@@ -95,6 +96,11 @@
     "installing": "Update wird installiert …",
     "installFailed": "Update konnte nicht installiert werden",
     "failed": "Suche nach Updates fehlgeschlagen"
+  },
+  "releaseNotes": {
+    "title": "Neu in Colwerk {version}",
+    "unavailable": "Die Versionshinweise konnten nicht geladen werden.",
+    "release": "Release auf GitHub"
   },
   "connection": {
     "edit": "Verbindung bearbeiten",

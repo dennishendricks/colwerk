@@ -75,6 +75,7 @@
     "nextTab": "Next Tab",
     "help": "Help",
     "shortcuts": "Keyboard Shortcuts",
+    "releaseNotes": "Release Notes",
     "privacy": "Privacy Notice",
     "exportDiagnostics": "Export Diagnostics …"
   },
@@ -95,6 +96,11 @@
     "installing": "Installing update …",
     "installFailed": "Installing the update failed",
     "failed": "Checking for updates failed"
+  },
+  "releaseNotes": {
+    "title": "What's new in Colwerk {version}",
+    "unavailable": "The release notes could not be loaded.",
+    "release": "Release on GitHub"
   },
   "connection": {
     "edit": "Edit connection",

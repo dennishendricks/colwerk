@@ -372,6 +372,7 @@ useApplicationMenu({
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
+    <ReleaseNotesModal />
     <LazyAboutModal v-model:open="aboutOpen" />
     <LazyHistoryModal
       v-model:open="historyOpen"
