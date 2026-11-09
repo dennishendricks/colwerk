@@ -15,6 +15,10 @@
 //
 // Diagnostics: `export_diagnostics` (Help menu) writes the app version, system, sidecar state and log files to one
 // text file, for bug reports.
+//
+// Updates: tauri-plugin-updater, driven by the page (app/utils/update.ts). On Windows the installer replaces
+// `colwerk-server.exe`, which must not be running then: the page stops it with `pause_server` before installing,
+// and `resume_server` starts it again if the installation fails.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::fmt::Write as _;
@@ -22,8 +26,8 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Command, Stdio};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -38,6 +42,10 @@ struct Server(Mutex<(Option<Child>, u32)>);
 
 /// Set once the app exits, when the sidecar ending is expected.
 static EXITING: AtomicBool = AtomicBool::new(false);
+
+/// Set while an update is installed (`pause_server`): the stopped sidecar is not restarted until `resume_server`.
+static PAUSED: Mutex<bool> = Mutex::new(false);
+static RESUMED: Condvar = Condvar::new();
 
 /// Restarts since the app started.
 static RESTARTS: AtomicU32 = AtomicU32::new(0);
@@ -62,8 +70,14 @@ fn main() {
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Server(Mutex::new((None, 0))))
-        .invoke_handler(tauri::generate_handler![export_diagnostics])
+        .invoke_handler(tauri::generate_handler![
+            export_diagnostics,
+            pause_server,
+            resume_server
+        ])
         .setup(|app| {
             app.handle().plugin(
                 tauri_plugin_log::Builder::new()
@@ -176,6 +190,18 @@ fn supervise(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
         }
         if EXITING.load(Ordering::SeqCst) {
             return Ok(());
+        }
+        {
+            let mut paused = PAUSED.lock().unwrap();
+            if *paused {
+                while *paused && !EXITING.load(Ordering::SeqCst) {
+                    paused = RESUMED.wait(paused).unwrap();
+                }
+                if EXITING.load(Ordering::SeqCst) {
+                    return Ok(());
+                }
+                continue;
+            }
         }
         restarts.retain(|t| t.elapsed() < RESTART_WINDOW);
         if restarts.len() >= MAX_RESTARTS {
@@ -335,9 +361,31 @@ fn export_diagnostics(app: AppHandle, path: PathBuf) -> Result<(), String> {
     std::fs::write(&path, out).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Closes the sidecar's stdin, so it ends on its own and removes its instance file; killed if that takes too long.
+/// Ends the sidecar as the app exits.
 fn stop_server(app: &AppHandle) {
     EXITING.store(true, Ordering::SeqCst);
+    RESUMED.notify_all();
+    end_server(app);
+}
+
+/// Stops the sidecar for the update installer (Windows), without restarting it.
+#[tauri::command]
+fn pause_server(app: AppHandle) {
+    log::info!("stopping server for the update");
+    *PAUSED.lock().unwrap() = true;
+    end_server(&app);
+}
+
+/// Starts the sidecar again after a failed update; the window navigates to it.
+#[tauri::command]
+fn resume_server(error: String) {
+    log::warn!("update failed, restarting server: {error}");
+    *PAUSED.lock().unwrap() = false;
+    RESUMED.notify_all();
+}
+
+/// Closes the sidecar's stdin, so it ends on its own and removes its instance file; killed if that takes too long.
+fn end_server(app: &AppHandle) {
     let Some(mut child) = app.state::<Server>().0.lock().unwrap().0.take() else {
         return;
     };

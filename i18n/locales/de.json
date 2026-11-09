@@ -89,6 +89,9 @@
     "installed": "Installiert ist {version}.",
     "available": "Colwerk {version} ist verfügbar",
     "download": "Herunterladen",
+    "install": "Installieren und neu starten",
+    "installing": "Update wird installiert …",
+    "installFailed": "Update konnte nicht installiert werden",
     "failed": "Suche nach Updates fehlgeschlagen"
   },
   "connection": {
