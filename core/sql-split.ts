@@ -13,9 +13,16 @@ export interface SplitOptions {
 }
 
 /**
- * Splits a script into statement ranges at `;` outside of strings, quoted identifiers and comments.
- * Handles dollar quoting (postgres, duckdb, clickhouse), backslash escapes and `#` comments (mysql, clickhouse),
- * backticks (mysql, sqlite, clickhouse), brackets (mssql, sqlite), `GO` batch separators on their own line (mssql) and trigger bodies (sqlite).
+ * Splits a script into statement ranges at `;` outside of strings, quoted identifiers and comments, the way the
+ * dialect's own client (psql, mysql, sqlcmd, …) does:
+ * - dollar quoting (postgres, duckdb, clickhouse), `E'…'` escape strings (postgres, duckdb), nested block comments
+ *   (postgres, duckdb, mssql, clickhouse), and `;` inside parentheses (postgres, duckdb: `create rule … do (…; …)`);
+ * - backslash escapes and `#` comments (mysql, clickhouse), `--` comments only before whitespace (mysql);
+ * - backticks (mysql, sqlite, clickhouse) and brackets (mssql, sqlite);
+ * - `DELIMITER` lines (mysql): the following statements end at the new delimiter; the lines themselves are dropped;
+ * - `GO [count]` on its own line (mssql): ends a batch; with `semicolons: false` a batch with a count is repeated;
+ * - routine and trigger bodies, which contain `;` themselves: `begin … end` of sqlite triggers, postgres
+ *   `begin atomic` and mysql routines, triggers and events, and the whole batch after `create procedure` etc. (mssql).
  * Ranges are trimmed and exclude the delimiter; empty statements are dropped.
  */
 export function splitStatements(
@@ -26,14 +33,35 @@ export function splitStatements(
   const ranges: StatementRange[] = []
   let start = 0
   let i = 0
+  let parens = 0
+  let delimiter = ';'
   const n = sql.length
+  const countParens = dialect === 'postgres' || dialect === 'duckdb'
 
-  const push = (end: number) => {
+  const push = (end: number, times = 1) => {
     let from = start
     let to = end
     while (from < to && /\s/.test(sql[from]!)) from++
     while (to > from && /\s/.test(sql[to - 1]!)) to--
-    if (to > from) ranges.push({ from, to })
+    if (to > from) for (let k = 0; k < times; k++) ranges.push({ from, to })
+  }
+
+  // Whether the statement starting at `start` opens a routine or trigger (checked once per statement), and if so,
+  // whether its body is still open at `i`.
+  let headerAt = -1
+  let header = false
+  const inBody = () => {
+    const routine = ROUTINE[dialect]
+    if (!routine) return false
+    if (headerAt !== start) {
+      headerAt = start
+      header = routine.test(
+        maskLiterals(sql.slice(start, start + 500), dialect)
+          .trimStart()
+          .toLowerCase(),
+      )
+    }
+    return header && (dialect === 'mssql' || bodyOpen(maskLiterals(sql.slice(start, i), dialect)))
   }
 
   while (i < n) {
@@ -41,14 +69,32 @@ export function splitStatements(
     const end = literalEnd(sql, dialect, i)
     if (end !== undefined) {
       i = end
-    } else if (ch === ';' && semicolons && !(dialect === 'sqlite' && inTriggerBody(sql.slice(start, i)))) {
+    } else if (countParens && (ch === '(' || ch === ')')) {
+      parens = Math.max(0, parens + (ch === '(' ? 1 : -1))
+      i++
+    } else if (semicolons && sql.startsWith(delimiter, i) && !parens && !(delimiter === ';' && inBody())) {
       push(i)
-      start = ++i
-    } else if (dialect === 'mssql' && (ch === 'G' || ch === 'g') && isGoLine(sql, i)) {
-      push(i)
-      const eol = sql.indexOf('\n', i)
-      start = i = eol === -1 ? n : eol + 1
-    } else if (ch === '\n' && blankLines && !sql.slice(sql.lastIndexOf('\n', i - 1) + 1, i).trim()) {
+      start = i += delimiter.length
+    } else if (dialect === 'mysql' && (ch === 'd' || ch === 'D') && atLineStart(sql, i)) {
+      const eol = lineEnd(sql, i)
+      const directive = /^delimiter[ \t]+(\S+)/i.exec(sql.slice(i, eol))
+      // Only where a statement starts, as in the mysql client.
+      if (directive && !maskLiterals(sql.slice(start, i), dialect).trim()) {
+        delimiter = directive[1]!
+        start = i = Math.min(n, eol + 1)
+      } else {
+        i++
+      }
+    } else if (dialect === 'mssql' && (ch === 'G' || ch === 'g') && atLineStart(sql, i)) {
+      const eol = lineEnd(sql, i)
+      const go = /^go(?:[ \t]+(\d+))?[ \t]*(?:--.*)?$/i.exec(sql.slice(i, eol).trimEnd())
+      if (go) {
+        push(i, semicolons ? 1 : Math.max(1, Number(go[1] ?? 1)))
+        start = i = Math.min(n, eol + 1)
+      } else {
+        i++
+      }
+    } else if (ch === '\n' && blankLines && !sql.slice(sql.lastIndexOf('\n', i - 1) + 1, i).trim() && !inBody()) {
       push(i)
       start = ++i
     } else {
@@ -79,6 +125,32 @@ export function maskLiterals(sql: string, dialect: SplitDialect): string {
   return out
 }
 
+/**
+ * MySQL: the script as the server takes it, with the client's `DELIMITER` lines blanked and the statements ending
+ * at `;` again (routine bodies need no other delimiter there). Same length and line breaks as `sql`, so error
+ * positions apply to both.
+ */
+export function mysqlServerScript(sql: string): string {
+  if (!/^[ \t]*delimiter[ \t]/im.test(sql)) return sql
+  const out = sql.split('')
+  const blank = (from: number, to: number, first: string) => {
+    for (let i = from; i < to; i++) {
+      if (/\s/.test(out[i]!)) continue
+      out[i] = first
+      first = ' '
+    }
+  }
+  let at = 0
+  for (const { from, to } of splitStatements(sql, 'mysql')) {
+    blank(at, from, at ? ';' : ' ')
+    at = to
+  }
+  blank(at, sql.length, at ? ';' : ' ')
+  return out.join('')
+}
+
+const IDENT = /[\p{L}\p{N}_$]/u
+
 /** End of the string, quoted identifier or comment starting at `i`; undefined if none starts there. */
 function literalEnd(sql: string, dialect: SplitDialect, i: number): number | undefined {
   const n = sql.length
@@ -102,39 +174,71 @@ function literalEnd(sql: string, dialect: SplitDialect, i: number): number | und
   }
 
   const escapes = dialect === 'mysql' || dialect === 'clickhouse'
-  if ((ch === '-' && next === '-') || (ch === '#' && escapes)) {
+  const pg = dialect === 'postgres' || dialect === 'duckdb'
+  // MySQL only takes `--` as a comment before whitespace or a control character: `1--1` is `1 - -1`.
+  const lineComment =
+    (ch === '-' && next === '-' && (dialect !== 'mysql' || i + 2 >= n || /[\s\p{Cc}]/u.test(sql[i + 2]!))) ||
+    (ch === '#' && escapes)
+  if (lineComment) {
     const eol = sql.indexOf('\n', i)
     return eol === -1 ? n : eol + 1
   }
   if (ch === '/' && next === '*') {
-    const end = sql.indexOf('*/', i + 2)
-    return end === -1 ? n : end + 2
+    const nested = pg || dialect === 'mssql' || dialect === 'clickhouse'
+    let depth = 0
+    for (let j = i; j < n; j++) {
+      if (sql.startsWith('/*', j) && (nested || !depth)) {
+        depth++
+        j++
+      } else if (sql.startsWith('*/', j)) {
+        if (!--depth) return j + 2
+        j++
+      }
+    }
+    return n
   }
-  if (ch === "'") return quoted("'", escapes)
+  // `E'…'`: escape string with backslash escapes (not part of an identifier like `name'…'`, which is invalid anyway).
+  if (ch === "'") return quoted("'", escapes || (pg && /[eE]/.test(sql[i - 1] ?? '') && !IDENT.test(sql[i - 2] ?? '')))
   if (ch === '"') return quoted('"', escapes)
   if (ch === '`' && (escapes || dialect === 'sqlite')) return quoted('`', dialect === 'clickhouse')
   if (ch === '[' && (dialect === 'mssql' || dialect === 'sqlite')) return quoted(']', false)
-  if (ch === '$' && (dialect === 'postgres' || dialect === 'duckdb' || dialect === 'clickhouse')) {
-    const tag = /^\$[A-Za-z_]?\w*\$/.exec(sql.slice(i))?.[0]
+  // A tag does not start with a digit (`$1` is a parameter), and `$` inside an identifier (`a$b`) starts nothing.
+  if (ch === '$' && (pg || dialect === 'clickhouse') && !IDENT.test(sql[i - 1] ?? '')) {
+    const tag = /^\$(?:[\p{L}_][\p{L}\p{N}_]*)?\$/u.exec(sql.slice(i, i + 256))?.[0]
     if (!tag) return
     const end = sql.indexOf(tag, i + tag.length)
     return end === -1 ? n : end + tag.length
   }
 }
 
-/** SQLite: `text`, a statement up to a `;`, is a CREATE TRIGGER whose BEGIN … END body is still open. */
-function inTriggerBody(text: string): boolean {
-  const code = maskLiterals(text, 'sqlite').toLowerCase()
-  if (!/^\s*create\s+(temp\s+|temporary\s+)?trigger\b/.test(code)) return false
-  // CASE … END may appear in the body as well.
-  const words = code.match(/\b(begin|case|end)\b/g) ?? []
-  return words.filter((w) => w !== 'end').length > words.filter((w) => w === 'end').length
+/** Statements whose body contains `;` itself (see `bodyOpen`); tested on the masked, lowercased statement start. */
+const ROUTINE: Partial<Record<SplitDialect, RegExp>> = {
+  sqlite: /^create\s+(temp\s+|temporary\s+)?trigger\b/,
+  // `begin atomic … end` (SQL-standard body); bodies in dollar quotes are masked.
+  postgres: /^create\s+(or\s+replace\s+)?(function|procedure)\b/,
+  mysql: /^create\s+(or\s+replace\s+)?(definer\s*=\s*\S+\s+)?(aggregate\s+)?(procedure|function|trigger|event)\b/,
+  // The body runs to the end of the batch (`GO`).
+  mssql: /^(create(\s+or\s+alter)?|alter)\s+(proc|procedure|function|trigger|view)\b/,
 }
 
-function isGoLine(sql: string, i: number): boolean {
-  const lineStart = sql.lastIndexOf('\n', i - 1) + 1
+/** `begin` (or `case`) without its `end` in the masked statement text; `end if` etc. close no block (mysql). */
+function bodyOpen(code: string): boolean {
+  let depth = 0
+  for (const [word] of code.toLowerCase().matchAll(/\b(?:begin|case|end(?:\s+(?:if|loop|while|repeat)\b)?)\b/g)) {
+    if (word === 'begin' || word === 'case') depth++
+    else if (word === 'end') depth--
+  }
+  return depth > 0
+}
+
+/** Only blanks before `i` on its line. */
+function atLineStart(sql: string, i: number): boolean {
+  return !sql.slice(sql.lastIndexOf('\n', i - 1) + 1, i).trim()
+}
+
+function lineEnd(sql: string, i: number): number {
   const eol = sql.indexOf('\n', i)
-  return /^\s*go\s*$/i.test(sql.slice(lineStart, eol === -1 ? sql.length : eol))
+  return eol === -1 ? sql.length : eol
 }
 
 /**
