@@ -79,12 +79,29 @@ jobs:
           merge-multiple: true
       # Manifest of the auto update; the app reads it once the release is published.
       - run: bun scripts/update-manifest.ts dist "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
+      # Software bill of materials (CycloneDX) of both lockfiles: the npm packages of bun.lock without dev
+      # dependencies (bundled into the client and the sidecar) and the crates of src-tauri/Cargo.lock. One file for
+      # all targets; it lists every crate in Cargo.lock, including those of other systems and build tools.
+      - uses: anchore/sbom-action/download-syft@v0
+        id: syft
+      - name: SBOM
+        id: sbom
+        run: |
+          sbom="dist/Colwerk-${GITHUB_REF_NAME#v}.cdx.json"
+          ${{ steps.syft.outputs.cmd }} scan dir:. --exclude './.github/**' --exclude './dist/**' \
+            --source-name colwerk --source-version "${GITHUB_REF_NAME#v}" --output "cyclonedx-json=$sbom"
+          echo "path=$sbom" >> "$GITHUB_OUTPUT"
       - name: Checksums
         working-directory: dist
         run: sha256sum * > SHA256SUMS.txt
       - uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*
+      # Binds the SBOM to the same files (`gh attestation verify --predicate-type https://cyclonedx.org/bom`).
+      - uses: actions/attest@v4
+        with:
+          subject-path: dist/*
+          sbom-path: ${{ steps.sbom.outputs.path }}
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}
