@@ -1,6 +1,7 @@
 // Native file dialogs through the platform's command line tools: macOS `osascript`, Windows PowerShell
 // with Windows Forms, Linux `zenity` or `kdialog`. The server runs on the user's machine, so the dialog
-// opens there. Neither desktop backend offers downloads or the paths of picked files to the page.
+// opens there. Only used in the browser (dev server, self-hosted binary); the desktop app uses Tauri's
+// dialog plugin (app/utils/desktop.ts).
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
