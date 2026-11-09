@@ -35,8 +35,8 @@ function* tarFiles(tar: Uint8Array): Generator<{ name: string; data: Uint8Array 
 }
 
 /**
- * On Windows, renaming a directory fails with EPERM/EACCES while a virus scanner still holds the freshly
- * written `.node`/`.dll` open; like graceful-fs, retry for a while.
+ * On Windows, renaming a file fails with EPERM/EACCES while a virus scanner still holds it open; like
+ * graceful-fs, retry for a while.
  */
 async function renameRetrying(from: string, to: string) {
   for (let attempt = 0; ; attempt++) {
@@ -79,19 +79,21 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
     const hash = new Uint8Array(await crypto.subtle.digest('SHA-512', tgz))
     if (`sha512-${btoa(String.fromCharCode(...hash))}` !== manifest.integrity) throw new Error('checksum mismatch')
 
-    // Unpacked next to the target and renamed at the end, so an interrupted download leaves nothing half-done.
-    const tmp = `${dir}.${crypto.randomUUID()}.tmp`
-    await mkdir(tmp, { recursive: true })
-    try {
-      for (const { name, data } of tarFiles(gunzipSync(tgz))) {
-        if (NATIVE.test(name)) await writeFile(join(tmp, basename(name)), data, { mode: 0o755 })
-      }
-      // Another instance of the app may have finished first.
-      await renameRetrying(tmp, dir).catch(async (e) => {
+    // Each file is written under a temporary name and renamed into place; `duckdb.node` comes last, as its presence
+    // marks a complete install (`installed()`). Files are renamed one by one rather than the whole directory, because
+    // Windows refuses to rename a directory while a virus scanner holds any file inside it open.
+    await mkdir(dir, { recursive: true })
+    const files = [...tarFiles(gunzipSync(tgz))].filter((f) => NATIVE.test(f.name))
+    files.sort((a, b) => Number(a.name.endsWith('.node')) - Number(b.name.endsWith('.node')))
+    for (const { name, data } of files) {
+      const target = join(dir, basename(name))
+      const tmp = `${target}.${crypto.randomUUID()}.tmp`
+      await writeFile(tmp, data, { mode: 0o755 })
+      await renameRetrying(tmp, target).catch(async (e) => {
+        await rm(tmp, { force: true })
+        // Another instance of the app may have finished first.
         if (!(await installed())) throw e
       })
-    } finally {
-      await rm(tmp, { recursive: true, force: true })
     }
     for (const name of await readdir(root)) {
       if (name.startsWith('duckdb-') && join(root, name) !== dir) {

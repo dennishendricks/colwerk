@@ -1,0 +1,4 @@
+# The Rust version of every build (CI, release and local); rustup installs it on demand. Updated by hand.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]

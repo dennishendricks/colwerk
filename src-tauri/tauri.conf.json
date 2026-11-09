@@ -15,7 +15,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "msi", "appimage", "deb"],
+    "targets": ["app", "dmg", "nsis", "deb"],
     "category": "DeveloperTool",
     "shortDescription": "SQL editor and database client",
     "license": "MIT",
@@ -45,6 +45,9 @@
         "exportedType": { "identifier": "app.colwerk.sqlite", "conformsTo": ["public.database", "public.data"] }
       }
     ],
+    "windows": {
+      "webviewInstallMode": { "type": "skip" }
+    },
     "macOS": {
       "signingIdentity": "-",
       "entitlements": "Entitlements.plist"

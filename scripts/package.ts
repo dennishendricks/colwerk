@@ -3,7 +3,7 @@
 // Both build `colwerk-server`, a Bun single-file executable with the launcher, the Nitro server and its
 // dependencies. `compile` writes it to `dist/colwerk`, where it opens the default browser; `desktop` makes it the
 // sidecar of the Tauri app (src-tauri) and writes the app's packages to `dist/`.
-import { copyFile, mkdir, readdir, rename, rm } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { writeThirdPartyLicenses } from './licenses.ts'
 
@@ -39,7 +39,9 @@ await copyFile('.output/THIRD_PARTY_LICENSES.txt', 'dist/THIRD_PARTY_LICENSES.tx
 const { version: duckdbVersion } = await Bun.file('node_modules/@duckdb/node-bindings/package.json').json()
 const duckdbPlatform = `${process.platform}-${cpu}`
 const registry = `https://registry.npmjs.org/@duckdb/node-bindings-${duckdbPlatform}/${duckdbVersion}`
-const { dist: duckdbDist } = await (await fetch(registry)).json()
+const response = await fetch(registry)
+if (!response.ok) throw new Error(`${registry}: ${response.status} ${response.statusText}`)
+const { dist: duckdbDist } = await response.json()
 const duckdb = {
   version: duckdbVersion,
   platform: duckdbPlatform,
@@ -89,9 +91,6 @@ if (mode === 'desktop') {
       resources: { '../LICENSE': 'LICENSE', '../.output/THIRD_PARTY_LICENSES.txt': 'THIRD_PARTY_LICENSES.txt' },
     },
   }
-  // linuxdeploy (AppImage) rewrites the RPATH of the sidecar with patchelf, which breaks Bun executables on
-  // arm64 (they crash, and linuxdeploy's ldd with them). There, only the .deb is built.
-  const appImage = !(os === 'linux' && cpu === 'arm64')
   // Cargo builds the shell exactly from Cargo.lock.
   await exec([
     process.execPath,
@@ -100,36 +99,25 @@ if (mode === 'desktop') {
     'build',
     '--config',
     JSON.stringify(config),
-    ...(appImage ? [] : ['--bundles', 'deb']),
     ...extraArgs,
     '--',
     '--locked',
   ])
 
   // Packages: the installer of the platform (macOS: the update package as well), with the signature of each
-  // update package, and the unpacked app as a .zip.
+  // update package.
   const release = resolve('src-tauri/target/release')
   const bundle = join(release, 'bundle')
   const outputs: [string, string][] =
     os === 'darwin'
       ? [['dmg', '.dmg'], ...(signed ? [['macos', '.app.tar.gz'] as [string, string]] : [])]
       : windows
-        ? [['msi', '.msi']]
-        : [...(appImage ? [['appimage', '.AppImage'] as [string, string]] : []), ['deb', '.deb']]
+        ? [['nsis', '-setup.exe']]
+        : [['deb', '.deb']]
   for (const [dir, ext] of outputs) {
     const file = (await readdir(join(bundle, dir))).find((f) => f.endsWith(ext))!
     await rename(join(bundle, dir, file), resolve(`dist/${name}${ext}`))
     const sig = join(bundle, dir, `${file}.sig`)
     if (await Bun.file(sig).exists()) await rename(sig, resolve(`dist/${name}${ext}.sig`))
-  }
-  const zip = resolve(`dist/${name}.zip`)
-  await rm(zip, { force: true })
-  if (os === 'darwin') {
-    // `-y` keeps the symlinks inside the .app (its signature covers them).
-    await exec(['zip', '-qry', zip, 'Colwerk.app'], join(bundle, 'macos'))
-  } else if (windows) {
-    // Portable: the app, its sidecar and the license files, as the installer lays them out.
-    const files = ['colwerk.exe', 'colwerk-server.exe', 'LICENSE', 'THIRD_PARTY_LICENSES.txt']
-    await exec(['tar', '-a', '-cf', zip, ...files], release)
   }
 }
