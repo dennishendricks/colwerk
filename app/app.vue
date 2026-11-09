@@ -1,47 +1,34 @@
 <script setup lang="ts">
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { ConnectionSummary } from '#core'
-import type { QueryTab } from '~/composables/workspace'
+import type { QueryTab } from '~/composables/tabs'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import type { ApplicationMenuItem } from '~/utils/application-menu'
 import { de, en } from '@nuxt/ui/locale'
 
-const { connections, activeConnectionId, activeDatabase, load, driverOf, setConnected } = useWorkspace()
-const { tabs, activeTabId, restoreTabs, addTab, closeTab, openFile, saveFile } = useTabs()
-const { t, locale, locales, setLocale } = useI18n()
-const chosenLocale = useChosenLocale()
+const { connections, activeConnectionId, activeDatabase, activeConnection, load } = useConnections()
+const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
+const {
+  tabs,
+  activeTabId,
+  activeTab,
+  closing,
+  closingTab,
+  restoreTabs,
+  addTab,
+  duplicateTab,
+  requestClose,
+  confirmClose,
+  selectTab,
+  cycleTab,
+  openFile,
+  saveFile,
+} = useTabs()
+const { t, locale } = useI18n()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
 const editing = ref<ConnectionSummary>()
 
-const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value))
-const activeConnection = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))
-const locksDatabase = computed(() => !!driverOf(activeConnectionId.value)?.capabilities.locksDatabase)
-const togglingConnection = ref(false)
-// Disconnecting waits for confirmation while a tab of the connection has an open transaction.
-const confirmingDisconnect = ref(false)
-
-// Embedded databases are locked while Colwerk has them open; disconnecting frees them for other tools.
-async function toggleConnection(confirmed = false) {
-  const connection = activeConnection.value
-  if (!connection) return
-  if (
-    !connection.disconnected &&
-    !confirmed &&
-    tabs.value.some((t) => t.connectionId === connection.id && t.transaction)
-  ) {
-    confirmingDisconnect.value = true
-    return
-  }
-  confirmingDisconnect.value = false
-  togglingConnection.value = true
-  try {
-    await setConnected(connection.id, !!connection.disconnected)
-  } finally {
-    togglingConnection.value = false
-  }
-}
 const colorOf = (connectionId?: string) => connections.value.find((c) => c.id === connectionId)?.color
 
 let listening = false
@@ -118,20 +105,6 @@ watch(
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
-// Tab that waits for confirmation because it still contains a query or an open transaction.
-const closing = ref<string>()
-const closingTab = computed(() => tabs.value.find((t) => t.id === closing.value))
-
-function requestClose(tab?: QueryTab) {
-  if (!tab) return
-  if (tab.sql.trim() || tab.transaction) closing.value = tab.id
-  else closeTab(tab.id)
-}
-
-function confirmClose() {
-  if (closing.value) closeTab(closing.value)
-  closing.value = undefined
-}
 
 // Inline rename on double-click; the input takes the width of the label it replaces.
 const renaming = ref<string>()
@@ -156,67 +129,14 @@ function commitRename(tab: QueryTab) {
   renaming.value = undefined
 }
 
-function duplicateTab(tab?: QueryTab) {
-  if (!tab) return
-  const copy = addTab(tab.connectionId, tab.database)
-  Object.assign(copy, {
-    title: t('app.copySuffix', { title: tab.title }),
-    sql: tab.sql,
-    rowLimit: tab.rowLimit,
-    timeout: tab.timeout,
-  })
-}
-
-const toast = useToast()
-
-async function openQueryFile() {
-  try {
-    await openFile(activeConnectionId.value, activeDatabase.value)
-  } catch (e) {
-    toast.add({
-      title: t('app.openFailed'),
-      description: errorMessage(e),
-      color: 'error',
-      icon: 'i-lucide-circle-alert',
-    })
-  }
-}
-
-async function save(tab?: QueryTab, saveAs = false) {
-  if (!tab) return
-  try {
-    const path = await saveFile(tab, saveAs)
-    if (path) toast.add({ title: t('common.saved'), description: path, color: 'success', icon: 'i-lucide-check' })
-  } catch (e) {
-    toast.add({
-      title: t('app.saveFailed'),
-      description: errorMessage(e),
-      color: 'error',
-      icon: 'i-lucide-circle-alert',
-    })
-  }
-}
-
-function selectTab(index: number) {
-  const tab = tabs.value[index]
-  if (tab) activeTabId.value = tab.id
-}
-
-// Wraps around at both ends.
-function cycleTab(step: number) {
-  const index = tabs.value.findIndex((t) => t.id === activeTabId.value)
-  const tab = tabs.value[(index + step + tabs.value.length) % tabs.value.length]
-  if (tab) activeTabId.value = tab.id
-}
-
 // `?` has no usingInput, so it stays inactive while typing in the rename input.
 defineShortcuts({
   meta_t: { usingInput: true, handler: () => addTab(activeConnectionId.value, activeDatabase.value) },
   meta_w: { usingInput: true, handler: () => requestClose(activeTab.value) },
   meta_shift_d: { usingInput: true, handler: () => duplicateTab(activeTab.value) },
-  meta_o: { usingInput: true, handler: openQueryFile },
-  meta_s: { usingInput: true, handler: () => save(activeTab.value) },
-  meta_shift_s: { usingInput: true, handler: () => save(activeTab.value, true) },
+  meta_o: { usingInput: true, handler: () => openFile(activeConnectionId.value, activeDatabase.value) },
+  meta_s: { usingInput: true, handler: () => saveFile(activeTab.value) },
+  meta_shift_s: { usingInput: true, handler: () => saveFile(activeTab.value, true) },
   meta_b: { usingInput: true, handler: toggleSidebar },
   ...Object.fromEntries(
     Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, { usingInput: true, handler: () => selectTab(i) }]),
@@ -236,127 +156,12 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
-// Native application menu (desktop app). On macOS the page sees each key first: a shortcut it handles calls
-// preventDefault, which keeps the menu item with the same accelerator from firing as well. On Windows and Linux
-// the menu takes its accelerators before the page; both run the same handler. ⌘↵ and ⇧⌘[ / ⇧⌘] stay with the
-// page, which treats them differently depending on the focus.
-// The platform's own items (roles) are only used on macOS, where Tauri implements all of them.
-watchEffect(() => {
-  if (!isDesktop) return
-  const tab = activeTab.value
-  const busy = !!tab && (tab.running || !!tab.exporting)
-  const shown = tab?.result?.resultSets[tab.resultIndex]
-  const item = (label: string, id: string, enabled = true, accelerator?: string): ApplicationMenuItem => ({
-    label,
-    id,
-    enabled,
-    accelerator,
-  })
-  const check = (label: string, id: string, checked: boolean): ApplicationMenuItem => ({ label, id, checked })
-  const submenu = (label: string, items: ApplicationMenuItem[]): ApplicationMenuItem => ({ label, items })
-  const roles = (...roles: (Extract<ApplicationMenuItem, { role: string }>['role'] | 'separator')[]) =>
-    macOS.value ? roles.map((role) => (role === 'separator' ? role : { role })) : []
-  setApplicationMenu([
-    // macOS replaces the label of the first menu with the app name.
-    submenu('Colwerk', [
-      item(t('menu.setupMcp'), 'mcp'),
-      item(t('menu.checkUpdates'), 'update'),
-      'separator',
-      ...(macOS.value ? roles('Quit') : [item(t('menu.quit'), 'quit')]),
-    ]),
-    submenu(t('menu.file'), [
-      item(t('menu.newTab'), 'new-tab', true, 'CmdOrCtrl+T'),
-      item(t('menu.duplicateTab'), 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
-      'separator',
-      item(t('menu.open'), 'open', true, 'CmdOrCtrl+O'),
-      item(t('menu.save'), 'save', !!tab, 'CmdOrCtrl+S'),
-      item(t('menu.saveAs'), 'save-as', !!tab, 'CmdOrCtrl+Shift+S'),
-      'separator',
-      item(t('menu.newConnection'), 'new-connection'),
-      item(
-        activeConnection.value?.disconnected ? t('menu.connect') : t('menu.disconnect'),
-        'toggle-connection',
-        !!activeConnection.value && locksDatabase.value && !togglingConnection.value,
-      ),
-      'separator',
-      item(t('menu.exportResult'), 'export', !!tab && !tab.error && !!shown?.columns.length && !busy),
-      'separator',
-      item(t('menu.closeTab'), 'close-tab', !!tab, 'CmdOrCtrl+W'),
-    ]),
-    submenu(t('menu.edit'), [
-      ...roles('Undo', 'Redo', 'separator', 'Cut', 'Copy', 'Paste', 'SelectAll', 'separator'),
-      item(t('menu.format'), 'format', !!tab?.sql.trim(), 'CmdOrCtrl+Shift+F'),
-    ]),
-    submenu(t('menu.query'), [
-      item(t('menu.run'), 'run', !!tab?.connectionId && !tab.exporting),
-      item(t('menu.explain'), 'explain', !!tab?.connectionId && !busy, 'CmdOrCtrl+E'),
-      item(
-        t('menu.cancel'),
-        'cancel',
-        busy && tab?.exporting !== 'cancelled' && !!driverOf(tab?.connectionId)?.capabilities.supportsCancel,
-      ),
-      'separator',
-      // A failed transaction can only be rolled back.
-      item('Commit', 'commit', tab?.transaction === 'open' && !busy),
-      item('Rollback', 'rollback', !!tab?.transaction && !busy),
-      'separator',
-      item(t('menu.history'), 'history'),
-    ]),
-    submenu(t('menu.view'), [
-      item(t('menu.sidebar'), 'sidebar', true, 'CmdOrCtrl+B'),
-      ...roles('Fullscreen'),
-      'separator',
-      check(t('menu.designSystem'), 'design-system', colorMode.preference === 'system'),
-      check(t('menu.designLight'), 'design-light', colorMode.preference === 'light'),
-      check(t('menu.designDark'), 'design-dark', colorMode.preference === 'dark'),
-      'separator',
-      // Each language under its own name, so it can be found in a language one cannot read.
-      ...locales.value.map((l) => check(l.name!, `locale-${l.code}`, l.code === locale.value)),
-    ]),
-    submenu(t('menu.window'), [
-      ...roles('Minimize', 'separator'),
-      item(t('menu.previousTab'), 'previous-tab', tabs.value.length > 1),
-      item(t('menu.nextTab'), 'next-tab', tabs.value.length > 1),
-      'separator',
-      ...tabs.value
-        .slice(0, 9)
-        .map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
-    ]),
-    submenu(t('menu.help'), [item(t('menu.shortcuts'), 'shortcuts'), 'separator', item(t('menu.privacy'), 'privacy')]),
-  ])
-})
-
-defineMenuHandlers({
-  mcp: () => (mcpOpen.value = true),
-  update: () => checkForUpdate(true),
-  quit: () => getCurrentWindow().close(),
-  privacy: () => openUrl(privacyUrl),
-  'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
-  'duplicate-tab': () => duplicateTab(activeTab.value),
-  open: openQueryFile,
-  save: () => save(activeTab.value),
-  'save-as': () => save(activeTab.value, true),
-  'new-connection': () => openModal(),
-  'toggle-connection': () => toggleConnection(),
-  'close-tab': () => requestClose(activeTab.value),
-  history: () => (historyOpen.value = true),
-  sidebar: toggleSidebar,
-  'design-system': () => (colorMode.preference = 'system'),
-  'design-light': () => (colorMode.preference = 'light'),
-  'design-dark': () => (colorMode.preference = 'dark'),
-  ...Object.fromEntries(
-    locales.value.map((l) => [
-      `locale-${l.code}`,
-      () => {
-        chosenLocale.value = l.code
-        return setLocale(l.code)
-      },
-    ]),
-  ),
-  'previous-tab': () => cycleTab(-1),
-  'next-tab': () => cycleTab(1),
-  ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
-  shortcuts: () => (shortcutsOpen.value = true),
+useApplicationMenu({
+  openMcp: () => (mcpOpen.value = true),
+  openHistory: () => (historyOpen.value = true),
+  openShortcuts: () => (shortcutsOpen.value = true),
+  openConnection: () => openModal(),
+  toggleSidebar,
 })
 </script>
 
@@ -390,7 +195,7 @@ defineMenuHandlers({
               <ConnectionPicker @edit="openModal" />
             </div>
             <UButton
-              v-if="activeConnection && locksDatabase"
+              v-if="activeConnection && canToggle"
               :icon="activeConnection.disconnected ? 'i-lucide-plug' : 'i-lucide-unplug'"
               color="neutral"
               variant="outline"

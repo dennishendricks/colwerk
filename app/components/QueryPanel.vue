@@ -2,12 +2,13 @@
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { SplitDialect } from '~/utils/sql-split'
-import type { QueryTab } from '~/composables/workspace'
+import type { QueryTab } from '~/composables/tabs'
 
 const props = defineProps<{ tab: QueryTab }>()
 
-const { connections, driverOf } = useWorkspace()
-const { activeTabId, run, explain, cancel, exportResult } = useTabs()
+const { connections, driverOf } = useConnections()
+const { activeTabId } = useTabs()
+const { run, explain, cancel, exportResult } = useExecution()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 

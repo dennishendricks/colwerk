@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { connections, activeConnectionId, activeDatabase, driverOf } = useWorkspace()
+const { connections, activeConnectionId, activeDatabase, driverOf } = useConnections()
 const { state, loadDatabases } = useSchema()
 
 const connection = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))

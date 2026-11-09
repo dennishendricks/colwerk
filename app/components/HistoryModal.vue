@@ -5,7 +5,7 @@ const open = defineModel<boolean>('open', { default: false })
 const props = defineProps<{ connectionId?: string }>()
 const emit = defineEmits<{ select: [entry: HistoryEntry] }>()
 
-const { connections } = useWorkspace()
+const { connections } = useConnections()
 const { t, locale } = useI18n()
 const entries = ref<HistoryEntry[]>([])
 const error = ref<string>()

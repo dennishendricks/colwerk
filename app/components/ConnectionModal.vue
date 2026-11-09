@@ -4,7 +4,7 @@ import type { ConnectionAuth, ConnectionInput, ConnectionSummary, DateFormat } f
 const props = defineProps<{ connection?: ConnectionSummary }>()
 const open = defineModel<boolean>('open', { required: true })
 
-const { drivers, connections, saveConnection, removeConnection, testConnection, installDriver } = useWorkspace()
+const { drivers, connections, saveConnection, removeConnection, testConnection, installDriver } = useConnections()
 const toast = useToast()
 const { t } = useI18n()
 

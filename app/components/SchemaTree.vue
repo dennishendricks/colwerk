@@ -4,9 +4,10 @@ import type { ColumnInfo, Dialect, RoutineInfo, TableInfo } from '#core'
 
 const props = defineProps<{ connectionId: string; database?: string }>()
 
-const { driverOf } = useWorkspace()
+const { driverOf } = useConnections()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
-const { tabs, activeTabId, addTab, run } = useTabs()
+const { tabs, activeTabId, addTab } = useTabs()
+const { run } = useExecution()
 const toast = useToast()
 const { t, locale } = useI18n()
 

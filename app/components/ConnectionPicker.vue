@@ -3,7 +3,7 @@ import type { ConnectionSummary } from '#core'
 
 const emit = defineEmits<{ edit: [connection?: ConnectionSummary] }>()
 
-const { connections, activeConnectionId, driverOf } = useWorkspace()
+const { connections, activeConnectionId, driverOf } = useConnections()
 const { t } = useI18n()
 
 const open = ref(false)
