@@ -284,6 +284,10 @@
   "query": {
     "planCopied": "Execution plan copied",
     "result": "Result {n}",
+    "pin": "Pin result",
+    "pinned": "Pinned",
+    "closePin": "Close pinned result",
+    "compare": "Compare",
     "shownRows": "Shown rows ({n})",
     "fullResult": "Full result (without limit)",
     "fullResultSelectOnly": "Full result (single SELECT only)",
@@ -329,6 +333,7 @@
     "showValue": "Show value …",
     "copyJson": "Copy row as JSON",
     "copyCsv": "Copy row as CSV",
+    "copyMarkdown": "Copy row as Markdown",
     "valueCopied": "Value copied",
     "columnContains": "Column contains …"
   },

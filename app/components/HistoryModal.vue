@@ -37,9 +37,7 @@ const connectionName = (id: string) => connections.value.find((c) => c.id === id
 
 function details(e: HistoryEntry): string {
   const parts = [new Date(e.executedAt).toLocaleString(locale.value, { dateStyle: 'short', timeStyle: 'medium' })]
-  if (e.durationMs !== undefined) {
-    parts.push(e.durationMs < 1000 ? `${Math.round(e.durationMs)} ms` : `${(e.durationMs / 1000).toFixed(2)} s`)
-  }
+  if (e.durationMs !== undefined) parts.push(formatDuration(e.durationMs))
   if (e.rowCount !== undefined) parts.push(t('common.rows', { n: e.rowCount.toLocaleString(locale.value) }, e.rowCount))
   else if (e.affectedRows !== undefined) {
     parts.push(t('common.rowsAffected', { n: e.affectedRows.toLocaleString(locale.value) }, e.affectedRows))
