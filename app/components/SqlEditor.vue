@@ -56,7 +56,7 @@ const highlight = HighlightStyle.define([
 ])
 
 const theme = EditorView.theme({
-  '&': { fontSize: '13px', backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
+  '&': { fontSize: 'var(--font-size)', backgroundColor: 'var(--ui-bg)', color: 'var(--ui-text)' },
   // Not on `&` alone: the tooltip container in the body carries the theme classes too and would extend the page.
   '&.cm-editor': { height: '100%' },
   '&.cm-focused': { outline: 'none' },
@@ -229,6 +229,9 @@ watch(
   },
   { deep: true },
 )
+
+// CodeMirror caches the character width and line height.
+watch(useZoom().size, () => nextTick(() => view?.requestMeasure()))
 
 watch(locale, () => {
   view?.dispatch({ effects: localization.reconfigure(localizationExtension()) })

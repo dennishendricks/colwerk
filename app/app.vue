@@ -226,7 +226,15 @@ defineShortcuts({
 // ⇧⌘[ / ⇧⌘] by physical key, like macOS menus: with shift (and on other layouts) the characters differ,
 // which defineShortcuts matches on.
 const { macOS } = useKbd()
+const { size, zoomIn, zoomOut, resetZoom } = useZoom()
+useHead({ htmlAttrs: { style: computed(() => `--font-size: ${size.value}px`) } })
 function onKeydown(e: KeyboardEvent) {
+  // By character, since + and = sit on different keys per layout; ⌘= is zooming in without shift.
+  const zoom = { '+': zoomIn, '=': zoomIn, '-': zoomOut, '0': resetZoom }[e.key]
+  if (zoom && !e.altKey && (macOS.value ? e.metaKey : e.ctrlKey)) {
+    e.preventDefault()
+    return zoom()
+  }
   const step = e.code === 'BracketLeft' ? -1 : e.code === 'BracketRight' ? 1 : 0
   if (!step || !e.shiftKey || !(macOS.value ? e.metaKey : e.ctrlKey)) return
   e.preventDefault()
