@@ -41,6 +41,12 @@
     "closeTabTitle": "Close tab?",
     "closeTabTransaction": "The tab's open transaction is rolled back when it is closed.",
     "closeTabQuery": "The tab contains a query that is lost when it is closed.",
+    "closeOtherTabs": "Close Other Tabs",
+    "closeTabsLeft": "Close Tabs to the Left",
+    "closeTabsRight": "Close Tabs to the Right",
+    "closeTabsTitle": "Close {n} tabs?",
+    "closeTabsTransaction": "Open transactions in {n} tabs are rolled back when they are closed.",
+    "closeTabsQuery": "{n} tabs contain a query that is lost when they are closed.",
     "disconnectTitle": "Disconnect?",
     "disconnectDescription": "Open transactions in tabs of this connection are rolled back when disconnecting.",
     "disconnectConfirm": "Disconnect"

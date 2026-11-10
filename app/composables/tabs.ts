@@ -39,9 +39,9 @@ export interface QueryTab {
 const tabs: Ref<QueryTab[]> = ref([])
 const activeTabId = ref<string>()
 const activeTab = computed(() => tabs.value.find((t) => t.id === activeTabId.value))
-// Tab that waits for confirmation because it still contains a query or an open transaction.
-const closing = ref<string>()
-const closingTab = computed(() => tabs.value.find((t) => t.id === closing.value))
+// Tabs that wait for confirmation because they still contain a query or an open transaction.
+const closing = ref<string[]>([])
+const closingTabs = computed(() => tabs.value.filter((t) => closing.value.includes(t.id)))
 let tabCounter = 0
 
 // Editor content and settings of the open tabs are saved on the server per window (results are not).
@@ -211,16 +211,30 @@ export function useTabs() {
     activeTabId.value = taken.at(-1)?.id ?? activeTabId.value
   }
 
+  function needsConfirm(tab: QueryTab) {
+    return !!(tab.sql.trim() || tab.transaction)
+  }
+
   /** Closes the tab, or asks first (`closing`) while it still contains a query or an open transaction. */
   function requestClose(tab?: QueryTab) {
     if (!tab) return
-    if (tab.sql.trim() || tab.transaction) closing.value = tab.id
+    if (needsConfirm(tab)) closing.value = [tab.id]
     else closeTab(tab.id)
   }
 
+  /** Closes the tabs with the given ids and makes `keep` active; asks once (`closing`) for those with a query or transaction. */
+  function requestCloseMany(ids: string[], keep: QueryTab) {
+    const affected = tabs.value.filter((t) => ids.includes(t.id))
+    if (!affected.length) return
+    if (affected.some((t) => t.id === activeTabId.value)) activeTabId.value = keep.id
+    closing.value = affected.filter(needsConfirm).map((t) => t.id)
+    for (const tab of affected) if (!needsConfirm(tab)) closeTab(tab.id)
+  }
+
   function confirmClose() {
-    if (closing.value) closeTab(closing.value)
-    closing.value = undefined
+    const ids = closing.value
+    closing.value = []
+    for (const id of ids) closeTab(id)
   }
 
   function selectTab(index: number) {
@@ -279,7 +293,7 @@ export function useTabs() {
     activeTabId,
     activeTab,
     closing,
-    closingTab,
+    closingTabs,
     restoreTabs,
     addTab,
     duplicateTab,
@@ -291,6 +305,7 @@ export function useTabs() {
     returnTabs,
     takeTabs,
     requestClose,
+    requestCloseMany,
     confirmClose,
     selectTab,
     cycleTab,
