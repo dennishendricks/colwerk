@@ -348,7 +348,7 @@ function renderCell(value: CellValue) {
     class="h-full"
     :style="{ '--grid-width': tableWidth }"
     :ui="{
-      base: 'font-mono text-xs table-fixed min-w-0 w-(--grid-width)',
+      base: 'font-mono text-(length:--font-size) table-fixed min-w-0 w-(--grid-width)',
       // On the cells, not the row: pinned cells have an opaque background of their own. Mixed with the
       // page background so it stays opaque, too.
       tbody: '[&>tr:hover>td]:bg-[color-mix(in_oklab,var(--ui-primary)_12%,var(--ui-bg))]',

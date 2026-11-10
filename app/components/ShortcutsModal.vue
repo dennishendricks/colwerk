@@ -13,6 +13,7 @@ const shortcuts = computed(() => [
   { keys: ['meta', 'shift', 'S'], label: t('shortcuts.saveAs') },
   { keys: ['meta', 'B'], label: t('shortcuts.sidebar') },
   { keys: ['meta', 'P'], label: t('shortcuts.quickOpen') },
+  { keys: ['meta', '+/−/0'], label: t('shortcuts.zoom') },
   { keys: ['meta', 'shift', '['], label: t('shortcuts.previousTab') },
   { keys: ['meta', 'shift', ']'], label: t('shortcuts.nextTab') },
   { keys: ['meta', 'enter'], label: t('shortcuts.run') },

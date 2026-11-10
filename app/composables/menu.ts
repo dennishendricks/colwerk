@@ -15,7 +15,7 @@ interface MenuViewActions {
 // Native application menu (desktop app). On macOS the page sees each key first: a shortcut it handles calls
 // preventDefault, which keeps the menu item with the same accelerator from firing as well. On Windows and Linux
 // the menu takes its accelerators before the page; both run the same handler. ⌘↵ and ⇧⌘[ / ⇧⌘] stay with the
-// page, which treats them differently depending on the focus.
+// page, which treats them differently depending on the focus. ⌘= (zoom in) is only handled by the page.
 // The platform's own items (roles) are only used on macOS, where Tauri implements all of them.
 export function useApplicationMenu(view: MenuViewActions) {
   const { activeConnection, activeConnectionId, activeDatabase, driverOf } = useConnections()
@@ -26,6 +26,7 @@ export function useApplicationMenu(view: MenuViewActions) {
   const chosenLocale = useChosenLocale()
   const colorMode = useColorMode()
   const { macOS } = useKbd()
+  const { zoomIn, zoomOut, resetZoom } = useZoom()
 
   watchEffect(() => {
     if (!isDesktop) return
@@ -100,6 +101,10 @@ export function useApplicationMenu(view: MenuViewActions) {
         ),
         ...roles('Fullscreen'),
         'separator',
+        item(t('menu.zoomIn'), 'zoom-in', true, 'CmdOrCtrl+Plus'),
+        item(t('menu.zoomOut'), 'zoom-out', true, 'CmdOrCtrl+-'),
+        item(t('menu.actualSize'), 'actual-size', true, 'CmdOrCtrl+0'),
+        'separator',
         check(t('menu.designSystem'), 'design-system', colorMode.preference === 'system'),
         check(t('menu.designLight'), 'design-light', colorMode.preference === 'light'),
         check(t('menu.designDark'), 'design-dark', colorMode.preference === 'dark'),
@@ -144,6 +149,9 @@ export function useApplicationMenu(view: MenuViewActions) {
     history: view.openHistory,
     sidebar: view.toggleSidebar,
     'quick-open': view.openQuickOpen,
+    'zoom-in': zoomIn,
+    'zoom-out': zoomOut,
+    'actual-size': resetZoom,
     'design-system': () => (colorMode.preference = 'system'),
     'design-light': () => (colorMode.preference = 'light'),
     'design-dark': () => (colorMode.preference = 'dark'),
