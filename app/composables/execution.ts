@@ -42,13 +42,17 @@ export function useExecution() {
     }
   }
 
-  /** `from`: document offset where `sql` starts in the editor, to place the error position. */
-  async function run(tab: QueryTab, sql: string, from = 0) {
+  /**
+   * `from`: document offset where `sql` starts in the editor, to place the error position.
+   * `offset`: `sql` is already substituted (see `withVariables`) and `offset` maps its positions back.
+   */
+  async function run(tab: QueryTab, sql: string, from = 0, offset?: (position: number) => number) {
     if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
-    const substituted = await withVariables(tab, sql)
-    if (!substituted) return
-    const { offset } = substituted
-    sql = substituted.sql
+    if (!offset) {
+      const substituted = await withVariables(tab, sql)
+      if (!substituted) return
+      ;({ sql, offset } = substituted)
+    }
     tab.running = true
     tab.error = undefined
     tab.errorAt = undefined
@@ -150,5 +154,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, cancel, exportResult }
+  return { run, explain, withVariables, cancel, exportResult }
 }

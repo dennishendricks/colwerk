@@ -8,7 +8,7 @@ const props = defineProps<{ tab: QueryTab }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, cancel, exportResult } = useExecution()
+const { run, explain, withVariables, cancel, exportResult } = useExecution()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 
@@ -62,13 +62,18 @@ async function preloadColumns() {
 }
 
 // SQL that waits for confirmation because the connection asks before writes.
-const pending = ref<{ sql: string; from: number }>()
+const pending = ref<{ sql: string; from: number; offset: (position: number) => number }>()
 
-function execute() {
+// Variables first, so the write check sees the SQL that will run.
+async function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (connection.value?.confirmWrites && mayWrite(runnable.sql, sqlDialect(connection.value.dialect))) {
-    pending.value = runnable
-  } else run(props.tab, runnable.sql, runnable.from)
+  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting) return
+  const substituted = await withVariables(props.tab, runnable.sql)
+  if (!substituted) return
+  const next = { ...substituted, from: runnable.from }
+  if (connection.value?.confirmWrites && mayWrite(next.sql, sqlDialect(connection.value.dialect))) {
+    pending.value = next
+  } else run(props.tab, next.sql, next.from, next.offset)
 }
 
 function confirmVariables() {
@@ -82,7 +87,7 @@ function cancelVariables() {
 }
 
 function confirmRun() {
-  if (pending.value) run(props.tab, pending.value.sql, pending.value.from)
+  if (pending.value) run(props.tab, pending.value.sql, pending.value.from, pending.value.offset)
   pending.value = undefined
 }
 
