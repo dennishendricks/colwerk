@@ -41,7 +41,7 @@ interface WorkerError {
 }
 
 interface ExecuteResult {
-  resultSets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean }[]
+  resultSets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean; statement: number }[]
   changes: number
 }
 
@@ -97,6 +97,7 @@ async function workerMain() {
               columns: cols,
               rows: rows.slice(0, req.rowLimit),
               truncated: rows.length > req.rowLimit,
+              statement: i,
             })
           } catch (e) {
             throw Object.assign(e as Error, { statement: i })
@@ -233,7 +234,11 @@ class SqliteSession implements Session {
         rowLimit,
       })
       return {
-        resultSets: result.resultSets.map((s) => ({ ...s, rows: s.rows.map((r) => r.map(normalizeValue)) })),
+        resultSets: result.resultSets.map((s) => ({
+          ...s,
+          rows: s.rows.map((r) => r.map(normalizeValue)),
+          statement: { from: ranges[s.statement]!.from, to: ranges[s.statement]!.to },
+        })),
         affectedRows: result.resultSets.length ? undefined : result.changes,
         durationMs: performance.now() - started,
       }

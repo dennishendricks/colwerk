@@ -111,10 +111,18 @@ const formatItems = [
   { label: 'CSV', value: 'csv' },
   { label: 'Parquet', value: 'parquet' },
 ]
-// The full result runs the statement again, which must not repeat side effects.
+// The full result runs the statement of the shown result set again, which must not repeat side effects.
 const canExportFull = computed(() => {
   const source = props.tab.source
-  return !!source && isReadOnlyStatement(source.sql, sqlDialect(driverOf(source.connectionId)?.dialect ?? 'postgres'))
+  const statement = shown.value?.statement
+  return (
+    !!source &&
+    !!statement &&
+    isReadOnlyStatement(
+      source.sql.slice(statement.from, statement.to),
+      sqlDialect(driverOf(source.connectionId)?.dialect ?? 'postgres'),
+    )
+  )
 })
 const scopeItems = computed(() => [
   { label: t('query.shownRows', { n: shown.value?.rows.length.toLocaleString(locale.value) }), value: 'shown' },

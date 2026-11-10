@@ -22,6 +22,22 @@ test('timeout cancels the statement', async () => {
   await wb.closeAll()
 })
 
+// The full result of a statement inside a script: the statement runs again in the tab session, without row limit.
+test('a statement of a script can be run again for its full result', async () => {
+  const wb = workbench({ id: 'wb-script', name: 'duck', dialect: 'duckdb', file: ':memory:' })
+  const script = `SET VARIABLE anzahl = 300;\nSELECT range + 1 AS id FROM range(getvariable('anzahl'));`
+  const shown = (await wb.execute('tab', 'wb-script', script, 5, 10)).resultSets[0]!
+  assertEquals(shown.rows.length, 5)
+  assert(shown.truncated)
+  const { from, to } = shown.statement!
+  const rows: unknown[][] = []
+  const sink = { columns() {}, rows: async (chunk: unknown[][]) => void rows.push(...chunk) }
+  await wb.stream('tab', 'wb-script', script.slice(from, to), sink, undefined)
+  assertEquals(rows.length, 300)
+  assertEquals(rows[299], ['300'])
+  await wb.closeAll()
+})
+
 test('closing a tab cancels its statement', async () => {
   const wb = workbench({ id: 'wb-close', name: 'duck', dialect: 'duckdb', file: ':memory:' })
   const started = performance.now()

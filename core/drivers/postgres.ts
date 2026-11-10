@@ -241,7 +241,7 @@ class PostgresSession implements Session {
             name: f.name,
             type: this.typeNames.get(f.dataTypeID) ?? String(f.dataTypeID),
           }))
-          resultSets.push({ columns, rows: convertRows(columns, rows), truncated })
+          resultSets.push({ columns, rows: convertRows(columns, rows), truncated, statement: { from, to } })
         } else if (result.command && DML.has(result.command)) {
           affectedRows = (affectedRows ?? 0) + (result.rowCount ?? 0)
         }

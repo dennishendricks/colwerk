@@ -157,6 +157,11 @@ export interface ResultSet {
   rows: CellValue[][]
   /** True when more rows existed than `rowLimit`. */
   truncated: boolean
+  /**
+   * Offset range in the SQL passed to `Session.execute` of the statement that produced this result set; unset when
+   * the driver cannot tell (multi-statement batches on MySQL and SQL Server).
+   */
+  statement?: { from: number; to: number }
 }
 
 export interface QueryResult {

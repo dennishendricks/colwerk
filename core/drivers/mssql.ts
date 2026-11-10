@@ -268,7 +268,12 @@ class MssqlSession implements Session {
     let affectedRows: number | undefined
     for (const [i, { from, to }] of batches.entries()) {
       try {
-        const n = await this.runBatch(text.slice(from, to), rowLimit, resultSets)
+        const n = await this.runBatch(
+          text.slice(from, to),
+          rowLimit,
+          resultSets,
+          batches.length === 1 ? from : undefined,
+        )
         if (n !== undefined) affectedRows = (affectedRows ?? 0) + n
       } catch (e) {
         const err = wrap(e)
@@ -285,7 +290,13 @@ class MssqlSession implements Session {
   }
 
   /** Runs one batch, appends its result sets and resolves with the affected rows. */
-  private runBatch(text: string, rowLimit: number, resultSets: ResultSet[]): Promise<number | undefined> {
+  private runBatch(
+    text: string,
+    rowLimit: number,
+    resultSets: ResultSet[],
+    /** Offset of the batch in the script, when it is the only batch: then a single statement is located. */
+    offset?: number,
+  ): Promise<number | undefined> {
     if (this.stopReason === 'cancel') {
       return Promise.reject(new AppError('cancelled', 'Query was cancelled', { code: 'ECANCEL' }))
     }
@@ -296,7 +307,8 @@ class MssqlSession implements Session {
     this.stopReason = null
     // Cancelling would also drop the statements after the truncated one, so batches with several
     // statements read the rest and discard it. Statements are counted at `;`, which is optional in T-SQL.
-    const single = splitStatements(text, 'mssql').length <= 1
+    const ranges = splitStatements(text, 'mssql')
+    const single = ranges.length <= 1
     const sets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean }[] = []
     let affectedRows: number | undefined
     let error: unknown
@@ -325,7 +337,12 @@ class MssqlSession implements Session {
         this.current = null
         if (error) return reject(wrap(error, text))
         for (const s of sets) {
-          resultSets.push({ ...s, rows: s.rows.map((r) => r.map((v, i) => cell(v, s.columns[i]!.type))) })
+          const range = single && offset !== undefined ? ranges[0] : undefined
+          resultSets.push({
+            ...s,
+            rows: s.rows.map((r) => r.map((v, i) => cell(v, s.columns[i]!.type))),
+            ...(range && { statement: { from: offset! + range.from, to: offset! + range.to } }),
+          })
         }
         resolve(affectedRows)
       })

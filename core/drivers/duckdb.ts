@@ -126,6 +126,7 @@ export class DuckDBSession implements Session {
               columns: result.columns,
               rows: rows.slice(0, rowLimit),
               truncated: rows.length > rowLimit,
+              statement: { from, to },
             })
           } finally {
             result.close()

@@ -245,7 +245,7 @@ class ClickHouseSession implements Session {
       try {
         const { written } = await this.run(
           statement,
-          (columns) => resultSets.push((set = { columns, rows: [], truncated: false })),
+          (columns) => resultSets.push((set = { columns, rows: [], truncated: false, statement: { from, to } })),
           async (rows) => {
             const room = rowLimit - set!.rows.length
             set!.rows.push(...rows.slice(0, room))
