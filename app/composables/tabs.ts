@@ -1,10 +1,20 @@
 import type { Ref } from 'vue'
-import type { QueryResult } from '#core'
+import type { QueryResult, ResultSet } from '#core'
 import { invoke } from '@tauri-apps/api/core'
 import { emitTo } from '@tauri-apps/api/event'
 import { getAllWindows, getCurrentWindow } from '@tauri-apps/api/window'
 
 // Editor tabs: each tab owns a dedicated server-side session (keyed by tab id).
+
+/** A result set kept in the tab while new executions replace `result`. In memory only, like `result`. */
+export interface PinnedResult {
+  id: string
+  set: ResultSet
+  /** Script that produced `set`, whose `statement` points into it (for exporting the full result). */
+  source: { connectionId: string; database?: string; sql: string }
+  executedAt: number
+  durationMs: number
+}
 
 export interface QueryTab {
   id: string
@@ -24,6 +34,10 @@ export interface QueryTab {
   executedAt?: number
   /** Index of the result set shown (scripts can return several). */
   resultIndex: number
+  pinned?: PinnedResult[]
+  /** Pinned result shown instead of `result`, or next to it while `compare` is set. */
+  viewPin?: string
+  compare?: boolean
   /** Connection and script that produced `result` (for exporting the full result of one of its statements). */
   source?: { connectionId: string; database?: string; sql: string }
   /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */

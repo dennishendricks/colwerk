@@ -1,5 +1,5 @@
 import type { QueryResult, TransactionState } from '#core'
-import type { QueryTab } from './tabs'
+import type { PinnedResult, QueryTab } from './tabs'
 
 // Running statements in a tab's server-side session.
 
@@ -31,6 +31,7 @@ export function useExecution() {
       )
       // The last result set is usually the one a script is run for.
       tab.executedAt = Date.now()
+      if (!tab.compare) tab.viewPin = undefined
       tab.resultIndex = Math.max(0, tab.result.resultSets.length - 1)
       tab.source = { connectionId: tab.connectionId, database: tab.database, sql }
       tab.transaction = openTransaction(tab.result.transaction)
@@ -57,6 +58,8 @@ export function useExecution() {
     tab.result = undefined
     tab.source = undefined
     tab.plan = undefined
+    tab.viewPin = undefined
+    tab.compare = false
     try {
       const { plan, durationMs } = await api<{ plan: string; durationMs: number }>(`/api/tabs/${tab.id}/explain`, {
         method: 'POST',
@@ -81,9 +84,16 @@ export function useExecution() {
    * Asks for the target file in a native dialog, then the server writes it.
    * `full`: runs the statement again without row limit; otherwise exports the rows of the result set shown.
    * Resolves with the path once the file is written completely, with `undefined` if the user cancelled.
+   * `pin`: exports this pinned result instead of the current one (with its own source for the full result).
    */
-  async function exportResult(tab: QueryTab, format: 'csv' | 'parquet', full: boolean): Promise<string | undefined> {
-    const shown = tab.result?.resultSets[tab.resultIndex]
+  async function exportResult(
+    tab: QueryTab,
+    format: 'csv' | 'parquet',
+    full: boolean,
+    pin?: PinnedResult,
+  ): Promise<string | undefined> {
+    const shown = pin?.set ?? tab.result?.resultSets[tab.resultIndex]
+    const source = pin?.source ?? tab.source
     tab.exporting = 'running'
     try {
       const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
@@ -92,13 +102,13 @@ export function useExecution() {
       if (!path || (tab.exporting as QueryTab['exporting']) === 'cancelled') return undefined
       const { statement } = shown ?? {}
       const body =
-        full && tab.source && statement
+        full && source && statement
           ? {
               format,
               path,
-              connectionId: tab.source.connectionId,
-              database: tab.source.database,
-              sql: tab.source.sql.slice(statement.from, statement.to),
+              connectionId: source.connectionId,
+              database: source.database,
+              sql: source.sql.slice(statement.from, statement.to),
             }
           : { format, path, columns: shown?.columns, rows: shown?.rows }
       await api(`/api/tabs/${tab.id}/export`, { method: 'POST', body })

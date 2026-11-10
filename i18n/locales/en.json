@@ -284,6 +284,10 @@
   "query": {
     "planCopied": "Execution plan copied",
     "result": "Result {n}",
+    "pin": "Pin result",
+    "pinned": "Pinned",
+    "closePin": "Close pinned result",
+    "compare": "Compare",
     "shownRows": "Shown rows ({n})",
     "fullResult": "Full result (without limit)",
     "fullResultSelectOnly": "Full result (single SELECT only)",

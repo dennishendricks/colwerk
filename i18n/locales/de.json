@@ -284,6 +284,10 @@
   "query": {
     "planCopied": "Ausführungsplan kopiert",
     "result": "Ergebnis {n}",
+    "pin": "Ergebnis anheften",
+    "pinned": "Angeheftet",
+    "closePin": "Angeheftetes Ergebnis schließen",
+    "compare": "Vergleichen",
     "shownRows": "Angezeigte Zeilen ({n})",
     "fullResult": "Gesamtes Ergebnis (ohne Limit)",
     "fullResultSelectOnly": "Gesamtes Ergebnis (nur bei einzelnem SELECT)",
