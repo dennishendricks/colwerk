@@ -89,7 +89,17 @@ export function useExecution() {
       const path = await fileDialog('save', t('dialog.save'), `export-${stamp}.${format}`)
       // Widened: `cancel()` changes it while this call is waiting.
       if (!path || (tab.exporting as QueryTab['exporting']) === 'cancelled') return undefined
-      const body = full ? { format, path, ...tab.source } : { format, path, columns: shown?.columns, rows: shown?.rows }
+      const { statement } = shown ?? {}
+      const body =
+        full && tab.source && statement
+          ? {
+              format,
+              path,
+              connectionId: tab.source.connectionId,
+              database: tab.source.database,
+              sql: tab.source.sql.slice(statement.from, statement.to),
+            }
+          : { format, path, columns: shown?.columns, rows: shown?.rows }
       await api(`/api/tabs/${tab.id}/export`, { method: 'POST', body })
       return path
     } catch (e) {

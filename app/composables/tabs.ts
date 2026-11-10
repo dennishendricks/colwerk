@@ -22,7 +22,7 @@ export interface QueryTab {
   result?: QueryResult
   /** Index of the result set shown (scripts can return several). */
   resultIndex: number
-  /** Connection and statement that produced `result` (for exporting the full result). */
+  /** Connection and script that produced `result` (for exporting the full result of one of its statements). */
   source?: { connectionId: string; database?: string; sql: string }
   /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */
   plan?: { text: string; durationMs: number }

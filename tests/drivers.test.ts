@@ -214,14 +214,19 @@ for (const c of cases) {
       [['a'], ['b']],
     )
     // A truncated result set neither cuts off nor skips the statements after it.
-    const script = await s.execute(
-      `select * from ${c.schema}.orders; ${c.insertSeven}; select count(*) as n from ${tableName}`,
-      { rowLimit: 10 },
-    )
+    const first = `select * from ${c.schema}.orders`
+    const last = `select count(*) as n from ${tableName}`
+    const scriptSql = `${first}; ${c.insertSeven}; ${last}`
+    const script = await s.execute(scriptSql, { rowLimit: 10 })
     assertEquals(script.resultSets.length, 2)
     assertEquals(script.resultSets[0]!.rows.length, 10)
     assert(script.resultSets[0]!.truncated)
     assertEquals(script.resultSets[1]!.rows[0]![0]!.toString(), '14')
+    // Result sets say which statement produced them; MySQL and SQL Server send the script as one batch.
+    const located = script.resultSets.map((r) => r.statement && scriptSql.slice(r.statement.from, r.statement.to))
+    assertEquals(located, name === 'mysql' || name === 'mssql' ? [undefined, undefined] : [first, last])
+    const single = (await s.execute(`  select 1 as x ;`, { rowLimit: 10 })).resultSets[0]!.statement!
+    assertEquals(`  select 1 as x ;`.slice(single.from, single.to), 'select 1 as x')
     await assertRejects(() => s.execute('select * from does_not_exist', { rowLimit: 1 }))
     assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 10 })), [[1]])
   })

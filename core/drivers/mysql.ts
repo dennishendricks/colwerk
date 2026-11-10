@@ -170,7 +170,8 @@ class MysqlSession implements Session {
     this.running = true
     this.stopReason = null
     // `KILL QUERY` would also drop the statements after the truncated one, so scripts read the rest and discard it.
-    const single = splitStatements(sql, 'mysql').length <= 1
+    const ranges = splitStatements(sql, 'mysql')
+    const single = ranges.length <= 1
     const sets: { columns: ResultColumn[]; rows: unknown[][]; truncated: boolean }[] = []
     let affectedRows: number | undefined
     let limitKill: Promise<void> = Promise.resolve()
@@ -212,7 +213,12 @@ class MysqlSession implements Session {
         await limitKill
         this.running = false
         resolve({
-          resultSets: sets.map((s) => ({ ...s, rows: s.rows.map((r) => r.map(normalizeValue)) })),
+          resultSets: sets.map((s) => ({
+            ...s,
+            rows: s.rows.map((r) => r.map(normalizeValue)),
+            // Only a single statement is known to have produced its result set.
+            ...(single && ranges[0] && { statement: ranges[0] }),
+          })),
           affectedRows: sets.length ? undefined : affectedRows,
           durationMs: performance.now() - started,
         })
