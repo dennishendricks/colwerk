@@ -4,7 +4,7 @@ import { AppError, type ConnectionConfig } from '../types.ts'
 /** Node TLS options shared by the drivers; undefined without TLS. */
 export async function tlsOptions(
   c: ConnectionConfig,
-): Promise<{ ca?: string; rejectUnauthorized: boolean } | undefined> {
+): Promise<{ ca?: string; rejectUnauthorized: boolean; servername?: string } | undefined> {
   if (!c.ssl) return undefined
   let ca: string | undefined
   if (c.sslCa) {
@@ -16,5 +16,6 @@ export async function tlsOptions(
       })
     }
   }
-  return { ca, rejectUnauthorized: !c.sslInsecure }
+  // Host name of the certificate check, when the driver connects to something else (SSH tunnel).
+  return { ca, rejectUnauthorized: !c.sslInsecure, servername: c.sslServerName }
 }

@@ -223,7 +223,25 @@
     "newShort": "New",
     "editShort": "Edit",
     "none": "No connection created yet.",
-    "defaultDatabase": "Default database"
+    "defaultDatabase": "Default database",
+    "sshTunnel": "SSH tunnel",
+    "sshTunnelHelp": "Reach the server through an SSH server. Not available with Unix socket or named instance.",
+    "sshHost": "SSH host",
+    "sshPort": "SSH port",
+    "sshUser": "SSH user",
+    "sshAuth": "SSH login",
+    "sshAuths": {
+      "password": "Password",
+      "key": "Private key file",
+      "agent": "SSH agent"
+    },
+    "sshAgentHelp": "Uses the agent from SSH_AUTH_SOCK (Windows: the OpenSSH agent).",
+    "sshKeyFile": "Private key file",
+    "sshPassphrase": "Passphrase (optional)",
+    "clearSshSecret": "Remove stored SSH password / passphrase",
+    "sshHostKey": "Host key",
+    "sshHostKeyHelp": "Recorded on the first connect; a different key is refused.",
+    "forgetHostKey": "Forget host key"
   },
   "colors": {
     "red": "Red",
@@ -385,6 +403,15 @@
     "clientIdRequired": "OAuth2 client credentials need a client ID.",
     "addressRequired": "Please enter the address of the catalog or workspace.",
     "folderRequired": "Please enter the folder of the Delta tables.",
-    "extensionFailed": "The DuckDB extension {name} could not be loaded: {detail}"
+    "extensionFailed": "The DuckDB extension {name} could not be loaded: {detail}",
+    "sshAuthFailed": "SSH login failed: {detail}",
+    "sshUnreachable": "SSH server {host}:{port} not reachable: {detail}",
+    "sshForwardRefused": "The SSH server could not connect to {host}:{port}: {detail}",
+    "sshHostKeyChanged": "The host key of the SSH server changed (now {fingerprint}, expected {expected}). If this is expected, forget the host key in the connection settings.",
+    "sshKeyUnreadable": "SSH key not readable: {detail}",
+    "sshNoAgent": "No SSH agent found: SSH_AUTH_SOCK is not set.",
+    "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
+    "sshKeyRequired": "Please enter the path of the private key file.",
+    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance."
   }
 }

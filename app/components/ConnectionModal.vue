@@ -11,6 +11,7 @@ const { t } = useI18n()
 const form = reactive<Partial<ConnectionInput>>({})
 const busy = ref<'test' | 'save' | 'delete' | 'install'>()
 const clearPassword = ref(false)
+const clearSshSecret = ref(false)
 const showAdvanced = ref(false)
 
 watch(
@@ -19,6 +20,7 @@ watch(
     if (!isOpen) return
     const c = props.connection
     clearPassword.value = false
+    clearSshSecret.value = false
     Object.assign(form, {
       id: c?.id,
       name: c?.name ?? '',
@@ -52,6 +54,14 @@ watch(
       region: c?.region ?? '',
       oauthServerUri: c?.oauthServerUri ?? '',
       oauthScope: c?.oauthScope ?? '',
+      ssh: c?.ssh ?? false,
+      sshHost: c?.sshHost ?? '',
+      sshPort: c?.sshPort,
+      sshUser: c?.sshUser ?? '',
+      sshAuth: c?.sshAuth ?? 'password',
+      sshKeyFile: c?.sshKeyFile ?? '',
+      sshSecret: '',
+      sshHostKey: c?.sshHostKey,
       color: c?.color,
       confirmWrites: c?.confirmWrites ?? false,
     })
@@ -74,7 +84,8 @@ watch(
         c.sslServerName ||
         c.region ||
         c.oauthServerUri ||
-        c.oauthScope)
+        c.oauthScope ||
+        c.ssh)
     )
   },
   { immediate: true },
@@ -160,6 +171,14 @@ const dateFormat = computed({
   set: (v: string) => (form.dateFormat = v === 'default' ? undefined : (v as DateFormat)),
 })
 
+const sshSupported = computed(() => ['postgres', 'mysql', 'mssql', 'clickhouse'].includes(form.dialect ?? ''))
+const sshAuthItems = (['password', 'key', 'agent'] as const).map((a) => ({
+  label: t(`connection.sshAuths.${a}`),
+  value: a,
+}))
+// A host key belongs to one SSH server.
+const forgetHostKey = () => (form.sshHostKey = undefined)
+
 const folders = computed(() =>
   [...new Set(connections.value.flatMap((c) => (c.folder ? [c.folder] : [])))].sort((a, b) =>
     a.localeCompare(b, 'de', { sensitivity: 'base' }),
@@ -170,7 +189,13 @@ const folders = computed(() =>
 function payload(): Partial<ConnectionInput> {
   const password =
     clearPassword.value || !showPassword.value ? '' : form.password || (props.connection?.hasPassword ? undefined : '')
-  return { ...form, password }
+  // Like the password: empty keeps the stored SSH secret, `''` removes it.
+  const sshSecret =
+    clearSshSecret.value || !form.ssh || form.sshAuth === 'agent'
+      ? ''
+      : form.sshSecret || (props.connection?.hasSshSecret ? undefined : '')
+  // The fields that exclude a tunnel are hidden with it on.
+  return { ...form, password, sshSecret, ...(form.ssh && { socket: '', instanceName: '' }) }
 }
 
 // Native dialog: the page itself cannot learn the path of a picked file.
@@ -453,7 +478,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                   </UFormField>
                 </template>
                 <UFormField
-                  v-if="form.dialect === 'postgres' || form.dialect === 'mysql'"
+                  v-if="(form.dialect === 'postgres' || form.dialect === 'mysql') && !form.ssh"
                   :label="t('connection.socket')"
                   :help="t(`connection.socketHelp.${form.dialect}`)"
                   class="col-span-2"
@@ -482,7 +507,11 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                   />
                 </UFormField>
                 <template v-if="form.dialect === 'mssql'">
-                  <UFormField :label="t('connection.instanceName')" :help="t('connection.instanceNameHelp')">
+                  <UFormField
+                    v-if="!form.ssh"
+                    :label="t('connection.instanceName')"
+                    :help="t('connection.instanceNameHelp')"
+                  >
                     <UInput
                       v-model="form.instanceName"
                       class="w-full"
@@ -514,6 +543,103 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                   <UFormField class="col-span-2" :help="t('connection.multiSubnetFailoverHelp')">
                     <USwitch v-model="form.multiSubnetFailover" :label="t('connection.multiSubnetFailover')" />
                   </UFormField>
+                </template>
+                <template v-if="sshSupported">
+                  <UFormField class="col-span-2" :help="t('connection.sshTunnelHelp')">
+                    <USwitch v-model="form.ssh" :label="t('connection.sshTunnel')" />
+                  </UFormField>
+                  <template v-if="form.ssh">
+                    <UFormField :label="t('connection.sshHost')" required>
+                      <UInput
+                        v-model="form.sshHost"
+                        class="w-full"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        :spellcheck="false"
+                        @update:model-value="forgetHostKey"
+                      />
+                    </UFormField>
+                    <UFormField :label="t('connection.sshPort')">
+                      <UInput
+                        v-model.number="form.sshPort"
+                        type="number"
+                        placeholder="22"
+                        class="w-full"
+                        @update:model-value="forgetHostKey"
+                      />
+                    </UFormField>
+                    <UFormField :label="t('connection.sshUser')" required>
+                      <UInput
+                        v-model="form.sshUser"
+                        class="w-full"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        :spellcheck="false"
+                      />
+                    </UFormField>
+                    <UFormField :label="t('connection.sshAuth')">
+                      <USelect v-model="form.sshAuth" :items="sshAuthItems" class="w-full" />
+                    </UFormField>
+                    <UFormField
+                      v-if="form.sshAuth === 'key'"
+                      :label="t('connection.sshKeyFile')"
+                      required
+                      class="col-span-2"
+                    >
+                      <UInput
+                        v-model="form.sshKeyFile"
+                        class="w-full"
+                        placeholder="~/.ssh/id_ed25519"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        :spellcheck="false"
+                      />
+                    </UFormField>
+                    <UFormField
+                      v-if="form.sshAuth !== 'agent'"
+                      :label="form.sshAuth === 'key' ? t('connection.sshPassphrase') : t('connection.password')"
+                      class="col-span-2"
+                    >
+                      <UInput
+                        v-model="form.sshSecret"
+                        type="password"
+                        class="w-full"
+                        autocomplete="new-password"
+                        :disabled="clearSshSecret"
+                        :placeholder="
+                          clearSshSecret
+                            ? t('connection.passwordRemoved')
+                            : connection?.hasSshSecret
+                              ? t('connection.passwordUnchanged')
+                              : ''
+                        "
+                      />
+                    </UFormField>
+                    <UFormField v-if="form.sshAuth !== 'agent' && connection?.hasSshSecret" class="col-span-2">
+                      <USwitch v-model="clearSshSecret" :label="t('connection.clearSshSecret')" />
+                    </UFormField>
+                    <p v-if="form.sshAuth === 'agent'" class="col-span-2 text-sm text-(--ui-text-muted)">
+                      {{ t('connection.sshAgentHelp') }}
+                    </p>
+                    <UFormField
+                      v-if="form.sshHostKey"
+                      :label="t('connection.sshHostKey')"
+                      :help="t('connection.sshHostKeyHelp')"
+                      class="col-span-2"
+                    >
+                      <div class="flex items-center gap-2">
+                        <code class="min-w-0 flex-1 break-all text-xs">{{ form.sshHostKey }}</code>
+                        <UButton
+                          color="neutral"
+                          variant="outline"
+                          size="xs"
+                          :label="t('connection.forgetHostKey')"
+                          @click="forgetHostKey"
+                        />
+                      </div>
+                    </UFormField>
+                  </template>
                 </template>
                 <template v-if="form.ssl">
                   <UFormField :label="t('connection.caCert')" :help="t('connection.caCertHelp')" class="col-span-2">

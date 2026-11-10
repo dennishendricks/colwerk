@@ -1,4 +1,5 @@
-import { loadDriver } from './registry.ts'
+import { drivers, loadDriver } from './registry.ts'
+import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
 import {
   AppError,
@@ -51,10 +52,17 @@ export class Workbench {
   // Connections the user disconnected: no sessions are opened until `connect` (frees DuckDB's file lock for other tools).
   private disconnected = new Set<string>()
 
-  constructor(private resolveConfig: (connectionId: string) => Promise<ConnectionConfig>) {}
+  // SSH tunnels by connection, shared by its sessions and closed with the last one.
+  private tunnels = new Map<string, { refs: number; tunnel: Promise<Tunnel> }>()
+
+  /** `saveHostKey` records the host key of an SSH server on the first connect. */
+  constructor(
+    private resolveConfig: (connectionId: string) => Promise<ConnectionConfig>,
+    private saveHostKey: (connectionId: string, fingerprint: string) => Promise<void> = async () => {},
+  ) {}
 
   async test(config: ConnectionConfig): Promise<void> {
-    const session = await (await loadDriver(config.dialect)).connect(config)
+    const session = await this.connectSession(config, `test:${crypto.randomUUID()}`, false)
     await session.close()
   }
 
@@ -296,7 +304,73 @@ export class Workbench {
       throw new AppError('disconnected', 'The connection is disconnected.', { code: 'EDISCONNECTED' })
     }
     const config = await this.resolveConfig(connectionId)
-    return (await loadDriver(config.dialect)).connect({ ...config, database: database ?? config.database })
+    return this.connectSession({ ...config, database: database ?? config.database }, connectionId, true)
+  }
+
+  /** Opens the session, through the connection's SSH tunnel if it has one. */
+  private async connectSession(config: ConnectionConfig, tunnelKey: string, saveHostKey: boolean): Promise<Session> {
+    const driver = await loadDriver(config.dialect)
+    if (!config.ssh) return driver.connect(config)
+    const { tunnel, release } = await this.acquireTunnel(tunnelKey, config, saveHostKey)
+    try {
+      const session = await driver.connect({
+        ...config,
+        host: '127.0.0.1',
+        port: tunnel.port,
+        // The server certificate is still issued for the original host name.
+        sslServerName: config.sslServerName ?? config.host,
+      })
+      return releasing(session, release)
+    } catch (e) {
+      release()
+      // A refused forward only shows up in the driver as a reset connection.
+      throw tunnel.forwardError ?? e
+    }
+  }
+
+  private async acquireTunnel(key: string, config: ConnectionConfig, saveHostKey: boolean) {
+    let entry = this.tunnels.get(key)
+    if (!entry) {
+      const target = {
+        host: config.host ?? 'localhost',
+        port:
+          config.port ??
+          (config.dialect === 'clickhouse' && config.ssl
+            ? 8443
+            : drivers.find((d) => d.dialect === config.dialect)!.defaultPort!),
+      }
+      const created: { refs: number; tunnel: Promise<Tunnel> } = {
+        refs: 0,
+        tunnel: openTunnel(
+          config,
+          target,
+          (fingerprint) => saveHostKey && void this.saveHostKey(key, fingerprint).catch(() => {}),
+          () => this.tunnels.get(key) === created && this.tunnels.delete(key),
+        ),
+      }
+      entry = created
+      this.tunnels.set(key, created)
+      created.tunnel.catch(() => this.tunnels.get(key) === created && this.tunnels.delete(key))
+    }
+    const used = entry
+    used.refs++
+    let released = false
+    const release = () => {
+      if (released) return
+      released = true
+      if (--used.refs > 0) return
+      if (this.tunnels.get(key) === used) this.tunnels.delete(key)
+      used.tunnel.then(
+        (t) => t.close(),
+        () => {},
+      )
+    }
+    try {
+      return { tunnel: await used.tunnel, release }
+    } catch (e) {
+      release()
+      throw e
+    }
   }
 
   private runMeta<T>(connectionId: string, database: string | undefined, fn: (s: Session) => Promise<T>): Promise<T> {
@@ -347,5 +421,17 @@ async function withTimeout<T>(s: Session, timeoutSeconds: number, fn: () => Prom
     throw e
   } finally {
     clearTimeout(timer)
+  }
+}
+
+/** The session, whose `close` also gives back its share of the SSH tunnel. */
+function releasing(session: Session, release: () => void): Session {
+  return {
+    execute: (sql, options) => session.execute(sql, options),
+    stream: (sql, sink) => session.stream(sql, sink),
+    cancel: () => session.cancel(),
+    transactionState: () => session.transactionState(),
+    introspect: (request) => session.introspect(request),
+    close: () => session.close().finally(release),
   }
 }
