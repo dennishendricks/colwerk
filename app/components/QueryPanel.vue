@@ -224,8 +224,6 @@ watch(
   () => (filter.value = ''),
 )
 
-const formatTime = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`)
-
 // Another connection needs another session; closing the old one rolls back its open transaction, so confirm first.
 const pendingConnection = ref<string>()
 
@@ -241,10 +239,11 @@ async function confirmConnection() {
 }
 
 const status = computed(() => {
-  if (props.tab.plan) return `${t('query.plan')} · ${formatTime(props.tab.plan.durationMs)}`
+  const { plan } = props.tab
+  if (plan) return `${t('query.plan')} · ${formatDuration(plan.durationMs)} · ${formatClock(plan.executedAt)}`
   const r = props.tab.result
   if (!r) return ''
-  const time = formatTime(r.durationMs)
+  const time = `${formatDuration(r.durationMs)} · ${formatClock(props.tab.executedAt ?? Date.now())}`
   const set = shown.value
   if (!set) {
     return `${t(

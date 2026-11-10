@@ -30,6 +30,7 @@ export function useExecution() {
         }),
       )
       // The last result set is usually the one a script is run for.
+      tab.executedAt = Date.now()
       tab.resultIndex = Math.max(0, tab.result.resultSets.length - 1)
       tab.source = { connectionId: tab.connectionId, database: tab.database, sql }
       tab.transaction = openTransaction(tab.result.transaction)
@@ -61,7 +62,7 @@ export function useExecution() {
         method: 'POST',
         body: { connectionId: tab.connectionId, database: tab.database, sql, analyze, timeout: tab.timeout },
       })
-      tab.plan = { text: plan, durationMs }
+      tab.plan = { text: plan, durationMs, executedAt: Date.now() }
     } catch (e) {
       tab.error = errorMessage(e)
     } finally {

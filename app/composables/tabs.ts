@@ -20,12 +20,14 @@ export interface QueryTab {
   timeout: number
   running: boolean
   result?: QueryResult
+  /** When `result` arrived (ms since epoch). */
+  executedAt?: number
   /** Index of the result set shown (scripts can return several). */
   resultIndex: number
   /** Connection and script that produced `result` (for exporting the full result of one of its statements). */
   source?: { connectionId: string; database?: string; sql: string }
   /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */
-  plan?: { text: string; durationMs: number }
+  plan?: { text: string; durationMs: number; executedAt: number }
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
