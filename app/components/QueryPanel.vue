@@ -5,6 +5,7 @@ import type { SplitDialect } from '~/utils/sql-split'
 import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
 const props = defineProps<{ tab: QueryTab }>()
+const emit = defineEmits<{ newConnection: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
@@ -587,6 +588,18 @@ const status = computed(() => {
             :key="viewedPin?.id ?? tab.resultIndex"
             v-model:filter="filter"
             :result="shown"
+          />
+          <EmptyState
+            v-else-if="!busy && !tab.sql.trim()"
+            :connection-id="tab.connectionId"
+            :database="tab.database"
+            @new-connection="emit('newConnection')"
+            @select="
+              (e) => {
+                tab.sql = e.sql
+                tab.connectionId ??= e.connectionId
+              }
+            "
           />
         </div>
         <div

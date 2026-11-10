@@ -76,6 +76,7 @@
     "history": "History …",
     "view": "View",
     "sidebar": "Toggle Sidebar",
+    "quickOpen": "Go to Table …",
     "designSystem": "Appearance like System",
     "designLight": "Light Appearance",
     "designDark": "Dark Appearance",
@@ -233,6 +234,18 @@
     "blue": "Blue",
     "purple": "Purple"
   },
+  "empty": {
+    "hint": "Write a query above, or start here.",
+    "noConnection": "Create a connection to get started.",
+    "newConnection": "New connection",
+    "openFile": "Open file …",
+    "recent": "Recent queries"
+  },
+  "quickOpen": {
+    "title": "Go to table",
+    "description": "Search tables and views of all schemas. Enter queries all columns of the selection.",
+    "placeholder": "Search tables and views …"
+  },
   "history": {
     "title": "History",
     "description": "The last 50 executed queries. A click opens the query in a new tab.",
@@ -269,6 +282,7 @@
     "save": "Save query",
     "saveAs": "Save query as",
     "sidebar": "Toggle sidebar",
+    "quickOpen": "Go to table or view (all schemas)",
     "previousTab": "Switch to previous tab",
     "nextTab": "Switch to next tab",
     "run": "Run query (in the editor)",

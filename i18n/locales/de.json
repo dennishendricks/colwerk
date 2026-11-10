@@ -76,6 +76,7 @@
     "history": "Verlauf …",
     "view": "Darstellung",
     "sidebar": "Seitenleiste ein-/ausblenden",
+    "quickOpen": "Zu Tabelle springen …",
     "designSystem": "Design wie System",
     "designLight": "Helles Design",
     "designDark": "Dunkles Design",
@@ -233,6 +234,18 @@
     "blue": "Blau",
     "purple": "Lila"
   },
+  "empty": {
+    "hint": "Schreibe oben eine Abfrage oder starte hier.",
+    "noConnection": "Lege eine Verbindung an, um loszulegen.",
+    "newConnection": "Neue Verbindung",
+    "openFile": "Datei öffnen …",
+    "recent": "Letzte Abfragen"
+  },
+  "quickOpen": {
+    "title": "Zu Tabelle springen",
+    "description": "Durchsucht Tabellen und Views aller Schemas. Enter fragt alle Spalten der Auswahl ab.",
+    "placeholder": "Tabellen und Views suchen …"
+  },
   "history": {
     "title": "Verlauf",
     "description": "Die letzten 50 ausgeführten Abfragen. Ein Klick öffnet die Abfrage in einem neuen Tab.",
@@ -269,6 +282,7 @@
     "save": "Abfrage speichern",
     "saveAs": "Abfrage speichern unter",
     "sidebar": "Seitenleiste ein-/ausblenden",
+    "quickOpen": "Zu Tabelle oder View springen (alle Schemas)",
     "previousTab": "Zum vorherigen Tab wechseln",
     "nextTab": "Zum nächsten Tab wechseln",
     "run": "Abfrage ausführen (im Editor)",
