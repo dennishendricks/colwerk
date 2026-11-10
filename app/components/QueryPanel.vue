@@ -71,6 +71,16 @@ function execute() {
   } else run(props.tab, runnable.sql, runnable.from)
 }
 
+function confirmVariables() {
+  variablePrompt.value?.done({ ...variablePrompt.value.values })
+  variablePrompt.value = undefined
+}
+
+function cancelVariables() {
+  variablePrompt.value?.done()
+  variablePrompt.value = undefined
+}
+
 function confirmRun() {
   if (pending.value) run(props.tab, pending.value.sql, pending.value.from)
   pending.value = undefined
@@ -500,6 +510,28 @@ const status = computed(() => {
         <div class="flex w-full justify-end gap-2">
           <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
           <UButton :label="t('common.run')" color="error" @click="confirmRun" />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="variablePrompt?.tabId === tab.id"
+      :title="t('query.variablesTitle')"
+      :description="t('query.variablesHint')"
+      :close="false"
+      @update:open="(v) => !v && cancelVariables()"
+    >
+      <template #body>
+        <form id="query-variables" class="flex flex-col gap-3" @submit.prevent="confirmVariables">
+          <UFormField v-for="(_, name) in variablePrompt?.values" :key="name" :label="name">
+            <UInput v-model="variablePrompt!.values[name]" autofocus class="w-full" />
+          </UFormField>
+        </form>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="cancelVariables" />
+          <UButton :label="t('common.run')" type="submit" form="query-variables" />
         </div>
       </template>
     </UModal>

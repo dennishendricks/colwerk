@@ -307,6 +307,8 @@
     "saveAs": "Speichern unter …",
     "confirmWriteTitle": "Schreibende Anweisung ausführen?",
     "confirmWriteDescription": "Die Abfrage kann Daten oder Strukturen in „{connection}“ ändern.",
+    "variablesTitle": "Abfragevariablen",
+    "variablesHint": "Wird unverändert eingesetzt, ohne Anführungszeichen. Für Text '{'${name}'}' in die Abfrage schreiben.",
     "switchConnectionTitle": "Verbindung wechseln?",
     "switchConnectionDescription": "Die offene Transaktion dieses Tabs wird dabei zurückgerollt.",
     "switchConnection": "Wechseln"

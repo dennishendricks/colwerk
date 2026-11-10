@@ -307,6 +307,8 @@
     "saveAs": "Save as …",
     "confirmWriteTitle": "Run writing statement?",
     "confirmWriteDescription": "The query may change data or structures in “{connection}”.",
+    "variablesTitle": "Query variables",
+    "variablesHint": "Inserted as typed, without quotes. Write '{'${name}'}' in the query for a text value.",
     "switchConnectionTitle": "Switch connection?",
     "switchConnectionDescription": "The open transaction of this tab is rolled back.",
     "switchConnection": "Switch"
