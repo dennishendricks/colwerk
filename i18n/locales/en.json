@@ -327,6 +327,7 @@
     "showValue": "Show value …",
     "copyJson": "Copy row as JSON",
     "copyCsv": "Copy row as CSV",
+    "copyMarkdown": "Copy row as Markdown",
     "valueCopied": "Value copied",
     "columnContains": "Column contains …"
   },

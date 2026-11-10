@@ -327,6 +327,7 @@
     "showValue": "Wert anzeigen …",
     "copyJson": "Datensatz als JSON kopieren",
     "copyCsv": "Datensatz als CSV kopieren",
+    "copyMarkdown": "Datensatz als Markdown kopieren",
     "valueCopied": "Wert kopiert",
     "columnContains": "Spalte enthält …"
   },
