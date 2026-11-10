@@ -14,7 +14,7 @@ const {
   activeTabId,
   activeTab,
   closing,
-  closingTab,
+  closingTabs,
   restoreTabs,
   addTab,
   duplicateTab,
@@ -25,6 +25,7 @@ const {
   returnTabs,
   takeTabs,
   requestClose,
+  requestCloseMany,
   confirmClose,
   selectTab,
   cycleTab,
@@ -162,13 +163,42 @@ async function startRename(tab: QueryTab, e: MouseEvent) {
 
 // Desktop app only: a native context menu. In the browser the browser's own menu stays.
 function onTabContextmenu(e: MouseEvent, tab: QueryTab) {
+  const index = tabs.value.findIndex((x) => x.id === tab.id)
+  const closeTabs = (keep: QueryTab, from: number, to: number) =>
+    requestCloseMany(
+      tabs.value
+        .slice(from, to)
+        .filter((x) => x.id !== keep.id)
+        .map((x) => x.id),
+      keep,
+    )
   return showContextMenu(e, [
     { label: t('app.moveToWindow'), enabled: canMove(tab), action: () => moveToNewWindow(tab) },
     ...(windowLabel === 'main'
       ? []
       : [{ label: t('app.moveToMainWindow'), enabled: canReturn(tab), action: () => moveToMainWindow(tab) }]),
+    'separator',
+    {
+      label: t('app.closeOtherTabs'),
+      enabled: tabs.value.length > 1,
+      action: () => closeTabs(tab, 0, tabs.value.length),
+    },
+    { label: t('app.closeTabsLeft'), enabled: index > 0, action: () => closeTabs(tab, 0, index) },
+    {
+      label: t('app.closeTabsRight'),
+      enabled: index < tabs.value.length - 1,
+      action: () => closeTabs(tab, index + 1, tabs.value.length),
+    },
   ])
 }
+
+const closeDescription = computed(() => {
+  const transaction = closingTabs.value.some((x) => x.transaction)
+  if (closingTabs.value.length > 1) {
+    return t(transaction ? 'app.closeTabsTransaction' : 'app.closeTabsQuery', { n: closingTabs.value.length })
+  }
+  return t(transaction ? 'app.closeTabTransaction' : 'app.closeTabQuery')
+})
 
 function commitRename(tab: QueryTab) {
   // Removing the input after Enter or Escape can fire blur as well.
@@ -429,15 +459,15 @@ useApplicationMenu({
       @select="(e) => openInNewTab(e.connectionId, e.sql)"
     />
     <UModal
-      :open="!!closing"
-      :title="t('app.closeTabTitle')"
-      :description="closingTab?.transaction ? t('app.closeTabTransaction') : t('app.closeTabQuery')"
+      :open="!!closing.length"
+      :title="closing.length > 1 ? t('app.closeTabsTitle', { n: closing.length }) : t('app.closeTabTitle')"
+      :description="closeDescription"
       :close="false"
-      @update:open="(v) => !v && (closing = undefined)"
+      @update:open="(v) => !v && (closing = [])"
     >
       <template #footer>
         <div class="flex w-full justify-end gap-2">
-          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="closing = undefined" />
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="closing = []" />
           <UButton :label="t('common.close')" color="error" @click="confirmClose" />
         </div>
       </template>

@@ -41,6 +41,12 @@
     "closeTabTitle": "Tab schließen?",
     "closeTabTransaction": "Die offene Transaktion des Tabs wird beim Schließen zurückgerollt.",
     "closeTabQuery": "Der Tab enthält eine Abfrage, die beim Schließen verloren geht.",
+    "closeOtherTabs": "Andere Tabs schließen",
+    "closeTabsLeft": "Tabs links schließen",
+    "closeTabsRight": "Tabs rechts schließen",
+    "closeTabsTitle": "{n} Tabs schließen?",
+    "closeTabsTransaction": "Die offenen Transaktionen in {n} Tabs werden beim Schließen zurückgerollt.",
+    "closeTabsQuery": "{n} Tabs enthalten eine Abfrage, die beim Schließen verloren geht.",
     "disconnectTitle": "Verbindung trennen?",
     "disconnectDescription": "Offene Transaktionen in Tabs dieser Verbindung werden beim Trennen zurückgerollt.",
     "disconnectConfirm": "Trennen"
