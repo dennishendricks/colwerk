@@ -81,7 +81,7 @@ services:
   # Iceberg REST catalog for the lakehouse tests. The warehouse is a host directory mounted at the same absolute
   # path, so that the catalog (metadata) and DuckDB in the tests (data files) write to the same files.
   iceberg-rest:
-    image: apache/iceberg-rest-fixture:1.10.0
+    image: apache/iceberg-rest-fixture:1.10.1
     environment:
       CATALOG_WAREHOUSE: ${PWD}/.iceberg-warehouse
     ports: ['127.0.0.1:58181:8181']
