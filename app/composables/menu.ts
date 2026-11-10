@@ -9,6 +9,7 @@ interface MenuViewActions {
   openAbout: () => void
   openConnection: () => void
   toggleSidebar: () => void
+  openQuickOpen: () => void
 }
 
 // Native application menu (desktop app). On macOS the page sees each key first: a shortcut it handles calls
@@ -92,6 +93,12 @@ export function useApplicationMenu(view: MenuViewActions) {
       ]),
       submenu(t('menu.view'), [
         item(t('menu.sidebar'), 'sidebar', true, 'CmdOrCtrl+B'),
+        item(
+          t('menu.quickOpen'),
+          'quick-open',
+          !!activeConnectionId.value && !activeConnection.value?.disconnected,
+          'CmdOrCtrl+P',
+        ),
         ...roles('Fullscreen'),
         'separator',
         item(t('menu.zoomIn'), 'zoom-in', true, 'CmdOrCtrl+Plus'),
@@ -141,6 +148,7 @@ export function useApplicationMenu(view: MenuViewActions) {
     'close-tab': () => requestClose(activeTab.value),
     history: view.openHistory,
     sidebar: view.toggleSidebar,
+    'quick-open': view.openQuickOpen,
     'zoom-in': zoomIn,
     'zoom-out': zoomOut,
     'actual-size': resetZoom,

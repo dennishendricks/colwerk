@@ -1,5 +1,6 @@
 import { test } from 'bun:test'
-import { rm, stat } from 'node:fs/promises'
+import { readFile, rm, stat } from 'node:fs/promises'
+import { join } from 'node:path'
 import { tempDir } from './helpers.ts'
 import { assertEquals, assertRejects } from './assert.ts'
 import { type Keychain, KeychainUnavailable } from '../core/keychain.ts'
@@ -74,6 +75,23 @@ test('store: an empty password removes the stored one, undefined keeps it', () =
     assertEquals((await store.list())[0]!.hasPassword, true)
     await store.save({ ...conn, password: '' })
     assertEquals((await store.list())[0]!.hasPassword, false)
+  }))
+
+test('store: the SSH secret is encrypted like the password, and the host key is recorded once', () =>
+  withDir(async (dir) => {
+    const store = new ConnectionStore(dir, new FakeKeychain())
+    await store.save({ ...conn, ssh: true, sshSecret: 'tunnel-geheim' })
+    assertEquals((await readFile(join(dir, 'connections.json'), 'utf8')).includes('tunnel-geheim'), false)
+    const [summary] = await store.list()
+    assertEquals([summary!.hasSshSecret, 'sshSecret' in summary!], [true, false])
+    assertEquals((await store.get('c1')).sshSecret, 'tunnel-geheim')
+    await store.save({ ...conn, ssh: true, sshSecret: undefined })
+    assertEquals((await store.get('c1')).sshSecret, 'tunnel-geheim')
+    await store.setSshHostKey('c1', 'SHA256:first')
+    await store.setSshHostKey('c1', 'SHA256:second')
+    assertEquals((await store.get('c1')).sshHostKey, 'SHA256:first')
+    await store.save({ ...conn, ssh: true, sshSecret: '' })
+    assertEquals((await store.list())[0]!.hasSshSecret, false)
   }))
 
 test('store: color and write confirmation reach the summary', () =>

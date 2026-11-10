@@ -145,6 +145,11 @@ const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
 const aboutOpen = ref(false)
+const quickOpen = ref(false)
+const schemaTree = useTemplateRef('schemaTree')
+// Searches the schema tree's connection, so the selected table is queried on the same one.
+const canQuickOpen = computed(() => !!activeConnectionId.value && !activeConnection.value?.disconnected)
+const openQuickOpen = () => (quickOpen.value = canQuickOpen.value)
 
 // Inline rename on double-click; the input takes the width of the label it replaces.
 const renaming = ref<string>()
@@ -217,6 +222,7 @@ defineShortcuts({
   meta_s: { usingInput: true, handler: () => saveFile(activeTab.value) },
   meta_shift_s: { usingInput: true, handler: () => saveFile(activeTab.value, true) },
   meta_b: { usingInput: true, handler: toggleSidebar },
+  meta_p: { usingInput: true, handler: openQuickOpen },
   ...Object.fromEntries(
     Array.from({ length: 9 }, (_, i) => [`meta_${i + 1}`, { usingInput: true, handler: () => selectTab(i) }]),
   ),
@@ -250,6 +256,7 @@ useApplicationMenu({
   openAbout: () => (aboutOpen.value = true),
   openConnection: () => openModal(),
   toggleSidebar,
+  openQuickOpen,
 })
 </script>
 
@@ -300,6 +307,7 @@ useApplicationMenu({
           </p>
           <SchemaTree
             v-else-if="activeConnectionId"
+            ref="schemaTree"
             :key="`${activeConnectionId}/${activeDatabase ?? ''}`"
             :connection-id="activeConnectionId"
             :database="activeDatabase"
@@ -443,7 +451,13 @@ useApplicationMenu({
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
-          <QueryPanel v-for="tab in tabs" v-show="tab.id === activeTabId" :key="tab.id" :tab="tab" />
+          <QueryPanel
+            v-for="tab in tabs"
+            v-show="tab.id === activeTabId"
+            :key="tab.id"
+            :tab="tab"
+            @new-connection="openModal()"
+          />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
             <UButton
               icon="i-lucide-plus"
@@ -461,6 +475,13 @@ useApplicationMenu({
     <LazyMcpModal v-model:open="mcpOpen" />
     <ReleaseNotesModal />
     <LazyAboutModal v-model:open="aboutOpen" />
+    <LazyQuickOpen
+      v-if="activeConnectionId"
+      v-model:open="quickOpen"
+      :connection-id="activeConnectionId"
+      :database="activeDatabase"
+      @select="(schema, table) => schemaTree?.selectTable(schema, table)"
+    />
     <LazyHistoryModal
       v-model:open="historyOpen"
       :connection-id="activeTab?.connectionId ?? activeConnectionId"

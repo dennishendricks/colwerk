@@ -120,6 +120,9 @@ async function selectTable(schema: string, table: string, newTab = false) {
   run(tab, sql, tab.sql.length - sql.length)
 }
 
+// For the quick open palette: same action as a double-click on the table.
+defineExpose({ selectTable })
+
 async function countRows(schema: string, table: string) {
   openTab(table, await format(`select count(*) from ${q(schema)}.${q(table)};`), true)
 }

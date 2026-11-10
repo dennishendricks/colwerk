@@ -48,3 +48,22 @@ export const cellText = (v: CellValue) => (typeof v === 'object' ? JSON.stringif
 export function csvField(v: CellValue): string {
   return v === null ? '' : `"${cellText(v).replaceAll('"', '""')}"`
 }
+
+/** Markdown table cell: NULL is empty (like CSV), `|` and backslashes are escaped, line breaks become `<br>`. */
+export function markdownField(v: CellValue): string {
+  return v === null
+    ? ''
+    : cellText(v)
+        .replace(/[\\|]/g, '\\$&')
+        .replace(/\r?\n|\r/g, '<br>')
+}
+
+/** Header, separator and one row. */
+export function markdownRow(names: string[], cells: CellValue[]): string {
+  const line = (fields: string[]) => `| ${fields.join(' | ')} |`
+  return [
+    line(names.map(markdownField)),
+    line(names.map(() => '---')),
+    line(names.map((_, i) => markdownField(cells[i] ?? null))),
+  ].join('\n')
+}

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { CellValue, ResultSet } from '#core'
-import { csvField } from '~~/core/values.ts'
+import { csvField, markdownRow } from '~~/core/values.ts'
 
 const props = defineProps<{ result: ResultSet }>()
 // Text of the quick filter, whose input lives in the caller's status bar.
@@ -273,6 +273,16 @@ function onRowContextmenu(e: Event, row: TableRow<Row>) {
       action: () =>
         navigator.clipboard.writeText(
           [columns.map((c) => c.name), cells].map((fields) => fields.map(csvField).join(';')).join('\r\n'),
+        ),
+    },
+    {
+      label: t('grid.copyMarkdown'),
+      action: () =>
+        navigator.clipboard.writeText(
+          markdownRow(
+            columns.map((c) => c.name),
+            cells,
+          ),
         ),
     },
   ])

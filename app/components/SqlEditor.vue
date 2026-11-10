@@ -14,9 +14,12 @@ import {
   highlightActiveLine,
   keymap,
   lineNumbers,
+  MatchDecorator,
   placeholder,
   rectangularSelection,
   tooltips,
+  ViewPlugin,
+  type ViewUpdate,
 } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
@@ -65,6 +68,7 @@ const theme = EditorView.theme({
   // `drawSelection` draws its own cursor, which is black by default and invisible in dark mode.
   '.cm-gutters': { backgroundColor: 'var(--ui-bg-muted)', color: 'var(--ui-text-muted)', border: 'none' },
   '.cm-activeLine': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 6%, transparent)' },
+  '.cm-variable': { backgroundColor: 'color-mix(in oklab, var(--ui-primary) 15%, transparent)', borderRadius: '2px' },
   '.cm-errorLine': { backgroundColor: 'color-mix(in oklab, var(--ui-error) 10%, transparent)' },
   '.cm-errorMark': {
     textDecoration: 'underline wavy var(--ui-error)',
@@ -126,6 +130,24 @@ const PHRASES: Partial<Record<string, Record<string, string>>> = {
     go: 'OK',
   },
 }
+
+// `${name}` query variables (see utils/sql-variables.ts); also marked in comments, where they are not replaced.
+const variableMatcher = new MatchDecorator({
+  regexp: /\$\{[A-Za-z_][A-Za-z0-9_]*\}/g,
+  decoration: Decoration.mark({ class: 'cm-variable' }),
+})
+const variableMarks = ViewPlugin.fromClass(
+  class {
+    marks: DecorationSet
+    constructor(view: EditorView) {
+      this.marks = variableMatcher.createDeco(view)
+    }
+    update(u: ViewUpdate) {
+      this.marks = variableMatcher.updateDeco(u, this.marks)
+    }
+  },
+  { decorations: (v) => v.marks },
+)
 
 // The error mark refers to the text that was run, so any edit removes it.
 const setError = StateEffect.define<number | undefined>()
@@ -199,6 +221,7 @@ onMounted(() => {
         localization.of(localizationExtension()),
         language.of(languageExtension()),
         errorField,
+        variableMarks,
         keymap.of([
           { key: 'Mod-Enter', run: () => (emit('run'), true) },
           { key: 'Mod-e', run: () => (emit('explain'), true) },

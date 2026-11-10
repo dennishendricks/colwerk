@@ -2,13 +2,14 @@
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { SplitDialect } from '~/utils/sql-split'
-import type { QueryTab } from '~/composables/tabs'
+import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
 const props = defineProps<{ tab: QueryTab }>()
+const emit = defineEmits<{ newConnection: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, cancel, exportResult } = useExecution()
+const { run, explain, withVariables, cancel, exportResult } = useExecution()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 
@@ -62,17 +63,32 @@ async function preloadColumns() {
 }
 
 // SQL that waits for confirmation because the connection asks before writes.
-const pending = ref<{ sql: string; from: number }>()
+const pending = ref<{ sql: string; from: number; offset: (position: number) => number }>()
 
-function execute() {
+// Variables first, so the write check sees the SQL that will run.
+async function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (connection.value?.confirmWrites && mayWrite(runnable.sql, sqlDialect(connection.value.dialect))) {
-    pending.value = runnable
-  } else run(props.tab, runnable.sql, runnable.from)
+  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting) return
+  const substituted = await withVariables(props.tab, runnable.sql)
+  if (!substituted) return
+  const next = { ...substituted, from: runnable.from }
+  if (connection.value?.confirmWrites && mayWrite(next.sql, sqlDialect(connection.value.dialect))) {
+    pending.value = next
+  } else run(props.tab, next.sql, next.from, next.offset)
+}
+
+function confirmVariables() {
+  variablePrompt.value?.done({ ...variablePrompt.value.values })
+  variablePrompt.value = undefined
+}
+
+function cancelVariables() {
+  variablePrompt.value?.done()
+  variablePrompt.value = undefined
 }
 
 function confirmRun() {
-  if (pending.value) run(props.tab, pending.value.sql, pending.value.from)
+  if (pending.value) run(props.tab, pending.value.sql, pending.value.from, pending.value.offset)
   pending.value = undefined
 }
 
@@ -99,7 +115,53 @@ async function copyPlan() {
   toast.add({ title: t('query.planCopied'), color: 'success', icon: 'i-lucide-check' })
 }
 
-const shown = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
+const currentSet = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
+const pinView = computed(() => props.tab.pinned?.find((p) => p.id === props.tab.viewPin))
+// A pinned result replaces the current one, except in the comparison, where both are shown.
+const viewedPin = computed(() => (props.tab.compare ? undefined : pinView.value))
+const shown = computed(() => viewedPin.value?.set ?? currentSet.value)
+const canPin = computed(() => !!currentSet.value?.columns.length && !viewedPin.value)
+const showSwitcher = computed(
+  () =>
+    !busy.value &&
+    !props.tab.error &&
+    !props.tab.plan &&
+    (resultItems.value.length > 1 || !!props.tab.pinned?.length || canPin.value),
+)
+
+function pinResult() {
+  const { result, source } = props.tab
+  const set = currentSet.value
+  if (!result || !source || !set) return
+  const pin = markRaw({
+    id: crypto.randomUUID(),
+    set,
+    source: { ...source },
+    executedAt: props.tab.executedAt ?? Date.now(),
+    durationMs: result.durationMs,
+  })
+  ;(props.tab.pinned ??= []).push(pin)
+}
+
+function closePin(id: string) {
+  props.tab.pinned = props.tab.pinned?.filter((p) => p.id !== id)
+  if (props.tab.viewPin === id) {
+    props.tab.viewPin = undefined
+    props.tab.compare = false
+  }
+}
+
+function selectResult(i: number) {
+  props.tab.resultIndex = i
+  if (!props.tab.compare) props.tab.viewPin = undefined
+}
+
+// Time and first line of the statement.
+function pinLabel(pin: PinnedResult) {
+  const { statement } = pin.set
+  const sql = statement ? pin.source.sql.slice(statement.from, statement.to) : pin.source.sql
+  return `${formatClock(pin.executedAt)} · ${sql.trim().split('\n')[0]}`
+}
 const resultItems = computed(
   () => props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? [],
 )
@@ -113,7 +175,7 @@ const formatItems = [
 ]
 // The full result runs the statement of the shown result set again, which must not repeat side effects.
 const canExportFull = computed(() => {
-  const source = props.tab.source
+  const source = viewedPin.value?.source ?? props.tab.source
   const statement = shown.value?.statement
   return (
     !!source &&
@@ -141,6 +203,7 @@ async function download() {
       props.tab,
       exportFormat.value,
       exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated,
+      viewedPin.value,
     )
     if (path) toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
     else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
@@ -224,8 +287,6 @@ watch(
   () => (filter.value = ''),
 )
 
-const formatTime = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`)
-
 // Another connection needs another session; closing the old one rolls back its open transaction, so confirm first.
 const pendingConnection = ref<string>()
 
@@ -241,16 +302,20 @@ async function confirmConnection() {
 }
 
 const status = computed(() => {
-  if (props.tab.plan) return `${t('query.plan')} · ${formatTime(props.tab.plan.durationMs)}`
+  const { plan } = props.tab
+  if (plan) return `${t('query.plan')} · ${formatDuration(plan.durationMs)} · ${formatClock(plan.executedAt)}`
+  const pin = viewedPin.value
   const r = props.tab.result
-  if (!r) return ''
-  const time = formatTime(r.durationMs)
+  if (!r && !pin) return ''
+  const time = pin
+    ? `${t('query.pinned')} · ${formatDuration(pin.durationMs)} · ${formatClock(pin.executedAt)}`
+    : `${formatDuration(r!.durationMs)} · ${formatClock(props.tab.executedAt ?? Date.now())}`
   const set = shown.value
   if (!set) {
     return `${t(
       'common.rowsAffected',
-      { n: (r.affectedRows ?? 0).toLocaleString(locale.value) },
-      r.affectedRows ?? 0,
+      { n: (r?.affectedRows ?? 0).toLocaleString(locale.value) },
+      r?.affectedRows ?? 0,
     )} · ${time}`
   }
   const filtered = grid.value?.filteredCount
@@ -260,7 +325,7 @@ const status = computed(() => {
       ? n(set.rows.length)
       : t('query.filteredOf', { filtered: n(filtered), rows: n(set.rows.length) })
   return `${t('common.rows', { n: rows }, set.rows.length)}${
-    set.truncated ? ` – ${t('query.truncated', { limit: n(props.tab.rowLimit) })}` : ''
+    set.truncated ? ` – ${t('query.truncated', { limit: n(set.rows.length) })}` : ''
   } · ${time}`
 })
 </script>
@@ -402,15 +467,56 @@ const status = computed(() => {
           <span v-else-if="tab.exporting">{{ t('query.exporting') }}</span>
           <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
           <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
-          <span v-if="!busy && !tab.error && resultItems.length > 1" class="ml-auto flex gap-1">
+          <span v-if="showSwitcher" class="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto">
             <UButton
               v-for="item in resultItems"
               :key="item.value"
               :label="item.label"
               size="xs"
               color="neutral"
-              :variant="item.value === tab.resultIndex ? 'soft' : 'ghost'"
-              @click="tab.resultIndex = item.value"
+              :variant="item.value === tab.resultIndex && !viewedPin ? 'soft' : 'ghost'"
+              @click="selectResult(item.value)"
+            />
+            <UFieldGroup v-for="pin in tab.pinned" :key="pin.id" size="xs" class="shrink-0">
+              <UButton
+                icon="i-lucide-pin"
+                :label="pinLabel(pin)"
+                :title="pinLabel(pin)"
+                color="neutral"
+                :variant="pin.id === tab.viewPin ? 'soft' : 'ghost'"
+                class="max-w-52"
+                :ui="{ label: 'truncate' }"
+                @click="tab.viewPin = pin.id"
+              />
+              <UButton
+                icon="i-lucide-x"
+                :title="t('query.closePin')"
+                :aria-label="t('query.closePin')"
+                color="neutral"
+                :variant="pin.id === tab.viewPin ? 'soft' : 'ghost'"
+                @click="closePin(pin.id)"
+              />
+            </UFieldGroup>
+            <UButton
+              v-if="canPin"
+              icon="i-lucide-pin"
+              :label="t('query.pin')"
+              size="xs"
+              color="neutral"
+              variant="outline"
+              class="shrink-0"
+              @click="pinResult"
+            />
+            <UButton
+              v-if="pinView"
+              icon="i-lucide-columns-2"
+              :label="t('query.compare')"
+              size="xs"
+              color="neutral"
+              :variant="tab.compare ? 'soft' : 'outline'"
+              class="shrink-0"
+              :disabled="!currentSet?.columns.length"
+              @click="tab.compare = !tab.compare"
             />
           </span>
           <!-- Pushed to the right edge itself only without result buttons: two auto margins would split the space. -->
@@ -422,7 +528,7 @@ const status = computed(() => {
             icon="i-lucide-search"
             size="xs"
             class="-my-1 w-56 min-w-32"
-            :class="!busy && resultItems.length > 1 ? '' : 'ml-auto'"
+            :class="showSwitcher ? '' : 'ml-auto'"
           >
             <template v-if="filter" #trailing>
               <UButton
@@ -458,12 +564,42 @@ const status = computed(() => {
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
           <pre v-else-if="tab.plan" class="h-full overflow-auto p-3 font-mono text-xs">{{ tab.plan.text }}</pre>
+          <!-- Both grids share the quick filter; the row count in the status is the current result's. -->
+          <SplitterGroup v-else-if="tab.compare && pinView" direction="horizontal" class="h-full">
+            <SplitterPanel :min-size="10" class="overflow-hidden">
+              <LazyResultGrid :key="pinView.id" v-model:filter="filter" :result="pinView.set" />
+            </SplitterPanel>
+            <SplitterResizeHandle
+              class="w-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary"
+            />
+            <SplitterPanel :min-size="10" class="overflow-hidden">
+              <LazyResultGrid
+                v-if="currentSet?.columns.length"
+                ref="grid"
+                :key="tab.resultIndex"
+                v-model:filter="filter"
+                :result="currentSet"
+              />
+            </SplitterPanel>
+          </SplitterGroup>
           <LazyResultGrid
             v-else-if="shown?.columns.length"
             ref="grid"
-            :key="tab.resultIndex"
+            :key="viewedPin?.id ?? tab.resultIndex"
             v-model:filter="filter"
             :result="shown"
+          />
+          <EmptyState
+            v-else-if="!busy && !tab.sql.trim()"
+            :connection-id="tab.connectionId"
+            :database="tab.database"
+            @new-connection="emit('newConnection')"
+            @select="
+              (e) => {
+                tab.sql = e.sql
+                tab.connectionId ??= e.connectionId
+              }
+            "
           />
         </div>
         <div
@@ -500,6 +636,28 @@ const status = computed(() => {
         <div class="flex w-full justify-end gap-2">
           <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
           <UButton :label="t('common.run')" color="error" @click="confirmRun" />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="variablePrompt?.tabId === tab.id"
+      :title="t('query.variablesTitle')"
+      :description="t('query.variablesHint')"
+      :close="false"
+      @update:open="(v) => !v && cancelVariables()"
+    >
+      <template #body>
+        <form id="query-variables" class="flex flex-col gap-3" @submit.prevent="confirmVariables">
+          <UFormField v-for="(_, name) in variablePrompt?.values" :key="name" :label="name">
+            <UInput v-model="variablePrompt!.values[name]" autofocus class="w-full" />
+          </UFormField>
+        </form>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="cancelVariables" />
+          <UButton :label="t('common.run')" type="submit" form="query-variables" />
         </div>
       </template>
     </UModal>

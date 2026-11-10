@@ -30,6 +30,14 @@ const pgCommonJs = {
   },
 }
 
+// `ssh2` loads its native addons (`sshcrypto.node`, `cpu-features`) inside try/catch and falls back to JavaScript;
+// they cannot be bundled, so both resolve to `undefined`, which makes the code in those try blocks throw.
+const ssh2WithoutNative = {
+  name: 'colwerk:ssh2-without-native',
+  resolveId: (id: string) => (/sshcrypto\.node$|^cpu-features$/.test(id) ? '\0ssh2-native' : undefined),
+  load: (id: string) => (id === '\0ssh2-native' ? 'export default undefined' : undefined),
+}
+
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@nuxt/eslint', '@nuxtjs/i18n', '@nuxtjs/mcp-toolkit'],
   $production: {
@@ -44,7 +52,7 @@ export default defineNuxtConfig({
       // `require()` of a module with a default and named exports (e.g. `buffer`, unenv's `debug`) has to return
       // the default export, as in Node; Nitro's 'auto' returns the namespace there.
       commonJS: { requireReturnsDefault: 'preferred' },
-      rollupConfig: { plugins: [pgCommonJs] },
+      rollupConfig: { plugins: [pgCommonJs, ssh2WithoutNative] },
     },
   },
   ssr: false,

@@ -11,11 +11,16 @@ import {
   type Dialect,
   drivers,
   isLakehouse,
+  type SshAuth,
+  sshAuths,
   Workbench,
 } from '#core'
 
 export const store = new ConnectionStore()
-export const workbench = new Workbench((id) => store.get(id))
+export const workbench = new Workbench(
+  (id) => store.get(id),
+  (id, fingerprint) => store.setSshHostKey(id, fingerprint),
+)
 
 /**
  * Maps database errors to 400 with the driver message; everything else stays a 500. Errors of Colwerk
@@ -99,6 +104,28 @@ export function parseConnection(body: unknown): ConnectionInput {
       data: { key: dialect === 'delta' ? 'folderRequired' : 'addressRequired' },
     })
   }
+  const ssh = b.ssh === true && ['postgres', 'mysql', 'mssql', 'clickhouse'].includes(dialect)
+  const sshAuth = ssh ? ((str('sshAuth') as SshAuth | undefined) ?? 'password') : undefined
+  if (sshAuth !== undefined && !sshAuths.includes(sshAuth)) {
+    throw createError({ statusCode: 400, message: 'Invalid SSH login' })
+  }
+  if (ssh && !(str('sshHost') && str('sshUser'))) {
+    throw createError({ statusCode: 400, message: 'SSH host and user are required', data: { key: 'sshRequired' } })
+  }
+  if (sshAuth === 'key' && !str('sshKeyFile')) {
+    throw createError({ statusCode: 400, message: 'Key file is required', data: { key: 'sshKeyRequired' } })
+  }
+  if (ssh && (str('socket') || str('instanceName'))) {
+    throw createError({
+      statusCode: 400,
+      message: 'An SSH tunnel cannot be combined with a socket or named instance',
+      data: { key: 'sshNotCombinable' },
+    })
+  }
+  const sshPort = b.sshPort === undefined || b.sshPort === null || b.sshPort === '' ? undefined : Number(b.sshPort)
+  if (ssh && sshPort !== undefined && !(Number.isInteger(sshPort) && sshPort > 0 && sshPort < 65536)) {
+    throw createError({ statusCode: 400, message: 'Invalid port', data: { key: 'invalidPort' } })
+  }
   const entra = auth?.startsWith('entra-') ?? false
   return {
     id: str('id') ?? crypto.randomUUID(),
@@ -134,6 +161,15 @@ export function parseConnection(body: unknown): ConnectionInput {
     region: dialect === 'unity' ? str('region') : undefined,
     oauthServerUri: auth === 'oauth-client' ? str('oauthServerUri') : undefined,
     oauthScope: auth === 'oauth-client' ? str('oauthScope') : undefined,
+    ssh: ssh || undefined,
+    sshHost: ssh ? str('sshHost') : undefined,
+    sshPort: ssh ? sshPort : undefined,
+    sshUser: ssh ? str('sshUser') : undefined,
+    sshAuth,
+    sshKeyFile: sshAuth === 'key' ? str('sshKeyFile') : undefined,
+    // undefined = keep stored secret, '' = remove it
+    sshSecret: !ssh || sshAuth === 'agent' ? '' : typeof b.sshSecret === 'string' ? b.sshSecret : undefined,
+    sshHostKey: ssh ? str('sshHostKey') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,
   }

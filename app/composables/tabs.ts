@@ -1,10 +1,20 @@
 import type { Ref } from 'vue'
-import type { QueryResult } from '#core'
+import type { QueryResult, ResultSet } from '#core'
 import { invoke } from '@tauri-apps/api/core'
 import { emitTo } from '@tauri-apps/api/event'
 import { getAllWindows, getCurrentWindow } from '@tauri-apps/api/window'
 
 // Editor tabs: each tab owns a dedicated server-side session (keyed by tab id).
+
+/** A result set kept in the tab while new executions replace `result`. In memory only, like `result`. */
+export interface PinnedResult {
+  id: string
+  set: ResultSet
+  /** Script that produced `set`, whose `statement` points into it (for exporting the full result). */
+  source: { connectionId: string; database?: string; sql: string }
+  executedAt: number
+  durationMs: number
+}
 
 export interface QueryTab {
   id: string
@@ -18,14 +28,22 @@ export interface QueryTab {
   rowLimit: number
   /** Seconds after which the server cancels the statement. */
   timeout: number
+  /** Last values entered for the query's `${name}` variables. */
+  variables?: Record<string, string>
   running: boolean
   result?: QueryResult
+  /** When `result` arrived (ms since epoch). */
+  executedAt?: number
   /** Index of the result set shown (scripts can return several). */
   resultIndex: number
+  pinned?: PinnedResult[]
+  /** Pinned result shown instead of `result`, or next to it while `compare` is set. */
+  viewPin?: string
+  compare?: boolean
   /** Connection and script that produced `result` (for exporting the full result of one of its statements). */
   source?: { connectionId: string; database?: string; sql: string }
   /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */
-  plan?: { text: string; durationMs: number }
+  plan?: { text: string; durationMs: number; executedAt: number }
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
@@ -45,7 +63,10 @@ const closingTabs = computed(() => tabs.value.filter((t) => closing.value.includ
 let tabCounter = 0
 
 // Editor content and settings of the open tabs are saved on the server per window (results are not).
-type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'path' | 'rowLimit' | 'timeout'>
+type SavedTab = Pick<
+  QueryTab,
+  'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'path' | 'rowLimit' | 'timeout' | 'variables'
+>
 interface SavedWorkspace {
   tabs: SavedTab[]
   activeTabId?: string
@@ -54,7 +75,7 @@ interface SavedWorkspace {
 export type ReturnedTab = SavedTab & Pick<QueryTab, 'transaction'>
 const returned = (tab: QueryTab): ReturnedTab => ({ ...saved(tab), transaction: tab.transaction })
 
-const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout }: QueryTab): SavedTab => ({
+const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout, variables }: QueryTab): SavedTab => ({
   id,
   title,
   connectionId,
@@ -63,6 +84,7 @@ const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout
   path,
   rowLimit,
   timeout,
+  variables,
 })
 
 const saveWorkspace = (window: string, workspace: SavedWorkspace) =>
@@ -140,6 +162,7 @@ export function useTabs() {
       sql: tab.sql,
       rowLimit: tab.rowLimit,
       timeout: tab.timeout,
+      variables: tab.variables && { ...tab.variables },
     })
   }
 
