@@ -64,6 +64,20 @@ services:
       interval: 2s
       retries: 30
 
+  # SSH server for the tunnel tests; reaches the other services by their service names.
+  openssh:
+    image: linuxserver/openssh-server:latest
+    environment:
+      PASSWORD_ACCESS: 'true'
+      USER_NAME: dbm
+      USER_PASSWORD: dbm
+      PUBLIC_KEY_FILE: /keys/id_ed25519.pub
+    ports: ['127.0.0.1:52222:2222']
+    # The key pair is for the tests only.
+    volumes:
+      - ./docker/ssh/id_ed25519.pub:/keys/id_ed25519.pub:ro
+      - ./docker/ssh/allow-forwarding.sh:/custom-cont-init.d/allow-forwarding.sh:ro
+
   # Iceberg REST catalog for the lakehouse tests. The warehouse is a host directory mounted at the same absolute
   # path, so that the catalog (metadata) and DuckDB in the tests (data files) write to the same files.
   iceberg-rest:

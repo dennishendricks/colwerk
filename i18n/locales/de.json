@@ -224,7 +224,25 @@
     "newShort": "Neu",
     "editShort": "Bearbeiten",
     "none": "Noch keine Verbindung angelegt.",
-    "defaultDatabase": "Standard-Datenbank"
+    "defaultDatabase": "Standard-Datenbank",
+    "sshTunnel": "SSH-Tunnel",
+    "sshTunnelHelp": "Verbindet über einen SSH-Server. Nicht mit Unix-Socket oder benannter Instanz möglich.",
+    "sshHost": "SSH-Host",
+    "sshPort": "SSH-Port",
+    "sshUser": "SSH-Benutzer",
+    "sshAuth": "SSH-Anmeldung",
+    "sshAuths": {
+      "password": "Passwort",
+      "key": "Private-Key-Datei",
+      "agent": "SSH-Agent"
+    },
+    "sshAgentHelp": "Nutzt den Agenten aus SSH_AUTH_SOCK (Windows: den OpenSSH-Agenten).",
+    "sshKeyFile": "Private-Key-Datei",
+    "sshPassphrase": "Passphrase (optional)",
+    "clearSshSecret": "Gespeichertes SSH-Passwort / Passphrase entfernen",
+    "sshHostKey": "Host-Key",
+    "sshHostKeyHelp": "Wird beim ersten Verbinden gespeichert; ein anderer Key wird abgelehnt.",
+    "forgetHostKey": "Host-Key vergessen"
   },
   "colors": {
     "red": "Rot",
@@ -406,6 +424,15 @@
     "clientIdRequired": "Für OAuth2-Client-Credentials eine Client-ID angeben.",
     "addressRequired": "Bitte die Adresse des Katalogs oder Workspace angeben.",
     "folderRequired": "Bitte den Ordner der Delta-Tabellen angeben.",
-    "extensionFailed": "Die DuckDB-Erweiterung {name} konnte nicht geladen werden: {detail}"
+    "extensionFailed": "Die DuckDB-Erweiterung {name} konnte nicht geladen werden: {detail}",
+    "sshAuthFailed": "SSH-Anmeldung fehlgeschlagen: {detail}",
+    "sshUnreachable": "SSH-Server {host}:{port} nicht erreichbar: {detail}",
+    "sshForwardRefused": "Der SSH-Server konnte {host}:{port} nicht erreichen: {detail}",
+    "sshHostKeyChanged": "Der Host-Key des SSH-Servers hat sich geändert (jetzt {fingerprint}, erwartet {expected}). Falls das beabsichtigt ist, den Host-Key in den Verbindungseinstellungen vergessen.",
+    "sshKeyUnreadable": "SSH-Key nicht lesbar: {detail}",
+    "sshNoAgent": "Kein SSH-Agent gefunden: SSH_AUTH_SOCK ist nicht gesetzt.",
+    "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
+    "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
+    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren."
   }
 }

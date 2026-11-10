@@ -43,6 +43,10 @@ export type ConnectionAuth = (typeof connectionAuths)[number]
 export const dateFormats = ['mdy', 'dmy', 'ymd', 'ydm', 'myd', 'dym'] as const
 export type DateFormat = (typeof dateFormats)[number]
 
+/** How the SSH tunnel logs in: `sshSecret` is the password or the passphrase of the key; `agent` uses SSH_AUTH_SOCK. */
+export const sshAuths = ['password', 'key', 'agent'] as const
+export type SshAuth = (typeof sshAuths)[number]
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -101,6 +105,19 @@ export interface ConnectionConfig {
   oauthServerUri?: string
   /** Iceberg `oauth-client`: requested scope, e.g. `PRINCIPAL_ROLE:ALL` (Apache Polaris). */
   oauthScope?: string
+  /** PostgreSQL, MySQL, SQL Server, ClickHouse: reach the server through an SSH tunnel (not with `socket` or `instanceName`). */
+  ssh?: boolean
+  sshHost?: string
+  /** undefined = 22 */
+  sshPort?: number
+  sshUser?: string
+  sshAuth?: SshAuth
+  /** Auth `key`: path to the private key file. */
+  sshKeyFile?: string
+  /** Password (auth `password`) or passphrase of the key (auth `key`); stored like `password`. */
+  sshSecret?: string
+  /** SHA256 fingerprint of the SSH server's host key, recorded on the first connect (trust on first use). */
+  sshHostKey?: string
   /** Marks the connection in the UI (connection list, tabs, query toolbar). */
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */
