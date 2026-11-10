@@ -233,6 +233,13 @@
     "blue": "Blau",
     "purple": "Lila"
   },
+  "empty": {
+    "hint": "Schreibe oben eine Abfrage oder starte hier.",
+    "noConnection": "Lege eine Verbindung an, um loszulegen.",
+    "newConnection": "Neue Verbindung",
+    "openFile": "Datei öffnen …",
+    "recent": "Letzte Abfragen"
+  },
   "history": {
     "title": "Verlauf",
     "description": "Die letzten 50 ausgeführten Abfragen. Ein Klick öffnet die Abfrage in einem neuen Tab.",

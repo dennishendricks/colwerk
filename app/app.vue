@@ -435,7 +435,13 @@ useApplicationMenu({
         </div>
         <div class="min-h-0 flex-1">
           <!-- v-show keeps each tab's editor state alive while switching. -->
-          <QueryPanel v-for="tab in tabs" v-show="tab.id === activeTabId" :key="tab.id" :tab="tab" />
+          <QueryPanel
+            v-for="tab in tabs"
+            v-show="tab.id === activeTabId"
+            :key="tab.id"
+            :tab="tab"
+            @new-connection="openModal()"
+          />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
             <UButton
               icon="i-lucide-plus"

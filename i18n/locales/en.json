@@ -233,6 +233,13 @@
     "blue": "Blue",
     "purple": "Purple"
   },
+  "empty": {
+    "hint": "Write a query above, or start here.",
+    "noConnection": "Create a connection to get started.",
+    "newConnection": "New connection",
+    "openFile": "Open file …",
+    "recent": "Recent queries"
+  },
   "history": {
     "title": "History",
     "description": "The last 50 executed queries. A click opens the query in a new tab.",
