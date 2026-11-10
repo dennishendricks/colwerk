@@ -51,7 +51,7 @@ services:
     restart: 'no'
 
   clickhouse:
-    image: clickhouse/clickhouse-server:25.8
+    image: clickhouse/clickhouse-server:26.10
     environment:
       CLICKHOUSE_USER: dbm
       CLICKHOUSE_PASSWORD: dbm
