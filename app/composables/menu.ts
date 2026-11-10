@@ -15,7 +15,8 @@ interface MenuViewActions {
 // Native application menu (desktop app). On macOS the page sees each key first: a shortcut it handles calls
 // preventDefault, which keeps the menu item with the same accelerator from firing as well. On Windows and Linux
 // the menu takes its accelerators before the page; both run the same handler. ⌘↵ and ⇧⌘[ / ⇧⌘] stay with the
-// page, which treats them differently depending on the focus. ⌘= (zoom in) is only handled by the page.
+// page, which treats them differently depending on the focus. ⌘+ (zoom in) is only handled by the page: menu
+// accelerators name a physical key, and there is no key for +, so the menu shows ⌘=.
 // The platform's own items (roles) are only used on macOS, where Tauri implements all of them.
 export function useApplicationMenu(view: MenuViewActions) {
   const { activeConnection, activeConnectionId, activeDatabase, driverOf } = useConnections()
@@ -101,7 +102,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         ),
         ...roles('Fullscreen'),
         'separator',
-        item(t('menu.zoomIn'), 'zoom-in', true, 'CmdOrCtrl+Plus'),
+        item(t('menu.zoomIn'), 'zoom-in', true, 'CmdOrCtrl+='),
         item(t('menu.zoomOut'), 'zoom-out', true, 'CmdOrCtrl+-'),
         item(t('menu.actualSize'), 'actual-size', true, 'CmdOrCtrl+0'),
         'separator',
