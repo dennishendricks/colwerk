@@ -18,6 +18,8 @@ export interface QueryTab {
   rowLimit: number
   /** Seconds after which the server cancels the statement. */
   timeout: number
+  /** Last values entered for the query's `${name}` variables. */
+  variables?: Record<string, string>
   running: boolean
   result?: QueryResult
   /** Index of the result set shown (scripts can return several). */
@@ -45,7 +47,10 @@ const closingTabs = computed(() => tabs.value.filter((t) => closing.value.includ
 let tabCounter = 0
 
 // Editor content and settings of the open tabs are saved on the server per window (results are not).
-type SavedTab = Pick<QueryTab, 'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'path' | 'rowLimit' | 'timeout'>
+type SavedTab = Pick<
+  QueryTab,
+  'id' | 'title' | 'connectionId' | 'database' | 'sql' | 'path' | 'rowLimit' | 'timeout' | 'variables'
+>
 interface SavedWorkspace {
   tabs: SavedTab[]
   activeTabId?: string
@@ -54,7 +59,7 @@ interface SavedWorkspace {
 export type ReturnedTab = SavedTab & Pick<QueryTab, 'transaction'>
 const returned = (tab: QueryTab): ReturnedTab => ({ ...saved(tab), transaction: tab.transaction })
 
-const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout }: QueryTab): SavedTab => ({
+const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout, variables }: QueryTab): SavedTab => ({
   id,
   title,
   connectionId,
@@ -63,6 +68,7 @@ const saved = ({ id, title, connectionId, database, sql, path, rowLimit, timeout
   path,
   rowLimit,
   timeout,
+  variables,
 })
 
 const saveWorkspace = (window: string, workspace: SavedWorkspace) =>
@@ -140,6 +146,7 @@ export function useTabs() {
       sql: tab.sql,
       rowLimit: tab.rowLimit,
       timeout: tab.timeout,
+      variables: tab.variables && { ...tab.variables },
     })
   }
 

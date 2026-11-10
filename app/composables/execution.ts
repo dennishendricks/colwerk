@@ -3,14 +3,56 @@ import type { QueryTab } from './tabs'
 
 // Running statements in a tab's server-side session.
 
+/** Open variables dialog (rendered by the tab's QueryPanel): resolves with the entered values, `undefined` if cancelled. */
+export const variablePrompt = ref<{
+  tabId: string
+  names: string[]
+  values: Record<string, string>
+  done: (values?: Record<string, string>) => void
+}>()
+
 const openTransaction = (state?: TransactionState) => (state === 'idle' ? undefined : state)
 
 export function useExecution() {
   const { t } = useNuxtApp().$i18n
+  const { driverOf } = useConnections()
 
-  /** `from`: document offset where `sql` starts in the editor, to place the error position. */
-  async function run(tab: QueryTab, sql: string, from = 0) {
+  /**
+   * Asks for the values of the `${name}` variables in `sql` (prefilled from the tab's last ones) and substitutes them.
+   * `offset` maps a position in the substituted SQL back to `sql`; `undefined` result: cancelled.
+   */
+  async function withVariables(tab: QueryTab, sql: string) {
+    const dialect = driverOf(tab.connectionId)?.dialect
+    const uses = dialect ? findVariables(sql, sqlDialect(dialect)) : []
+    if (!uses.length) return { sql, offset: (position: number) => position }
+    const names = variableNames(uses)
+    const values = await new Promise<Record<string, string> | undefined>((done) => {
+      variablePrompt.value = {
+        tabId: tab.id,
+        names,
+        values: Object.fromEntries(names.map((n) => [n, tab.variables?.[n] ?? ''])),
+        done,
+      }
+    })
+    if (!values) return undefined
+    tab.variables = { ...tab.variables, ...values }
+    return {
+      sql: substituteVariables(sql, uses, values),
+      offset: (position: number) => originalOffset(uses, values, position),
+    }
+  }
+
+  /**
+   * `from`: document offset where `sql` starts in the editor, to place the error position.
+   * `offset`: `sql` is already substituted (see `withVariables`) and `offset` maps its positions back.
+   */
+  async function run(tab: QueryTab, sql: string, from = 0, offset?: (position: number) => number) {
     if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
+    if (!offset) {
+      const substituted = await withVariables(tab, sql)
+      if (!substituted) return
+      ;({ sql, offset } = substituted)
+    }
     tab.running = true
     tab.error = undefined
     tab.errorAt = undefined
@@ -37,7 +79,7 @@ export function useExecution() {
       tab.result = undefined
       tab.error = errorMessage(e)
       const position = (e as { data?: { data?: { position?: number } } }).data?.data?.position
-      if (position !== undefined) tab.errorAt = from + position
+      if (position !== undefined) tab.errorAt = from + offset(position)
       // A failed statement can leave the transaction open; the server sends the state along with the error.
       tab.transaction = openTransaction(
         (e as { data?: { data?: { transaction?: TransactionState } } }).data?.data?.transaction,
@@ -50,6 +92,8 @@ export function useExecution() {
   /** `analyze` executes the statement; the server only accepts it for read-only statements. */
   async function explain(tab: QueryTab, sql: string, analyze = false) {
     if (!tab.connectionId || !sql.trim() || tab.running || tab.exporting) return
+    sql = (await withVariables(tab, sql))?.sql ?? ''
+    if (!sql) return
     tab.running = true
     tab.error = undefined
     tab.errorAt = undefined
@@ -110,5 +154,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, cancel, exportResult }
+  return { run, explain, withVariables, cancel, exportResult }
 }

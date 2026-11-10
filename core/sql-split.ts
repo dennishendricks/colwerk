@@ -152,7 +152,7 @@ export function mysqlServerScript(sql: string): string {
 const IDENT = /[\p{L}\p{N}_$]/u
 
 /** End of the string, quoted identifier or comment starting at `i`; undefined if none starts there. */
-function literalEnd(sql: string, dialect: SplitDialect, i: number): number | undefined {
+export function literalEnd(sql: string, dialect: SplitDialect, i: number): number | undefined {
   const n = sql.length
   const ch = sql[i]!
   const next = sql[i + 1]

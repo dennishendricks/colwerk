@@ -8,7 +8,7 @@ const props = defineProps<{ tab: QueryTab }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, cancel, exportResult } = useExecution()
+const { run, explain, withVariables, cancel, exportResult } = useExecution()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 
@@ -62,17 +62,32 @@ async function preloadColumns() {
 }
 
 // SQL that waits for confirmation because the connection asks before writes.
-const pending = ref<{ sql: string; from: number }>()
+const pending = ref<{ sql: string; from: number; offset: (position: number) => number }>()
 
-function execute() {
+// Variables first, so the write check sees the SQL that will run.
+async function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (connection.value?.confirmWrites && mayWrite(runnable.sql, sqlDialect(connection.value.dialect))) {
-    pending.value = runnable
-  } else run(props.tab, runnable.sql, runnable.from)
+  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting) return
+  const substituted = await withVariables(props.tab, runnable.sql)
+  if (!substituted) return
+  const next = { ...substituted, from: runnable.from }
+  if (connection.value?.confirmWrites && mayWrite(next.sql, sqlDialect(connection.value.dialect))) {
+    pending.value = next
+  } else run(props.tab, next.sql, next.from, next.offset)
+}
+
+function confirmVariables() {
+  variablePrompt.value?.done({ ...variablePrompt.value.values })
+  variablePrompt.value = undefined
+}
+
+function cancelVariables() {
+  variablePrompt.value?.done()
+  variablePrompt.value = undefined
 }
 
 function confirmRun() {
-  if (pending.value) run(props.tab, pending.value.sql, pending.value.from)
+  if (pending.value) run(props.tab, pending.value.sql, pending.value.from, pending.value.offset)
   pending.value = undefined
 }
 
@@ -500,6 +515,28 @@ const status = computed(() => {
         <div class="flex w-full justify-end gap-2">
           <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
           <UButton :label="t('common.run')" color="error" @click="confirmRun" />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="variablePrompt?.tabId === tab.id"
+      :title="t('query.variablesTitle')"
+      :description="t('query.variablesHint')"
+      :close="false"
+      @update:open="(v) => !v && cancelVariables()"
+    >
+      <template #body>
+        <form id="query-variables" class="flex flex-col gap-3" @submit.prevent="confirmVariables">
+          <UFormField v-for="(_, name) in variablePrompt?.values" :key="name" :label="name">
+            <UInput v-model="variablePrompt!.values[name]" autofocus class="w-full" />
+          </UFormField>
+        </form>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="cancelVariables" />
+          <UButton :label="t('common.run')" type="submit" form="query-variables" />
         </div>
       </template>
     </UModal>
