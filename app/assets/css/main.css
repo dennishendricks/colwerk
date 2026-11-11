@@ -26,10 +26,14 @@ body,
 /* Nuxt UI's dimmed text (neutral-400 light, neutral-500 dark) stays below WCAG AA (4.5:1); it matches muted instead. */
 :root {
   --ui-text-dimmed: var(--ui-color-neutral-500);
+  /* red-500 reaches only 3.8:1 on white; red-700 keeps 4.5:1 on the subtle alert background, too. */
+  --ui-error: var(--ui-color-error-700);
 }
 
 .dark {
   --ui-text-dimmed: var(--ui-color-neutral-400);
+  /* Nuxt UI's dark value; the unlayered light value above would override it. */
+  --ui-error: var(--ui-color-error-400);
 }
 
 :root {
