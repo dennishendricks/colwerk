@@ -51,3 +51,10 @@ body,
   --sql-comment: #a1a1aa;
   --sql-type: #7dd3fc;
 }
+
+/* Also covers the loading icons inside Nuxt UI components; running states are shown as text as well. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
+  }
+}
