@@ -465,11 +465,14 @@ const status = computed(() => {
 
       <SplitterPanel :min-size="15" class="flex flex-col">
         <div class="flex items-center gap-2 border-b border-default px-3 py-1.5 text-xs text-muted">
-          <UIcon v-if="busy" name="i-lucide-loader-circle" class="animate-spin" />
-          <span v-if="tab.running">{{ t('query.running') }}</span>
-          <span v-else-if="tab.exporting">{{ t('query.exporting') }}</span>
-          <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
-          <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
+          <!-- Announced by screen readers, so running a query (⌘Enter) gets feedback without looking. -->
+          <span role="status" class="flex min-w-0 items-center gap-2">
+            <UIcon v-if="busy" name="i-lucide-loader-circle" class="animate-spin" />
+            <span v-if="tab.running">{{ t('query.running') }}</span>
+            <span v-else-if="tab.exporting">{{ t('query.exporting') }}</span>
+            <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
+            <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
+          </span>
           <span v-if="showSwitcher" class="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto">
             <UButton
               v-for="item in resultItems"
@@ -565,6 +568,7 @@ const status = computed(() => {
         <div class="min-h-0 flex-1 overflow-hidden outline-none" tabindex="-1" @keydown="onResultKeydown">
           <UAlert
             v-if="tab.error"
+            role="alert"
             color="error"
             variant="subtle"
             icon="i-lucide-circle-alert"
