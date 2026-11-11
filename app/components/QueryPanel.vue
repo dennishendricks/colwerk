@@ -478,6 +478,7 @@ const status = computed(() => {
               size="xs"
               color="neutral"
               :variant="item.value === tab.resultIndex && !viewedPin ? 'soft' : 'ghost'"
+              :aria-pressed="item.value === tab.resultIndex && !viewedPin"
               @click="selectResult(item.value)"
             />
             <UFieldGroup v-for="pin in tab.pinned" :key="pin.id" size="xs" class="shrink-0">
@@ -487,6 +488,7 @@ const status = computed(() => {
                 :title="pinLabel(pin)"
                 color="neutral"
                 :variant="pin.id === tab.viewPin ? 'soft' : 'ghost'"
+                :aria-pressed="pin.id === tab.viewPin"
                 class="max-w-52"
                 :ui="{ label: 'truncate' }"
                 @click="tab.viewPin = pin.id"
@@ -517,6 +519,7 @@ const status = computed(() => {
               size="xs"
               color="neutral"
               :variant="tab.compare ? 'soft' : 'outline'"
+              :aria-pressed="!!tab.compare"
               class="shrink-0"
               :disabled="!currentSet?.columns.length"
               @click="tab.compare = !tab.compare"
