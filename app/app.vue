@@ -233,7 +233,7 @@ defineShortcuts({
 // which defineShortcuts matches on.
 const { macOS } = useKbd()
 const { size, zoomIn, zoomOut, resetZoom } = useZoom()
-useHead({ htmlAttrs: { style: computed(() => `--font-size: ${size.value}px`) } })
+useHead({ htmlAttrs: { lang: locale, style: computed(() => `--font-size: ${size.value}px`) } })
 function onKeydown(e: KeyboardEvent) {
   // By character, since + and = sit on different keys per layout; ⌘= is zooming in without shift.
   const zoom = { '+': zoomIn, '=': zoomIn, '-': zoomOut, '0': resetZoom }[e.key]
