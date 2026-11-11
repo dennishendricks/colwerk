@@ -192,7 +192,11 @@ function languageExtension() {
 }
 
 function localizationExtension() {
-  return [EditorState.phrases.of(PHRASES[locale.value] ?? {}), placeholder(t('editor.placeholder'))]
+  return [
+    EditorState.phrases.of(PHRASES[locale.value] ?? {}),
+    placeholder(t('editor.placeholder')),
+    EditorView.contentAttributes.of({ 'aria-label': t('editor.label') }),
+  ]
 }
 
 onMounted(() => {

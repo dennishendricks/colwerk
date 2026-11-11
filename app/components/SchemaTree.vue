@@ -303,6 +303,7 @@ function fkTitle(c: ColumnInfo) {
       ref="searchInput"
       v-model="search"
       :placeholder="t('schema.search')"
+      :aria-label="t('schema.search')"
       icon="i-lucide-search"
       size="xs"
       class="w-full px-2 pb-1"

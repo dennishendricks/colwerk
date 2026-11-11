@@ -390,6 +390,7 @@ function renderCell(value: CellValue) {
         v-if="filtering"
         :model-value="String(filtering.column.getFilterValue() ?? '')"
         :placeholder="t('grid.columnContains')"
+        :aria-label="t('grid.columnContains')"
         icon="i-lucide-filter"
         size="xs"
         class="m-2 w-56"

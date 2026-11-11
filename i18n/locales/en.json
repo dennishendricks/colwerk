@@ -334,6 +334,7 @@
     "plan": "Execution plan",
     "filteredOf": "{filtered} of {rows}",
     "truncated": "truncated to limit {limit}",
+    "connection": "Connection",
     "moreOptions": "More options",
     "format": "Format",
     "limit": "Limit",
@@ -344,6 +345,8 @@
     "filter": "Filter result …",
     "clearFilter": "Clear filter",
     "export": "Export",
+    "exportFormat": "Export format",
+    "exportScope": "Export scope",
     "saveAs": "Save as …",
     "confirmWriteTitle": "Run writing statement?",
     "confirmWriteDescription": "The query may change data or structures in “{connection}”.",
@@ -396,6 +399,7 @@
     "function": "Function"
   },
   "editor": {
+    "label": "SQL editor",
     "placeholder": "Enter SQL … (⌘/Ctrl + Enter runs)"
   },
   "dialog": {

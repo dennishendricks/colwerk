@@ -334,6 +334,7 @@
     "plan": "Ausführungsplan",
     "filteredOf": "{filtered} von {rows}",
     "truncated": "auf Limit {limit} gekürzt",
+    "connection": "Verbindung",
     "moreOptions": "Weitere Optionen",
     "format": "Formatieren",
     "limit": "Limit",
@@ -344,6 +345,8 @@
     "filter": "Ergebnis filtern …",
     "clearFilter": "Filter leeren",
     "export": "Export",
+    "exportFormat": "Exportformat",
+    "exportScope": "Exportumfang",
     "saveAs": "Speichern unter …",
     "confirmWriteTitle": "Schreibende Anweisung ausführen?",
     "confirmWriteDescription": "Die Abfrage kann Daten oder Strukturen in „{connection}“ ändern.",
@@ -396,6 +399,7 @@
     "function": "Funktion"
   },
   "editor": {
+    "label": "SQL-Editor",
     "placeholder": "SQL eingeben … (⌘/Strg + Enter führt aus)"
   },
   "dialog": {

@@ -74,6 +74,7 @@ async function clear() {
             v-model="search"
             icon="i-lucide-search"
             :placeholder="t('history.search')"
+            :aria-label="t('history.search')"
             class="flex-1"
             autocorrect="off"
             autocapitalize="off"
