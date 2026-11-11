@@ -91,6 +91,9 @@ if (mode === 'desktop') {
       resources: { '../LICENSE': 'LICENSE', '../.output/THIRD_PARTY_LICENSES.txt': 'THIRD_PARTY_LICENSES.txt' },
     },
   }
+  // With CI=true, tauri-bundler skips the Finder AppleScript that lays out the DMG window, which fails on macOS 27
+  // ("Can't set statusbar visible", -10006). The DMG works the same, only without the custom window layout.
+  if (os === 'darwin') process.env.CI = 'true'
   // Cargo builds the shell exactly from Cargo.lock.
   await exec([
     process.execPath,

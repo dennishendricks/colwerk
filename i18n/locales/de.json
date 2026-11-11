@@ -25,6 +25,7 @@
     "hideSidebar": "Seitenleiste ausblenden (⌘B)",
     "closeTab": "Tab schließen",
     "newTab": "Neuer Tab",
+    "tabs": "Abfrage-Tabs",
     "history": "Verlauf",
     "setupMcp": "MCP einrichten",
     "systemDesign": "System-Design",
@@ -307,6 +308,9 @@
     "zoom": "Vergrößern, verkleinern, Originalgröße",
     "previousTab": "Zum vorherigen Tab wechseln",
     "nextTab": "Zum nächsten Tab wechseln",
+    "focusedTabSwitch": "Zum vorherigen/nächsten Tab wechseln (in der Tab-Leiste)",
+    "focusedTabRename": "Tab umbenennen (in der Tab-Leiste)",
+    "focusedTabClose": "Tab schließen (in der Tab-Leiste)",
     "run": "Abfrage ausführen (im Editor)",
     "format": "SQL formatieren",
     "search": "Suchen (in Editor, Ergebnis oder Schema)",
@@ -334,6 +338,7 @@
     "plan": "Ausführungsplan",
     "filteredOf": "{filtered} von {rows}",
     "truncated": "auf Limit {limit} gekürzt",
+    "connection": "Verbindung",
     "moreOptions": "Weitere Optionen",
     "format": "Formatieren",
     "limit": "Limit",
@@ -344,6 +349,8 @@
     "filter": "Ergebnis filtern …",
     "clearFilter": "Filter leeren",
     "export": "Export",
+    "exportFormat": "Exportformat",
+    "exportScope": "Exportumfang",
     "saveAs": "Speichern unter …",
     "confirmWriteTitle": "Schreibende Anweisung ausführen?",
     "confirmWriteDescription": "Die Abfrage kann Daten oder Strukturen in „{connection}“ ändern.",
@@ -396,6 +403,7 @@
     "function": "Funktion"
   },
   "editor": {
+    "label": "SQL-Editor",
     "placeholder": "SQL eingeben … (⌘/Strg + Enter führt aus)"
   },
   "dialog": {

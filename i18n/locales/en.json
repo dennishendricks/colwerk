@@ -25,6 +25,7 @@
     "hideSidebar": "Hide sidebar (⌘B)",
     "closeTab": "Close tab",
     "newTab": "New tab",
+    "tabs": "Query tabs",
     "history": "History",
     "setupMcp": "Set up MCP",
     "systemDesign": "System appearance",
@@ -307,6 +308,9 @@
     "zoom": "Zoom in, zoom out, actual size",
     "previousTab": "Switch to previous tab",
     "nextTab": "Switch to next tab",
+    "focusedTabSwitch": "Switch to previous/next tab (in the tab bar)",
+    "focusedTabRename": "Rename tab (in the tab bar)",
+    "focusedTabClose": "Close tab (in the tab bar)",
     "run": "Run query (in the editor)",
     "format": "Format SQL",
     "search": "Search (in editor, result or schema)",
@@ -334,6 +338,7 @@
     "plan": "Execution plan",
     "filteredOf": "{filtered} of {rows}",
     "truncated": "truncated to limit {limit}",
+    "connection": "Connection",
     "moreOptions": "More options",
     "format": "Format",
     "limit": "Limit",
@@ -344,6 +349,8 @@
     "filter": "Filter result …",
     "clearFilter": "Clear filter",
     "export": "Export",
+    "exportFormat": "Export format",
+    "exportScope": "Export scope",
     "saveAs": "Save as …",
     "confirmWriteTitle": "Run writing statement?",
     "confirmWriteDescription": "The query may change data or structures in “{connection}”.",
@@ -396,6 +403,7 @@
     "function": "Function"
   },
   "editor": {
+    "label": "SQL editor",
     "placeholder": "Enter SQL … (⌘/Ctrl + Enter runs)"
   },
   "dialog": {

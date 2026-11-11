@@ -78,7 +78,9 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
           <template v-for="g in groups" :key="g.folder ?? ''">
             <button
               v-if="g.folder"
+              type="button"
               class="flex w-full items-center gap-1 rounded px-2 py-1 text-left hover:bg-elevated/60"
+              :aria-expanded="!collapsed.has(g.folder)"
               @click="toggle(g.folder)"
             >
               <UIcon
@@ -96,21 +98,26 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
               <div
                 v-for="c in g.items"
                 :key="c.id"
-                class="group flex cursor-pointer items-center gap-2 rounded py-1 pr-2"
-                :class="[
-                  g.folder ? 'pl-8' : 'pl-2',
-                  c.id === activeConnectionId ? 'bg-elevated font-medium' : 'hover:bg-elevated/60',
-                ]"
-                @click="select(c.id)"
+                class="group flex items-center gap-2 rounded pr-2"
+                :class="c.id === activeConnectionId ? 'bg-elevated font-medium' : 'hover:bg-elevated/60'"
               >
-                <UIcon :name="dialectIcon(c.id)" class="size-4 shrink-0 text-muted" />
-                <span class="truncate">{{ c.name }}</span>
-                <span
-                  v-if="c.color"
-                  class="size-2 shrink-0 rounded-full"
-                  :class="connectionColorClasses[c.color].bg"
-                  :title="t(`colors.${c.color}`)"
-                />
+                <!-- The whole row stays clickable; the edit button sits next to it, as buttons cannot be nested. -->
+                <button
+                  type="button"
+                  class="flex min-w-0 flex-1 items-center gap-2 rounded py-1 text-left"
+                  :class="g.folder ? 'pl-8' : 'pl-2'"
+                  :aria-current="c.id === activeConnectionId || undefined"
+                  @click="select(c.id)"
+                >
+                  <UIcon :name="dialectIcon(c.id)" class="size-4 shrink-0 text-muted" />
+                  <span class="truncate">{{ c.name }}</span>
+                  <span
+                    v-if="c.color"
+                    class="size-2 shrink-0 rounded-full"
+                    :class="connectionColorClasses[c.color].bg"
+                    :title="t(`colors.${c.color}`)"
+                  />
+                </button>
                 <UButton
                   icon="i-lucide-pencil"
                   size="xs"
@@ -118,6 +125,7 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
                   color="neutral"
                   class="ml-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                   :title="t('connection.editShort')"
+                  :aria-label="`${t('connection.editShort')}: ${c.name}`"
                   @click.stop="edit(c)"
                 />
               </div>

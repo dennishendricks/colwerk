@@ -342,6 +342,7 @@ const status = computed(() => {
         :model-value="tab.connectionId"
         :items="connectionItems"
         :placeholder="t('common.selectConnection')"
+        :aria-label="t('query.connection')"
         icon="i-lucide-database"
         size="sm"
         class="min-w-32 max-w-56 flex-1"
@@ -425,6 +426,7 @@ const status = computed(() => {
         <span>{{ t('query.limit') }}</span>
         <UInputNumber
           v-model="tab.rowLimit"
+          :aria-label="t('query.limit')"
           :min="1"
           :max="100000"
           :step="100"
@@ -435,6 +437,7 @@ const status = computed(() => {
         <span>{{ t('query.timeout') }}</span>
         <UInputNumber
           v-model="tab.timeout"
+          :aria-label="t('query.timeout')"
           :min="1"
           :max="86400"
           :step="10"
@@ -462,11 +465,14 @@ const status = computed(() => {
 
       <SplitterPanel :min-size="15" class="flex flex-col">
         <div class="flex items-center gap-2 border-b border-default px-3 py-1.5 text-xs text-muted">
-          <UIcon v-if="busy" name="i-lucide-loader-circle" class="animate-spin" />
-          <span v-if="tab.running">{{ t('query.running') }}</span>
-          <span v-else-if="tab.exporting">{{ t('query.exporting') }}</span>
-          <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
-          <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
+          <!-- Announced by screen readers, so running a query (⌘Enter) gets feedback without looking. -->
+          <span role="status" class="flex min-w-0 items-center gap-2">
+            <UIcon v-if="busy" name="i-lucide-loader-circle" class="animate-spin" />
+            <span v-if="tab.running">{{ t('query.running') }}</span>
+            <span v-else-if="tab.exporting">{{ t('query.exporting') }}</span>
+            <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
+            <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
+          </span>
           <span v-if="showSwitcher" class="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto">
             <UButton
               v-for="item in resultItems"
@@ -475,6 +481,7 @@ const status = computed(() => {
               size="xs"
               color="neutral"
               :variant="item.value === tab.resultIndex && !viewedPin ? 'soft' : 'ghost'"
+              :aria-pressed="item.value === tab.resultIndex && !viewedPin"
               @click="selectResult(item.value)"
             />
             <UFieldGroup v-for="pin in tab.pinned" :key="pin.id" size="xs" class="shrink-0">
@@ -484,6 +491,7 @@ const status = computed(() => {
                 :title="pinLabel(pin)"
                 color="neutral"
                 :variant="pin.id === tab.viewPin ? 'soft' : 'ghost'"
+                :aria-pressed="pin.id === tab.viewPin"
                 class="max-w-52"
                 :ui="{ label: 'truncate' }"
                 @click="tab.viewPin = pin.id"
@@ -514,6 +522,7 @@ const status = computed(() => {
               size="xs"
               color="neutral"
               :variant="tab.compare ? 'soft' : 'outline'"
+              :aria-pressed="!!tab.compare"
               class="shrink-0"
               :disabled="!currentSet?.columns.length"
               @click="tab.compare = !tab.compare"
@@ -525,6 +534,7 @@ const status = computed(() => {
             ref="filterInput"
             v-model="filter"
             :placeholder="t('query.filter')"
+            :aria-label="t('query.filter')"
             icon="i-lucide-search"
             size="xs"
             class="-my-1 w-56 min-w-32"
@@ -538,6 +548,7 @@ const status = computed(() => {
                 size="xs"
                 class="-me-1"
                 :title="t('query.clearFilter')"
+                :aria-label="t('query.clearFilter')"
                 @click="filter = ''"
               />
             </template>
@@ -557,6 +568,7 @@ const status = computed(() => {
         <div class="min-h-0 flex-1 overflow-hidden outline-none" tabindex="-1" @keydown="onResultKeydown">
           <UAlert
             v-if="tab.error"
+            role="alert"
             color="error"
             variant="subtle"
             icon="i-lucide-circle-alert"
@@ -607,8 +619,21 @@ const status = computed(() => {
           class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted"
         >
           <span>{{ t('query.export') }}</span>
-          <USelect v-model="exportFormat" :items="formatItems" size="xs" class="w-28" />
-          <USelect v-if="shown.truncated" v-model="exportScope" :items="scopeItems" size="xs" class="w-72" />
+          <USelect
+            v-model="exportFormat"
+            :items="formatItems"
+            :aria-label="t('query.exportFormat')"
+            size="xs"
+            class="w-28"
+          />
+          <USelect
+            v-if="shown.truncated"
+            v-model="exportScope"
+            :items="scopeItems"
+            :aria-label="t('query.exportScope')"
+            size="xs"
+            class="w-72"
+          />
           <UButton
             icon="i-lucide-download"
             size="xs"

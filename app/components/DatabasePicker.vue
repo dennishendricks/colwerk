@@ -35,6 +35,7 @@ const selected = computed({
     :items="items"
     :loading="s?.loading.databases"
     :placeholder="$t('connection.defaultDatabase')"
+    :aria-label="$t('connection.database')"
     icon="i-lucide-database"
     class="w-full"
     @update:open="(open) => open && loadDatabases(connection!.id, true)"

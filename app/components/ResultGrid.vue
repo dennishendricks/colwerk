@@ -132,6 +132,7 @@ const columns = computed<TableColumn<Row>[]>(() => [
             size: 'xs',
             class: '-my-1',
             title: t('grid.toggleColumns'),
+            'aria-label': t('grid.toggleColumns'),
           }),
       ),
     cell: ({ row }) => h('span', { class: 'text-dimmed' }, row.original.index + 1),
@@ -390,6 +391,7 @@ function renderCell(value: CellValue) {
         v-if="filtering"
         :model-value="String(filtering.column.getFilterValue() ?? '')"
         :placeholder="t('grid.columnContains')"
+        :aria-label="t('grid.columnContains')"
         icon="i-lucide-filter"
         size="xs"
         class="m-2 w-56"
