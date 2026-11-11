@@ -118,6 +118,7 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
                   color="neutral"
                   class="ml-auto opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                   :title="t('connection.editShort')"
+                  :aria-label="t('connection.editShort')"
                   @click.stop="edit(c)"
                 />
               </div>

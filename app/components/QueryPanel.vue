@@ -542,6 +542,7 @@ const status = computed(() => {
                 size="xs"
                 class="-me-1"
                 :title="t('query.clearFilter')"
+                :aria-label="t('query.clearFilter')"
                 @click="filter = ''"
               />
             </template>

@@ -134,6 +134,9 @@ const toggleSidebar = () => (sidebar.value?.isCollapsed ? sidebar.value.expand()
 // so it no longer differs from the system once the system setting changes.
 const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value === 'dark')
+const colorModeLabel = computed(() =>
+  colorMode.preference !== 'system' ? t('app.systemDesign') : isDark.value ? t('app.lightDesign') : t('app.darkDesign'),
+)
 // The native title bar follows the chosen mode; without one (null) it follows the system, like the page.
 watch(
   () => colorMode.preference,
@@ -296,6 +299,7 @@ useApplicationMenu({
               variant="outline"
               :loading="togglingConnection"
               :title="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
+              :aria-label="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               @click="toggleConnection()"
             />
           </div>
@@ -336,6 +340,7 @@ useApplicationMenu({
             color="neutral"
             class="shrink-0"
             :title="sidebar?.isCollapsed ? t('app.showSidebar') : t('app.hideSidebar')"
+            :aria-label="sidebar?.isCollapsed ? t('app.showSidebar') : t('app.hideSidebar')"
             @click="toggleSidebar"
           />
           <div
@@ -386,6 +391,7 @@ useApplicationMenu({
               color="neutral"
               class="p-0"
               :title="t('app.closeTab')"
+              :aria-label="t('app.closeTab')"
               @click.stop="requestClose(tab)"
             />
           </div>
@@ -395,6 +401,7 @@ useApplicationMenu({
             variant="ghost"
             color="neutral"
             :title="t('app.newTab')"
+            :aria-label="t('app.newTab')"
             @click="addTab(activeConnectionId, activeDatabase)"
           />
           <UButton
@@ -404,6 +411,7 @@ useApplicationMenu({
             color="neutral"
             class="ml-auto"
             :title="t('app.history')"
+            :aria-label="t('app.history')"
             @click="historyOpen = true"
           />
           <!-- In the desktop app it is in the application menu. -->
@@ -414,6 +422,7 @@ useApplicationMenu({
             variant="ghost"
             color="neutral"
             :title="t('app.setupMcp')"
+            :aria-label="t('app.setupMcp')"
             @click="mcpOpen = true"
           />
           <UButton
@@ -421,13 +430,8 @@ useApplicationMenu({
             size="xs"
             variant="ghost"
             color="neutral"
-            :title="
-              colorMode.preference !== 'system'
-                ? t('app.systemDesign')
-                : isDark
-                  ? t('app.lightDesign')
-                  : t('app.darkDesign')
-            "
+            :title="colorModeLabel"
+            :aria-label="colorModeLabel"
             @click="colorMode.preference = colorMode.preference !== 'system' ? 'system' : isDark ? 'light' : 'dark'"
           />
           <UButton
@@ -436,6 +440,7 @@ useApplicationMenu({
             variant="ghost"
             color="neutral"
             :title="t('app.shortcuts')"
+            :aria-label="t('app.shortcuts')"
             @click="shortcutsOpen = true"
           />
           <!-- In the desktop app it is in the application menu. -->
@@ -446,6 +451,7 @@ useApplicationMenu({
             variant="ghost"
             color="neutral"
             :title="t('app.about')"
+            :aria-label="t('app.about')"
             @click="aboutOpen = true"
           />
         </div>

@@ -132,6 +132,7 @@ const columns = computed<TableColumn<Row>[]>(() => [
             size: 'xs',
             class: '-my-1',
             title: t('grid.toggleColumns'),
+            'aria-label': t('grid.toggleColumns'),
           }),
       ),
     cell: ({ row }) => h('span', { class: 'text-dimmed' }, row.original.index + 1),

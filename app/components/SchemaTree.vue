@@ -295,6 +295,7 @@ function fkTitle(c: ColumnInfo) {
         color="neutral"
         :loading="s.loading.schemas"
         :title="t('common.reload')"
+        :aria-label="t('common.reload')"
         @click="refresh"
       />
     </div>
@@ -317,6 +318,7 @@ function fkTitle(c: ColumnInfo) {
           size="xs"
           class="-me-1"
           :title="t('schema.closeSearch')"
+          :aria-label="t('schema.closeSearch')"
           @click="search = undefined"
         />
       </template>
