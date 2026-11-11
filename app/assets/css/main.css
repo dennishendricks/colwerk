@@ -23,6 +23,15 @@ body,
   height: 100%;
 }
 
+/* Nuxt UI's dimmed text (neutral-400 light, neutral-500 dark) stays below WCAG AA (4.5:1); it matches muted instead. */
+:root {
+  --ui-text-dimmed: var(--ui-color-neutral-500);
+}
+
+.dark {
+  --ui-text-dimmed: var(--ui-color-neutral-400);
+}
+
 :root {
   --sql-keyword: #7c3aed;
   --sql-string: #15803d;
