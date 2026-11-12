@@ -1,0 +1,17 @@
+name: Website
+
+# Rebuilds the website once a release is published (the release workflow only creates a draft).
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: curl --fail-with-body --silent --show-error -X POST "$DEPLOY_HOOK"
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
