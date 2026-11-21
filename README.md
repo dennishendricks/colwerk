@@ -93,6 +93,9 @@ bun run dev            # dev server; prints the URL including the session token
 Tests against Postgres, MariaDB, MSSQL, ClickHouse and the Iceberg REST catalog are skipped when the container is not
 reachable. Unity Catalog and OneLake need cloud accounts and have no automated tests.
 
+`COLWERK_E2E=1 bun test ./tests/duckdb-download.test.ts` downloads DuckDB's native library from npm like a packaged
+build; CI runs it on every system (`.github/workflows/e2e.yml`), and weekly.
+
 ### Architecture
 
 ```

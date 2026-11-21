@@ -44,3 +44,8 @@ jobs:
           workspaces: src-tauri
       - run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+  # Downloads DuckDB on every system (e2e.yml); after the checks, so a broken commit does not start five runners.
+  e2e:
+    needs: check
+    uses: ./.github/workflows/e2e.yml
