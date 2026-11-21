@@ -5,6 +5,7 @@
 // sidecar of the Tauri app (src-tauri) and writes the app's packages to `dist/`.
 import { copyFile, mkdir, readdir, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { duckdbManifest } from './duckdb-manifest.ts'
 import { writeThirdPartyLicenses } from './licenses.ts'
 
 const mode = process.argv[2]
@@ -36,18 +37,7 @@ await copyFile('.output/THIRD_PARTY_LICENSES.txt', 'dist/THIRD_PARTY_LICENSES.tx
 
 // DuckDB's native addon comes in one npm package per platform. It is not embedded but downloaded on demand
 // (launcher/native.ts); the manifest tells the build where to get its platform's package.
-const { version: duckdbVersion } = await Bun.file('node_modules/@duckdb/node-bindings/package.json').json()
-const duckdbPlatform = `${process.platform}-${cpu}`
-const registry = `https://registry.npmjs.org/@duckdb/node-bindings-${duckdbPlatform}/${duckdbVersion}`
-const response = await fetch(registry)
-if (!response.ok) throw new Error(`${registry}: ${response.status} ${response.statusText}`)
-const { dist: duckdbDist } = await response.json()
-const duckdb = {
-  version: duckdbVersion,
-  platform: duckdbPlatform,
-  tarball: duckdbDist.tarball,
-  integrity: duckdbDist.integrity,
-}
+const duckdb = await duckdbManifest()
 
 // The sidecar is named after the Rust target triple of the host, as Tauri expects.
 const target = mode === 'desktop' ? (await Bun.$`rustc --print host-tuple`.text()).trim() : ''
