@@ -314,8 +314,8 @@ fn take_opened_files(opened: tauri::State<Opened>) -> Vec<PathBuf> {
 
 /// A window of the app. Size and position of the last run are restored by the window-state plugin (a stored size below
 /// `MIN_SIZE` is replaced by the default, see `ensure_min_size`), and the window cannot be resized below `MIN_SIZE`.
-/// The window is shown once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank native window
-/// nor the splash in the system's color mode flashes up before it.
+/// The window is shown once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
+/// native window nor the splash in the system's color mode flashes up before it.
 fn app_window<'a>(
     app: &'a AppHandle,
     label: &str,
