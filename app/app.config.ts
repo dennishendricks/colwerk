@@ -11,5 +11,17 @@ export default defineAppConfig({
         },
       ],
     },
+    // Modals grow from their trigger (main.css, plugins/motion.client.ts) instead of Nuxt UI's scale from the center.
+    modal: {
+      slots: { content: 'modal-motion' },
+      variants: {
+        transition: {
+          true: {
+            content:
+              'data-[state=open]:animate-[modal-in_var(--motion-base)_var(--motion-ease-enter)] data-[state=closed]:animate-[modal-out_var(--motion-base)_var(--motion-ease-exit)]',
+          },
+        },
+      },
+    },
   },
 })
