@@ -308,7 +308,7 @@ useApplicationMenu({
         :min-size="12"
         :max-size="45"
         collapsible
-        class="flex flex-col bg-muted/40"
+        class="motion-panel flex flex-col bg-muted/40"
       >
         <div class="space-y-1 p-2">
           <div class="flex gap-1">
@@ -366,7 +366,14 @@ useApplicationMenu({
             :aria-label="sidebar?.isCollapsed ? t('app.showSidebar') : t('app.hideSidebar')"
             @click="toggleSidebar"
           />
-          <div role="tablist" :aria-label="t('app.tabs')" class="flex items-center gap-1">
+          <!-- New tabs slide in and the others move into place (main.css); a closed tab disappears at once. -->
+          <TransitionGroup
+            tag="div"
+            name="motion-tab"
+            role="tablist"
+            :aria-label="t('app.tabs')"
+            class="flex items-center gap-1"
+          >
             <div
               v-for="tab in tabs"
               :id="`tab-${tab.id}`"
@@ -390,7 +397,7 @@ useApplicationMenu({
                 v-else-if="tab.transaction"
                 name="i-lucide-triangle-alert"
                 :class="tab.transaction === 'failed' ? 'text-error' : 'text-warning'"
-                class="size-3.5"
+                class="motion-enter size-3.5"
                 :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
               />
               <span
@@ -430,7 +437,7 @@ useApplicationMenu({
                 @click.stop="requestClose(tab)"
               />
             </div>
-          </div>
+          </TransitionGroup>
           <UButton
             icon="i-lucide-plus"
             size="xs"

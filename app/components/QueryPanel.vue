@@ -398,7 +398,7 @@ const status = computed(() => {
           variant="subtle"
           icon="i-lucide-triangle-alert"
           :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
-          class="shrink-0"
+          class="motion-enter shrink-0"
           :ui="{ label: '@max-4xl:hidden' }"
         />
         <!-- A failed transaction can only be rolled back (Postgres turns COMMIT into ROLLBACK). -->
@@ -408,7 +408,7 @@ const status = computed(() => {
           color="neutral"
           variant="soft"
           label="Commit"
-          class="shrink-0"
+          class="motion-enter shrink-0"
           :disabled="busy"
           @click="run(tab, 'COMMIT')"
         />
@@ -417,7 +417,7 @@ const status = computed(() => {
           color="neutral"
           variant="soft"
           label="Rollback"
-          class="shrink-0"
+          class="motion-enter shrink-0"
           :disabled="busy"
           @click="run(tab, 'ROLLBACK')"
         />
