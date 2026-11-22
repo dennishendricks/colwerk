@@ -250,6 +250,18 @@ export interface IndexInfo {
   primary: boolean
 }
 
+/** A foreign key; `columns[i]` references `refColumns[i]`. */
+export interface ForeignKeyInfo {
+  /** Constraint name; empty when the database does not name it (SQLite). */
+  name: string
+  schema: string
+  table: string
+  columns: string[]
+  refSchema: string
+  refTable: string
+  refColumns: string[]
+}
+
 export interface RoutineInfo {
   name: string
   kind: 'function' | 'procedure'
@@ -263,6 +275,8 @@ export type IntrospectRequest =
   | { kind: 'columns'; schema: string; table: string }
   | { kind: 'indexes'; schema: string; table: string }
   | { kind: 'routines'; schema: string }
+  /** Foreign keys of a schema (either side in it), or of one table (either side). */
+  | { kind: 'foreignKeys'; schema: string; table?: string }
   /** Source of a table, view or routine (all overloads of the name); never cached. */
   | { kind: 'ddl'; schema: string; name: string; object: 'table' | 'view' | 'routine' }
 
@@ -278,7 +292,9 @@ export type IntrospectResult<R extends IntrospectRequest> = R extends { kind: 'd
           ? IndexInfo[]
           : R extends { kind: 'routines' }
             ? RoutineInfo[]
-            : string
+            : R extends { kind: 'foreignKeys' }
+              ? ForeignKeyInfo[]
+              : string
 
 /** Receives a streamed result. `rows` is awaited (backpressure); if it rejects, the statement is aborted. */
 export interface RowSink {

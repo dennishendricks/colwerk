@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { Worker } from 'node:worker_threads'
+import { groupForeignKeys } from './foreign-keys.ts'
 import { maskLiterals, splitStatements, type StatementRange } from '../sql-split.ts'
 import {
   AppError,
@@ -173,6 +174,11 @@ const SQL = {
   tables: 'select name, type from pragma_table_list where schema = ? order by name',
   columns: 'select name, type, "notnull", pk, hidden from pragma_table_xinfo(?, ?)',
   foreignKeys: 'select "from", "table", "to", seq from pragma_foreign_key_list(?, ?)',
+  // One row per foreign key column of every table.
+  allForeignKeys: (schema: string) => `
+    select m.name as "table", f.id, f.seq, f."table" as ref_table, f."from" as col, f."to" as ref_col
+    from ${ident(schema)}.sqlite_schema m, pragma_foreign_key_list(m.name, ?) f
+    where m.type = 'table' order by m.name, f.id, f.seq`,
   // One row per index column; expression columns have no name.
   indexColumns: `
     select l.name, l."unique", l.origin, i.name as col
@@ -322,6 +328,36 @@ class SqliteSession implements Session {
           partitioning: null,
           clustering: null,
         })) as IntrospectResult<R>
+    }
+    if (req.kind === 'foreignKeys') {
+      const rows = await this.rows<{
+        table: string
+        id: number
+        seq: number
+        ref_table: string
+        col: string
+        ref_col: string | null
+      }>(SQL.allForeignKeys(req.schema), [req.schema])
+      for (const r of rows) {
+        // A foreign key without columns references the primary key.
+        r.ref_col ??=
+          (await this.rows<{ name: string }>(SQL.primaryKey, [r.ref_table, req.schema]))[r.seq]?.name ?? null
+      }
+      const table = req.table?.toLowerCase()
+      // SQLite does not name foreign keys; the id tells the keys of a table apart while grouping.
+      return groupForeignKeys(
+        rows
+          .filter((r) => !table || r.table.toLowerCase() === table || r.ref_table.toLowerCase() === table)
+          .map((r) => ({
+            name: String(r.id),
+            schema: req.schema,
+            table: r.table,
+            col: r.col,
+            ref_schema: req.schema,
+            ref_table: r.ref_table,
+            ref_col: r.ref_col!,
+          })),
+      ).map((k) => ({ ...k, name: '' })) as IntrospectResult<R>
     }
     // SQLite has no stored routines.
     if (req.kind === 'routines') return [] as RoutineInfo[] as IntrospectResult<R>

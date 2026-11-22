@@ -7,6 +7,7 @@ import {
   type DatabaseInfo,
   DbError,
   type Driver,
+  type ForeignKeyInfo,
   type IndexInfo,
   type IntrospectRequest,
   type IntrospectResult,
@@ -69,6 +70,14 @@ const SQL = {
   indexes: `
     select index_name as name, expressions, is_unique from duckdb_indexes()
     where database_name = current_database() and schema_name = $1 and table_name = $2`,
+  // duckdb_constraints() has no referenced schema; DuckDB only allows FKs within one schema.
+  foreignKeys: `
+    select constraint_name as name, table_name as "table", constraint_column_names as columns,
+           referenced_table as "refTable", referenced_column_names as "refColumns"
+    from duckdb_constraints()
+    where database_name = current_database() and schema_name = $1 and constraint_type = 'FOREIGN KEY'
+      and referenced_table is not null
+    order by table_name, constraint_name`,
   // User-defined macros only; built-in functions are `internal`.
   routines: `
     select distinct function_name as name, 'function' as kind from duckdb_functions()
@@ -203,6 +212,12 @@ export class DuckDBSession implements Session {
       }
       if (req.kind === 'routines') {
         return (await this.rows<RoutineInfo>(SQL.routines, [req.schema])) as IntrospectResult<R>
+      }
+      if (req.kind === 'foreignKeys') {
+        const keys = await this.rows<Omit<ForeignKeyInfo, 'schema' | 'refSchema'>>(SQL.foreignKeys, [req.schema])
+        return keys
+          .filter((k) => !req.table || k.table === req.table || k.refTable === req.table)
+          .map((k): ForeignKeyInfo => ({ ...k, schema: req.schema, refSchema: req.schema })) as IntrospectResult<R>
       }
       if (req.kind === 'ddl') return (await this.ddl(req)) as IntrospectResult<R>
       const params = [req.schema, req.table]
