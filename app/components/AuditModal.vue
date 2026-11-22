@@ -4,7 +4,7 @@ import { type AuditEntry, auditRetentions } from '../../core/audit.ts'
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ select: [entry: AuditEntry] }>()
 
-const { connections } = useConnections()
+const { connections, connectionOf, connectionItems: allConnections } = useConnections()
 const { t, locale } = useI18n()
 const entries = ref<AuditEntry[]>([])
 const retentionDays = ref(30)
@@ -28,10 +28,7 @@ async function load() {
 
 watch(open, (v) => v && load(), { immediate: true })
 
-const connectionItems = computed(() => [
-  { label: t('audit.allConnections'), value: 'all' },
-  ...connections.value.map((c) => ({ label: c.name, value: c.id })),
-])
+const connectionItems = computed(() => [{ label: t('audit.allConnections'), value: 'all' }, ...allConnections.value])
 const periodItems = (['hour', 'day', 'week', 'all'] as const).map((p) => ({
   label: t(`audit.periods.${p}`),
   value: p,
@@ -50,7 +47,7 @@ const matching = computed(() => {
 const shown = computed(() => matching.value.slice(0, MAX_SHOWN))
 
 const connectionName = (e: AuditEntry) =>
-  connections.value.find((c) => c.id === e.connectionId)?.name ?? e.connectionName ?? t('audit.deletedConnection')
+  connectionOf(e.connectionId)?.name ?? e.connectionName ?? t('audit.deletedConnection')
 // Disabled when the connection has been deleted since.
 const canOpen = (e: AuditEntry) => !!e.sql && connections.value.some((c) => c.id === e.connectionId)
 

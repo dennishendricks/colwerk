@@ -1,8 +1,7 @@
 <script setup lang="ts">
-const { connections, activeConnectionId, activeDatabase, driverOf } = useConnections()
+const { activeConnectionId, activeDatabase, activeConnection: connection, driverOf } = useConnections()
 const { state, loadDatabases } = useSchema()
 
-const connection = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))
 const supported = computed(() => !!driverOf(activeConnectionId.value)?.capabilities.supportsDatabases)
 const s = computed(() => (connection.value ? state({ connectionId: connection.value.id }) : undefined))
 

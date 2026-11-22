@@ -1,11 +1,8 @@
+import { quoteIdent } from '../../core/sql-literals.ts'
 import type { SplitDialect } from './sql-split.ts'
 
-/** Quotes an identifier the way the dialect does, doubling the closing character. */
-export function quoteIdent(dialect: SplitDialect, name: string): string {
-  if (dialect === 'mysql') return `\`${name.replaceAll('`', '``')}\``
-  if (dialect === 'mssql') return `[${name.replaceAll(']', ']]')}]`
-  return `"${name.replaceAll('"', '""')}"`
-}
+// The quoting lives in core (generated statements need it too); re-exported for the app's auto-imports.
+export { quoteIdent }
 
 /** The identifier as written in SQL: plain where that means the same name, otherwise quoted. */
 export function identifier(dialect: SplitDialect, name: string): string {

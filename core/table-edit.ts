@@ -1,3 +1,4 @@
+import { quoteIdent } from './sql-literals.ts'
 import { maskLiterals, type SplitDialect, splitStatements } from './sql-split.ts'
 import type { CellValue, ColumnInfo, ConnectionConfig, Dialect, IndexInfo, ResultColumn } from './types.ts'
 
@@ -147,12 +148,6 @@ export function editorKind(
   return 'text'
 }
 
-export function quoteIdent(name: string, dialect: SplitDialect): string {
-  if (dialect === 'mysql') return `\`${name.replaceAll('`', '``')}\``
-  if (dialect === 'mssql') return `[${name.replaceAll(']', ']]')}]`
-  return `"${name.replaceAll('"', '""')}"`
-}
-
 // The session runs in UTC and MySQL rejects the T/Z form for DATETIME.
 const ISO_TIMESTAMP = /^(\d{4}-\d\d-\d\d)T(\d\d:\d\d:\d\d(?:\.\d+)?)Z?$/
 
@@ -171,7 +166,7 @@ export function sqlLiteral(value: CellValue, dialect: SplitDialect): string {
 /** DELETEs, then UPDATEs, then INSERTs; exactly the statements that are executed. */
 export function editStatements(target: EditTarget, rows: CellValue[][], changes: Changes): string[] {
   const { dialect, columns } = target
-  const q = (name: string) => quoteIdent(name, dialect)
+  const q = (name: string) => quoteIdent(dialect, name)
   const into = `${q(target.schema)}.${q(target.table)}`
   const value = (v: EditValue) => ('default' in v ? 'default' : sqlLiteral(v.value, dialect))
   const where = (row: number) =>

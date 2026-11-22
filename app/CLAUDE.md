@@ -3,44 +3,76 @@
 # app/ file index
 
 - `app.config.ts`
-- `app.vue`: **24 KB: grep, then read in parts**
+- `app.vue`
 - `components/AboutModal.vue`
 - `components/AuditModal.vue`
+- `components/CloseTabsModal.vue`
 - `components/CompareData.vue`
 - `components/CompareModal.vue`
 - `components/CompareSchema.vue`
 - `components/CompareScript.vue`
 - `components/CompareSide.vue`
+- `components/ConnectionAdvancedFields.vue`
+- `components/ConnectionColorPicker.vue`
+- `components/ConnectionFileFields.vue`
 - `components/ConnectionImportModal.vue`
-- `components/ConnectionModal.vue`: **39 KB: grep, then read in parts**
+- `components/ConnectionMcpLogin.vue`
+- `components/ConnectionModal.vue`
 - `components/ConnectionPicker.vue`
-- `components/DataImportModal.vue`: **28 KB: grep, then read in parts**
+- `components/ConnectionSshFields.vue`
+- `components/DataImportLoad.vue`
+- `components/DataImportModal.vue`
+- `components/DataImportSource.vue`
+- `components/DataImportTarget.vue`
 - `components/DatabasePicker.vue`
+- `components/EditorTabs.vue`
 - `components/EmptyState.vue`
 - `components/ErDiagram.vue`
 - `components/ErDiagramModal.vue`
 - `components/FileQueryModals.vue`
+- `components/GridCellDetail.vue`
+- `components/GridCellEditor.vue`
+- `components/GridColumnFilter.vue`
+- `components/GridReviewModal.vue`
 - `components/HistoryModal.vue`
 - `components/McpModal.vue`
 - `components/PlanView.vue`
-- `components/QueryPanel.vue`: **42 KB: grep, then read in parts**
+- `components/QueryPanel.vue`
+- `components/QueryRunModals.vue`
+- `components/QueryToolbar.vue`
 - `components/QuickOpen.vue`
 - `components/ReleaseNotesModal.vue`
-- `components/ResultGrid.vue`: **29 KB: grep, then read in parts**
+- `components/ResultExportBar.vue`
+- `components/ResultGrid.vue`
+- `components/ResultSwitcher.vue`
 - `components/SchemaTree.vue`: **24 KB: grep, then read in parts**
 - `components/SecretInput.vue`
 - `components/SessionMonitorModal.vue`
 - `components/ShortcutsModal.vue`
 - `components/SqlEditor.vue`
+- `components/StoredPasswordField.vue`
+- `components/TabBarActions.vue`
 - `components/UnlockModal.vue`
+- `components/VariablesModal.vue`
+- `composables/connection-form.ts`: State of the connection dialog: the form, which fields the dialect and login show, and the payload to save
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
 - `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
+- `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
+- `composables/editor-schema.ts`: Schema of a query tab's connection for the editor's autocomplete, preloaded for the tables the SQL refers to
 - `composables/execution.ts`: exports variablePrompt, useExecution
+- `composables/grid-columns.ts`: Column definitions of the result grid: header menus, resize handles, row menus, cell rendering, column filter
+- `composables/grid-edits.ts`: Pending edits of one result grid (#60): changed, inserted and deleted rows; nothing is written until "Save"
 - `composables/import.ts`: exports ImportRequest, importRequest, useImport
 - `composables/lint.ts`: exports useLintSettings
 - `composables/menu.ts`: exports useApplicationMenu
+- `composables/pinned-results.ts`: Result sets of a query tab: the current one, pinned ones, and which of them is shown
+- `composables/query-run.ts`: Running a query tab's SQL: variables, write confirmation, unfiltered writes, plan check and dry run
+- `composables/result-editability.ts`: Whether a query tab's current result can be edited in the grid, resolved from the schema (#60)
+- `composables/result-export.ts`: Exporting and copying the shown result of a query tab, including the target of SQL INSERT statements
+- `composables/schema-levels.ts`: Select items and loading of cascading schema and table pickers for a connection (and database)
 - `composables/schema.ts`: exports SchemaTarget, forgetSchemas, useSchema
 - `composables/tabs.ts`: exports PinnedResult, QueryTab, ReturnedTab, hasOpenTransaction, forgetTransactions, useTabs
+- `composables/window-keys.ts`: Window-wide keys that defineShortcuts cannot match: zooming (⌘+ / ⌘- / ⌘0) and switching tabs (⇧⌘[ / ⇧⌘])
 - `composables/zoom.ts`: exports useZoom
 - `plugins/locale.ts`: Applies the language chosen in the application menu; without one, the detected system language stays
 - `plugins/motion.client.ts`: Lets modals grow from the element that opened them (`.modal-motion` in main.css): the last pointer press is recorded and forgotten on any key, so modals opened by shortcut scale in place
@@ -49,11 +81,14 @@
 - `utils/blocking.ts`: exports BlockingNode, blockers, blockingChains
 - `utils/compare.ts`: Constants of the compare from core, re-exported for the app's auto-imports
 - `utils/connection-color.ts`: exports connectionColorClasses
+- `utils/connection-form.ts`: Initial values of the connection dialog, from a saved connection or the defaults of a new one
+- `utils/data-import.ts`: Pure helpers of the data import wizard: table names from a source and matching of source to target columns
 - `utils/desktop.ts`: Native parts of the desktop app (src-tauri) through Tauri's JS API: menus and file dialogs
 - `utils/diagnostics.ts`: exports exportDiagnostics
 - `utils/dialect.ts`: Helpers from core/types.ts, re-exported for the app's auto-imports
 - `utils/duration.ts`: exports formatDuration, formatClock
 - `utils/er-model.ts`: exports ErColumn, ErTable, ErRelation, ErModel, tableKey, buildErModel, toMermaid, toDbml, ErNode, ErEdge, +3 more
+- `utils/grid-cells.ts`: Pure helpers of the result grid: row and column types, cell sorting, filtering, sizing and display text
 - `utils/locale.ts`: exports useChosenLocale
 - `utils/motion.ts`: exports PointerMark, modalOrigin
 - `utils/open-url.ts`: exports websiteUrl, privacyUrl, openUrl
@@ -63,7 +98,7 @@
 - `utils/sql-format.ts`: exports formatSql
 - `utils/sql-functions.ts`: exports SqlFunction, SQL_FUNCTIONS
 - `utils/sql-guard.ts`: The checks live in core; re-exported for the app's auto-imports
-- `utils/sql-ident.ts`: exports quoteIdent, identifier
+- `utils/sql-ident.ts`: exports identifier
 - `utils/sql-lint.ts`: exports LintOptions, SqlDiagnostic, lintSql
 - `utils/sql-scope.ts`: exports SchemaModel, TableSource, DerivedSource, Source, QueryBlock, Token, Analysis, tokenize, visibleName, findTable, +9 more; **21 KB: grep, then read in parts**
 - `utils/sql-split.ts`: The splitter lives in core (the drivers split scripts too); re-exported for the app's auto-imports

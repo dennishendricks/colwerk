@@ -1,11 +1,8 @@
+import { quoteIdent } from '../sql-literals.ts'
 import type { SplitDialect } from '../sql-split.ts'
 import { AppError, type Session } from '../types.ts'
 
-export function quoteIdent(dialect: SplitDialect, name: string): string {
-  if (dialect === 'mysql') return `\`${name.replaceAll('`', '``')}\``
-  if (dialect === 'mssql') return `[${name.replaceAll(']', ']]')}]`
-  return `"${name.replaceAll('"', '""')}"`
-}
+export { quoteIdent }
 
 export const qualified = (dialect: SplitDialect, schema: string, name: string) =>
   `${quoteIdent(dialect, schema)}.${quoteIdent(dialect, name)}`

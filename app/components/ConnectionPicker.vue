@@ -3,7 +3,7 @@ import type { ConnectionSummary } from '#core'
 
 const emit = defineEmits<{ edit: [connection?: ConnectionSummary]; import: [] }>()
 
-const { connections, activeConnectionId, driverOf } = useConnections()
+const { connections, activeConnectionId, activeConnection: active, driverOf } = useConnections()
 const { t } = useI18n()
 
 const open = ref(false)
@@ -20,8 +20,6 @@ const groups = computed(() => {
     { folder: undefined, items: sorted.filter((c) => !c.folder) },
   ]
 })
-
-const active = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))
 
 function select(id: string) {
   activeConnectionId.value = id

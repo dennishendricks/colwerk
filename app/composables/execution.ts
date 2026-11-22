@@ -12,7 +12,7 @@ export const variablePrompt = ref<{
   done: (values?: Record<string, string>) => void
 }>()
 
-// Not taken from core/export.ts, which pulls in `node:fs`.
+// Not taken from core/export/, which pulls in `node:fs`.
 const extensions: Record<ExportFormat, string> = {
   csv: 'csv',
   parquet: 'parquet',

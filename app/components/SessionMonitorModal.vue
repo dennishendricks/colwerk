@@ -5,13 +5,13 @@ import { blockers, blockingChains, type BlockingNode } from '~/utils/blocking'
 const open = defineModel<boolean>('open', { default: false })
 const props = defineProps<{ connectionId: string }>()
 
-const { connections, driverOf } = useConnections()
+const { driverOf, connectionOf } = useConnections()
 const { t, locale } = useI18n()
 const toast = useToast()
 
 const base = computed(() => `/api/connections/${encodeURIComponent(props.connectionId)}/sessions`)
 const actions = computed(() => driverOf(props.connectionId)?.capabilities.sessionActions ?? [])
-const connectionName = computed(() => connections.value.find((c) => c.id === props.connectionId)?.name ?? '')
+const connectionName = computed(() => connectionOf(props.connectionId)?.name ?? '')
 
 const sessions = ref<ServerSession[]>([])
 const error = ref<string>()

@@ -1,270 +1,51 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
-import type { PlanWarning } from '~/utils/pre-execution'
-import type { CellValue, ExportFormat, ResultColumn } from '#core'
-import { insertSql, maxInsertRows } from '~~/core/sql-literals.ts'
-import { markdownTable, uniqueNames } from '~~/core/values.ts'
-import type { SplitDialect } from '~/utils/sql-split'
-import type { EditBlock, EditTarget } from '~/utils/table-edit'
-import type { PinnedResult, QueryTab } from '~/composables/tabs'
+import type { CellValue, ResultColumn } from '#core'
+import type { QueryTab } from '~/composables/tabs'
 
 const props = defineProps<{ tab: QueryTab }>()
 const emit = defineEmits<{ newConnection: []; importConnections: [] }>()
 
-const { connections, driverOf } = useConnections()
+const { driverOf, connectionOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, dryRun, planWarnings, applyEdits, withVariables, cancel, exportResult } = useExecution()
-const {
-  loadSchemas,
-  loadTables,
-  loadColumns,
-  loadForeignKeys,
-  loadIndexes,
-  keyOf,
-  defaultSchema,
-  completionSchema,
-  schemaModel,
-  state,
-} = useSchema()
+const { run, cancel } = useExecution()
+const { defaultSchema, completionSchema } = useSchema()
 const { names: lintNames, writes: lintWrites } = useLintSettings()
 const { t, locale } = useI18n()
+const toast = useToast()
 
 const editor = useTemplateRef('editor')
 const driver = computed(() => driverOf(props.tab.connectionId))
-const connectionItems = computed(() => connections.value.map((c) => ({ label: c.name, value: c.id })))
-const connection = computed(() => connections.value.find((c) => c.id === props.tab.connectionId))
-const schemaTarget = computed(() =>
-  props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined,
-)
-const model = computed(() => schemaTarget.value && schemaModel(schemaTarget.value))
+const connection = computed(() => connectionOf(props.tab.connectionId))
+const { schemaTarget, model } = useEditorSchema(props.tab, driver)
 
-// Autocomplete needs at least the tables of the default schema.
-watch(
-  schemaTarget,
-  async (t) => {
-    if (!t) return
-    if (!state(t).schemas) await loadSchemas(t)
-    const schema = defaultSchema(t)
-    if (schema && !state(t).tables[schema]) await loadTables(t, schema)
-    preloadColumns()
-  },
-  { immediate: true },
-)
-
-// Columns are only known once loaded: load them for the tables the editor content refers to.
-let preloadTimer: ReturnType<typeof setTimeout> | undefined
-watch(
-  () => props.tab.sql,
-  () => {
-    clearTimeout(preloadTimer)
-    preloadTimer = setTimeout(preloadColumns, 400)
-  },
-)
-onBeforeUnmount(() => clearTimeout(preloadTimer))
-
-async function preloadColumns() {
-  const target = schemaTarget.value
-  const dialect = driver.value && sqlDialect(driver.value.dialect)
-  if (!target || !dialect) return
-  const s = state(target)
-  for (const ref of referencedTables(props.tab.sql, dialect).slice(0, 20)) {
-    const schema = ref.schema ?? defaultSchema(target)
-    if (!schema || !s.schemas?.some((x) => x.name === schema)) continue
-    if (!s.tables[schema]) await loadTables(target, schema)
-    // Unquoted names may differ in case from the catalog.
-    const tables = s.tables[schema] ?? []
-    const table =
-      tables.find((t) => t.name === ref.name) ?? tables.find((t) => t.name.toLowerCase() === ref.name.toLowerCase())
-    if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(target, schema, table.name)
-    // JOIN suggestions need the keys of the tables in the query.
-    if (table && !s.foreignKeys[keyOf(schema, table.name)]) loadForeignKeys(target, schema, table.name)
-  }
-}
-
-// SQL that waits for confirmation because the connection asks before writes.
-const pending = ref<{ sql: string; from: number; offset: (position: number) => number }>()
-
-// Statements that change every row (#65), waiting for explicit confirmation.
-const pendingUnfiltered = ref<{
-  sql: string
-  from: number
-  offset: (position: number) => number
-  statements: string[]
-}>()
-
-// Variables first, so the write check sees the SQL that will run.
-async function execute() {
-  const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting || checking.value) {
-    return
-  }
-  const substituted = await withVariables(props.tab, runnable.sql)
-  if (!substituted) return
-  const next = { ...substituted, from: runnable.from }
-  const c = connection.value
-  // The server refuses writes on read-only connections; there is nothing to confirm.
-  if (!c || c.readOnly) return proceed(next)
-  const dialect = sqlDialect(c.dialect)
-  if (c.requireWhere ?? !!c.confirmWrites) {
-    const unfiltered = unfilteredWrites(next.sql, dialect)
-    if (unfiltered.length) {
-      pendingUnfiltered.value = { ...next, statements: unfiltered.map((r) => next.sql.slice(r.from, r.to)) }
-      return
-    }
-  }
-  if (c.confirmWrites && mayWrite(next.sql, dialect)) pending.value = next
-  else proceed(next)
-}
-
-const checking = ref(false)
-// A query whose plan reads large tables completely, waiting for confirmation.
-const planWarning = ref<{
-  sql: string
-  from: number
-  offset: (position: number) => number
-  warnings: PlanWarning[]
-}>()
-const checksPlan = computed(() => {
-  const c = connection.value
-  return !!c && planCheckDialects.includes(sqlDialect(c.dialect)) && (c.checkPlan ?? !!c.confirmWrites)
-})
-
-async function proceed(next: { sql: string; from: number; offset: (position: number) => number }) {
-  if (checksPlan.value) {
-    checking.value = true
-    const warnings = await planWarnings(props.tab, next.sql).finally(() => (checking.value = false))
-    if (warnings.length) return void (planWarning.value = { ...next, warnings })
-  }
-  run(props.tab, next.sql, next.from, next.offset)
-}
-
-function runWarned() {
-  const w = planWarning.value
-  planWarning.value = undefined
-  if (w) run(props.tab, w.sql, w.from, w.offset)
-}
-
-function showWarnedPlan() {
-  const w = planWarning.value
-  planWarning.value = undefined
-  if (w) explain(props.tab, w.warnings[0]!.statement)
-}
-
-function confirmVariables() {
-  variablePrompt.value?.done({ ...variablePrompt.value.values })
-  variablePrompt.value = undefined
-}
-
-function cancelVariables() {
-  variablePrompt.value?.done()
-  variablePrompt.value = undefined
-}
-
-function confirmRun() {
-  const next = pending.value
-  pending.value = undefined
-  if (next) proceed(next)
-}
-
-function confirmUnfiltered() {
-  const p = pendingUnfiltered.value
-  if (p) run(props.tab, p.sql, p.from, p.offset)
-  pendingUnfiltered.value = undefined
-}
-
-// isReadOnlyStatement is false for any script with several statements, so check them one by one:
-// a script of SELECTs runs without asking, a single write in it asks.
-function mayWrite(sql: string, dialect: SplitDialect) {
-  return splitStatements(sql, dialect).some((r) => !isReadOnlyStatement(sql.slice(r.from, r.to), dialect))
-}
-
-function showPlan(analyze = false) {
-  explain(props.tab, editor.value?.runnableSql().sql ?? '', analyze)
-}
-
-const canDryRun = computed(
-  () => !!connection.value && !connection.value.readOnly && dryRunDialects.includes(connection.value.dialect),
-)
-const isDml = (sql: string) => !!connection.value && !!dmlKind(sql.trim(), sqlDialect(connection.value.dialect))
-
-const dryRunTitle = (n: number | null) =>
-  n === null ? t('query.dryRunUnknown') : t('query.dryRunResult', { n: n.toLocaleString(locale.value) }, n)
-
-async function dryRunEditor() {
-  const substituted = await withVariables(props.tab, editor.value?.runnableSql().sql ?? '')
-  if (!substituted) return
-  if (!isDml(substituted.sql)) {
-    toast.add({ title: t('errors.dryRunStatement'), color: 'error', icon: 'i-lucide-circle-alert' })
-    return
-  }
-  try {
-    const n = await dryRun(props.tab, substituted.sql)
-    toast.add({
-      title: dryRunTitle(n),
-      description: t('query.dryRunHint'),
-      color: 'success',
-      icon: 'i-lucide-flask-conical',
-    })
-  } catch (e) {
-    toast.add({
-      title: t('query.dryRunFailed'),
-      description: errorMessage(e),
-      color: 'error',
-      icon: 'i-lucide-circle-alert',
-    })
-  }
-}
-
-// Result of the dry run in the confirmation dialog.
-const pendingDryRun = ref<{ rows?: number | null; error?: string }>()
-watch(pending, () => (pendingDryRun.value = undefined))
-
-async function dryRunPending() {
-  if (!pending.value) return
-  try {
-    pendingDryRun.value = { rows: await dryRun(props.tab, pending.value.sql) }
-  } catch (e) {
-    pendingDryRun.value = { error: errorMessage(e) }
-  }
-}
-
-// SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
-const planItems = computed(() => [
-  [
-    { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-    ...(driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
-      ? []
-      : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
-    ...(canDryRun.value ? [{ label: t('query.dryRun'), icon: 'i-lucide-flask-conical', onSelect: dryRunEditor }] : []),
-  ],
-  [
-    {
-      type: 'checkbox' as const,
-      label: t('lint.checkNames'),
-      checked: lintNames.value,
-      onUpdateChecked: (v: boolean) => (lintNames.value = v),
-    },
-    {
-      type: 'checkbox' as const,
-      label: t('lint.checkWrites'),
-      checked: lintWrites.value,
-      onUpdateChecked: (v: boolean) => (lintWrites.value = v),
-    },
-  ],
-])
+const {
+  pending,
+  pendingUnfiltered,
+  planWarning,
+  pendingDryRun,
+  checking,
+  canDryRun,
+  execute,
+  showPlan,
+  runWarned,
+  showWarnedPlan,
+  confirmRun,
+  confirmUnfiltered,
+  isDml,
+  dryRunTitle,
+  dryRunEditor,
+  dryRunPending,
+} = useQueryRun(props.tab, editor, connection)
 
 async function copyPlan() {
   await navigator.clipboard.writeText(props.tab.plan?.text ?? '')
   toast.add({ title: t('query.planCopied'), color: 'success', icon: 'i-lucide-check' })
 }
 
-const currentSet = computed(() => props.tab.result?.resultSets[props.tab.resultIndex])
-const pinView = computed(() => props.tab.pinned?.find((p) => p.id === props.tab.viewPin))
-// A pinned result replaces the current one, except in the comparison, where both are shown.
-const viewedPin = computed(() => (props.tab.compare ? undefined : pinView.value))
-const shown = computed(() => viewedPin.value?.set ?? currentSet.value)
-const canPin = computed(() => !!currentSet.value?.columns.length && !viewedPin.value)
+const { currentSet, pinView, viewedPin, shown, canPin, resultItems, pinResult, closePin, selectResult } =
+  usePinnedResults(props.tab)
 const showSwitcher = computed(
   () =>
     !busy.value &&
@@ -273,179 +54,13 @@ const showSwitcher = computed(
     (resultItems.value.length > 1 || !!props.tab.pinned?.length || canPin.value),
 )
 
-function pinResult() {
-  const { result, source } = props.tab
-  const set = currentSet.value
-  if (!result || !source || !set) return
-  const pin = markRaw({
-    id: crypto.randomUUID(),
-    set,
-    source: { ...source },
-    executedAt: props.tab.executedAt ?? Date.now(),
-    durationMs: result.durationMs,
-  })
-  ;(props.tab.pinned ??= []).push(pin)
-}
+const { edit, sourceConnection, saveEdits } = useResultEditability(props.tab, currentSet, viewedPin)
 
-function closePin(id: string) {
-  props.tab.pinned = props.tab.pinned?.filter((p) => p.id !== id)
-  if (props.tab.viewPin === id) {
-    props.tab.viewPin = undefined
-    props.tab.compare = false
-  }
-}
-
-function selectResult(i: number) {
-  props.tab.resultIndex = i
-  if (!props.tab.compare) props.tab.viewPin = undefined
-}
-
-// Time and first line of the statement.
-function pinLabel(pin: PinnedResult) {
-  const { statement } = pin.set
-  const sql = statement ? pin.source.sql.slice(statement.from, statement.to) : pin.source.sql
-  return `${formatClock(pin.executedAt)} · ${sql.trim().split('\n')[0]}`
-}
-const resultItems = computed(
-  () => props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? [],
+const grid = useTemplateRef<{ filteredCount?: number; view(): { columns: ResultColumn[]; rows: CellValue[][] } }>(
+  'grid',
 )
-
-// Whether the current result can be edited, resolved from the schema (#60).
-const edit = shallowRef<{ target: EditTarget } | { block: EditBlock; columns?: string[] }>()
-// The result belongs to the connection it ran on, even if the tab has switched since.
-const sourceConnection = computed(() => connections.value.find((c) => c.id === props.tab.source?.connectionId))
-watch([currentSet, viewedPin, () => props.tab.compare, sourceConnection], resolveEdit, { immediate: true })
-
-async function resolveEdit() {
-  edit.value = undefined
-  const set = currentSet.value
-  const { source } = props.tab
-  const conn = sourceConnection.value
-  if (!set?.columns.length || viewedPin.value || props.tab.compare || !source || !conn) return
-  const blocker = editBlocker(conn)
-  if (blocker) return void (edit.value = { block: blocker })
-  const st = set.statement
-  const dialect = sqlDialect(conn.dialect)
-  const ref = st && singleTableSource(source.sql.slice(st.from, st.to), dialect)
-  if (!ref) return void (edit.value = { block: 'query' })
-  const target = { connectionId: source.connectionId, database: source.database }
-  const s = state(target)
-  if (!s.schemas) await loadSchemas(target)
-  const schema = ref.schema ?? defaultSchema(target)
-  if (set !== currentSet.value) return
-  if (!schema) return void (edit.value = { block: 'query' })
-  if (!s.tables[schema]) await loadTables(target, schema)
-  if (set !== currentSet.value) return
-  const tables = s.tables[schema] ?? []
-  const table =
-    tables.find((x) => x.name === ref.name) ?? tables.find((x) => x.name.toLowerCase() === ref.name.toLowerCase())
-  if (!table) return void (edit.value = { block: 'query' })
-  if (table.kind !== 'table') return void (edit.value = { block: 'view' })
-  await Promise.all([loadColumns(target, schema, table.name), loadIndexes(target, schema, table.name)])
-  if (set !== currentSet.value) return
-  const columns = s.columns[keyOf(schema, table.name)]
-  const indexes = s.indexes[keyOf(schema, table.name)]
-  edit.value =
-    columns && indexes
-      ? buildEditTarget(dialect, schema, table.name, set.columns, columns, indexes)
-      : { block: 'query' }
-}
-
-async function saveEdits(statements: string[]) {
-  const n = await applyEdits(props.tab, statements)
-  toast.add({
-    title: t('grid.saved', { n: n.toLocaleString(locale.value) }, n),
-    color: 'success',
-    icon: 'i-lucide-check',
-  })
-  const { source } = props.tab
-  const st = currentSet.value?.statement
-  if (source && st) run(props.tab, source.sql.slice(st.from, st.to), 0, (p) => p)
-}
-
-const toast = useToast()
-const exportFormat = ref<ExportFormat>('csv')
-const exportScope = ref<'shown' | 'full'>('shown')
-const formatItems = [
-  { label: 'CSV', value: 'csv' },
-  { label: 'Parquet', value: 'parquet' },
-  { label: 'Excel (XLSX)', value: 'xlsx' },
-  { label: 'JSON', value: 'json' },
-  { label: 'NDJSON', value: 'ndjson' },
-  { label: 'Markdown', value: 'markdown' },
-  { label: 'SQL INSERT', value: 'insert' },
-]
-// Target of INSERT statements (export, copy): the only table of the shown statement, else a placeholder.
-const insertTable = ref('')
-const insertBatch = ref(100)
-const shownSource = computed(() => viewedPin.value?.source ?? props.tab.source)
-const insertDialect = computed(() => sqlDialect(driverOf(shownSource.value?.connectionId)?.dialect ?? 'postgres'))
-const defaultInsertTable = computed(() => {
-  const source = shownSource.value
-  const statement = shown.value?.statement
-  if (!source || !statement) return 'export_table'
-  const refs = referencedTables(source.sql.slice(statement.from, statement.to), insertDialect.value)
-  return refs.length === 1 ? [refs[0]!.schema, refs[0]!.name].filter(Boolean).join('.') : 'export_table'
-})
-watch(shown, () => (insertTable.value = defaultInsertTable.value), { immediate: true })
-const tableParts = (text: string) =>
-  text
-    .split('.')
-    .map((p) => p.trim().replace(/^(["`[])(.*)["`\]]$/, '$2'))
-    .filter(Boolean)
-const insertTarget = computed(() => ({
-  dialect: insertDialect.value,
-  table: tableParts(insertTable.value || defaultInsertTable.value),
-}))
-// The full result runs the statement of the shown result set again, which must not repeat side effects.
-const canExportFull = computed(() => {
-  const source = viewedPin.value?.source ?? props.tab.source
-  const statement = shown.value?.statement
-  return (
-    !!source &&
-    !!statement &&
-    isReadOnlyStatement(
-      source.sql.slice(statement.from, statement.to),
-      sqlDialect(driverOf(source.connectionId)?.dialect ?? 'postgres'),
-    )
-  )
-})
-const scopeItems = computed(() => [
-  { label: t('query.shownRows', { n: shown.value?.rows.length.toLocaleString(locale.value) }), value: 'shown' },
-  canExportFull.value
-    ? { label: t('query.fullResult'), value: 'full' }
-    : { label: t('query.fullResultSelectOnly'), value: 'full', disabled: true },
-])
-watch(canExportFull, (ok) => {
-  if (!ok) exportScope.value = 'shown'
-})
-
-// Without truncation the shown rows are the full result, so there is no need to run the statement again.
-async function download() {
-  const table = tableParts(insertTable.value)
-  if (exportFormat.value === 'insert' && !table.length) {
-    toast.add({ title: t('errors.insertTableRequired'), color: 'error', icon: 'i-lucide-circle-alert' })
-    return
-  }
-  try {
-    const path = await exportResult(
-      props.tab,
-      exportFormat.value,
-      exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated,
-      viewedPin.value,
-      { table, batchSize: insertBatch.value },
-    )
-    if (path) toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
-    else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
-  } catch (e) {
-    toast.add({
-      title: t('query.exportFailed'),
-      description: errorMessage(e),
-      color: 'error',
-      icon: 'i-lucide-circle-alert',
-    })
-  }
-}
+const { exportFormat, exportScope, insertTable, insertBatch, insertTarget, scopeItems, download, copyItems } =
+  useResultExport(props.tab, shown, viewedPin, grid)
 
 // The whole editor content. Focus goes back to the editor so that ⌘Z undoes the formatting
 // (on the button, WebKit's native undo would act on the editor's DOM instead).
@@ -497,42 +112,6 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
-const grid = useTemplateRef<{ filteredCount?: number; view(): { columns: ResultColumn[]; rows: CellValue[][] } }>(
-  'grid',
-)
-
-// The rows as the grid shows them (sorted, filtered, visible columns).
-async function copyAs(kind: 'markdown' | 'json' | 'insert') {
-  const view = grid.value?.view()
-  if (!view) return
-  const names = view.columns.map((c) => c.name)
-  const keys = uniqueNames(names)
-  const { rows } = view
-  let text: string
-  if (kind === 'markdown') text = markdownTable(names, rows)
-  else if (kind === 'json') {
-    text = JSON.stringify(
-      rows.map((row) => Object.fromEntries(keys.map((k, i) => [k, row[i] ?? null]))),
-      null,
-      2,
-    )
-  } else {
-    const { dialect, table } = insertTarget.value
-    const columns = view.columns.map((c, i) => ({ name: keys[i]!, type: c.type }))
-    const size = Math.min(insertBatch.value, maxInsertRows(dialect))
-    const statements = []
-    for (let i = 0; i < rows.length; i += size)
-      statements.push(insertSql(dialect, table, columns, rows.slice(i, i + size)))
-    text = statements.map((s) => `${s};`).join('\n\n')
-  }
-  await navigator.clipboard.writeText(text)
-  toast.add({ title: t('query.copied', { n: rows.length }, rows.length), color: 'success', icon: 'i-lucide-check' })
-}
-const copyItems = [
-  { label: 'Markdown', onSelect: () => copyAs('markdown') },
-  { label: 'JSON', onSelect: () => copyAs('json') },
-  { label: 'SQL INSERT', onSelect: () => copyAs('insert') },
-]
 const filterInput = useTemplateRef<{ inputRef?: HTMLInputElement }>('filterInput')
 const filter = ref('')
 
@@ -551,20 +130,6 @@ watch(
   () => props.tab.result,
   () => (filter.value = ''),
 )
-
-// Another connection needs another session; closing the old one rolls back its open transaction, so confirm first.
-const pendingConnection = ref<string>()
-
-function selectConnection(id: string) {
-  if (props.tab.transaction) pendingConnection.value = id
-  else Object.assign(props.tab, { connectionId: id, database: undefined })
-}
-
-async function confirmConnection() {
-  Object.assign(props.tab, { connectionId: pendingConnection.value, database: undefined, transaction: undefined })
-  pendingConnection.value = undefined
-  await api(`/api/tabs/${props.tab.id}`, { method: 'DELETE' }).catch(() => {})
-}
 
 const status = computed(() => {
   const { plan } = props.tab
@@ -599,130 +164,18 @@ const status = computed(() => {
 <template>
   <!-- Container queries: the panel width depends on the sidebar, not only on the viewport. -->
   <div class="@container flex h-full flex-col">
-    <!-- Below @4xl the buttons show icons only; scrolling remains as fallback. -->
-    <div
-      class="flex items-center gap-2 overflow-x-auto border-b border-default px-3 py-2"
-      :class="connection?.color && ['border-l-4', connectionColorClasses[connection.color].borderLeft]"
-    >
-      <USelect
-        :model-value="tab.connectionId"
-        :items="connectionItems"
-        :placeholder="t('common.selectConnection')"
-        :aria-label="t('query.connection')"
-        icon="i-lucide-database"
-        size="sm"
-        class="min-w-32 max-w-56 flex-1"
-        @update:model-value="selectConnection"
-      />
-      <UFieldGroup size="sm" class="shrink-0">
-        <UButton
-          icon="i-lucide-play"
-          :label="t('common.run')"
-          :title="t('common.run')"
-          :ui="{ label: '@max-4xl:hidden' }"
-          :loading="tab.running || checking"
-          :disabled="!tab.connectionId || !!tab.exporting"
-          @click="execute"
-        />
-        <UDropdownMenu :items="planItems">
-          <UButton
-            icon="i-lucide-chevron-down"
-            :aria-label="t('query.moreOptions')"
-            :disabled="!tab.connectionId || busy"
-          />
-        </UDropdownMenu>
-      </UFieldGroup>
-      <UButton
-        v-if="driver?.capabilities.supportsCancel"
-        icon="i-lucide-square"
-        size="sm"
-        :color="busy ? 'error' : 'neutral'"
-        variant="soft"
-        :label="t('common.cancel')"
-        :title="t('common.cancel')"
-        class="shrink-0"
-        :ui="{ label: '@max-4xl:hidden' }"
-        :disabled="!busy || tab.exporting === 'cancelled'"
-        @click="cancel(tab)"
-      />
-      <UButton
-        icon="i-lucide-wand-sparkles"
-        size="sm"
-        color="neutral"
-        variant="ghost"
-        :label="t('query.format')"
-        :title="t('query.format')"
-        class="shrink-0"
-        :ui="{ label: '@max-4xl:hidden' }"
-        :disabled="!tab.sql.trim()"
-        @click="format"
-      />
-      <UBadge
-        v-if="connection?.readOnly"
-        :label="t('common.readOnly')"
-        :title="t('query.readOnlyHint')"
-        icon="i-lucide-lock"
-        color="neutral"
-        variant="subtle"
-        class="shrink-0"
-        :ui="{ label: '@max-4xl:hidden' }"
-      />
-      <template v-if="tab.transaction">
-        <UBadge
-          :label="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
-          :color="tab.transaction === 'failed' ? 'error' : 'warning'"
-          variant="subtle"
-          icon="i-lucide-triangle-alert"
-          :title="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
-          class="motion-enter shrink-0"
-          :ui="{ label: '@max-4xl:hidden' }"
-        />
-        <!-- A failed transaction can only be rolled back (Postgres turns COMMIT into ROLLBACK). -->
-        <UButton
-          v-if="tab.transaction === 'open'"
-          size="sm"
-          color="neutral"
-          variant="soft"
-          label="Commit"
-          class="motion-enter shrink-0"
-          :disabled="busy"
-          @click="run(tab, 'COMMIT')"
-        />
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          label="Rollback"
-          class="motion-enter shrink-0"
-          :disabled="busy"
-          @click="run(tab, 'ROLLBACK')"
-        />
-      </template>
-      <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted">
-        <span>{{ t('query.limit') }}</span>
-        <UInputNumber
-          v-model="tab.rowLimit"
-          :aria-label="t('query.limit')"
-          :min="1"
-          :max="100000"
-          :step="100"
-          :step-snapping="false"
-          size="sm"
-          class="w-32"
-        />
-        <span>{{ t('query.timeout') }}</span>
-        <UInputNumber
-          v-model="tab.timeout"
-          :aria-label="t('query.timeout')"
-          :min="1"
-          :max="86400"
-          :step="10"
-          :step-snapping="false"
-          size="sm"
-          class="w-28"
-        />
-      </div>
-    </div>
+    <QueryToolbar
+      :tab="tab"
+      :connection="connection"
+      :driver="driver"
+      :checking="checking"
+      :busy="busy"
+      :can-dry-run="canDryRun"
+      @execute="execute"
+      @explain="showPlan"
+      @dry-run="dryRunEditor"
+      @format="format"
+    />
 
     <SplitterGroup direction="vertical" auto-save-id="colwerk-query-panel" class="min-h-0 flex-1">
       <SplitterPanel :default-size="40" :min-size="10" class="overflow-hidden">
@@ -751,61 +204,18 @@ const status = computed(() => {
             <span v-else-if="tab.error" class="text-error">{{ t('common.error') }}</span>
             <span v-else class="truncate" :title="status">{{ status || t('query.notRun') }}</span>
           </span>
-          <span v-if="showSwitcher" class="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto">
-            <UButton
-              v-for="item in resultItems"
-              :key="item.value"
-              :label="item.label"
-              size="xs"
-              color="neutral"
-              :variant="item.value === tab.resultIndex && !viewedPin ? 'soft' : 'ghost'"
-              :aria-pressed="item.value === tab.resultIndex && !viewedPin"
-              @click="selectResult(item.value)"
-            />
-            <UFieldGroup v-for="pin in tab.pinned" :key="pin.id" size="xs" class="shrink-0">
-              <UButton
-                icon="i-lucide-pin"
-                :label="pinLabel(pin)"
-                :title="pinLabel(pin)"
-                color="neutral"
-                :variant="pin.id === tab.viewPin ? 'soft' : 'ghost'"
-                :aria-pressed="pin.id === tab.viewPin"
-                class="max-w-52"
-                :ui="{ label: 'truncate' }"
-                @click="tab.viewPin = pin.id"
-              />
-              <UButton
-                icon="i-lucide-x"
-                :title="t('query.closePin')"
-                :aria-label="t('query.closePin')"
-                color="neutral"
-                :variant="pin.id === tab.viewPin ? 'soft' : 'ghost'"
-                @click="closePin(pin.id)"
-              />
-            </UFieldGroup>
-            <UButton
-              v-if="canPin"
-              icon="i-lucide-pin"
-              :label="t('query.pin')"
-              size="xs"
-              color="neutral"
-              variant="outline"
-              class="shrink-0"
-              @click="pinResult"
-            />
-            <UButton
-              v-if="pinView"
-              icon="i-lucide-columns-2"
-              :label="t('query.compare')"
-              size="xs"
-              color="neutral"
-              :variant="tab.compare ? 'soft' : 'outline'"
-              :aria-pressed="!!tab.compare"
-              class="shrink-0"
-              :disabled="!currentSet?.columns.length"
-              @click="tab.compare = !tab.compare"
-            />
-          </span>
+          <ResultSwitcher
+            v-if="showSwitcher"
+            :tab="tab"
+            :items="resultItems"
+            :viewed-pin="viewedPin"
+            :pin-view="pinView"
+            :can-pin="canPin"
+            :can-compare="!!currentSet?.columns.length"
+            @select="selectResult"
+            @pin="pinResult"
+            @close="closePin"
+          />
           <!-- Pushed to the right edge itself only without result buttons: two auto margins would split the space. -->
           <UInput
             v-if="!tab.error && shown?.columns.length"
@@ -911,185 +321,37 @@ const status = computed(() => {
             "
           />
         </div>
-        <div
+        <ResultExportBar
           v-if="!tab.error && shown?.columns.length"
-          class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted"
-        >
-          <span>{{ t('query.export') }}</span>
-          <USelect
-            v-model="exportFormat"
-            :items="formatItems"
-            :aria-label="t('query.exportFormat')"
-            size="xs"
-            class="w-36"
-          />
-          <USelect
-            v-if="shown.truncated"
-            v-model="exportScope"
-            :items="scopeItems"
-            :aria-label="t('query.exportScope')"
-            size="xs"
-            class="w-72"
-          />
-          <template v-if="exportFormat === 'insert'">
-            <UInput
-              v-model="insertTable"
-              :aria-label="t('query.insertTable')"
-              :placeholder="t('query.insertTable')"
-              size="xs"
-              class="w-44"
-            />
-            <UInputNumber
-              v-model="insertBatch"
-              :min="1"
-              :max="10000"
-              :aria-label="t('query.batchSize')"
-              :title="t('query.batchSize')"
-              size="xs"
-              class="w-28"
-            />
-          </template>
-          <UButton
-            icon="i-lucide-download"
-            size="xs"
-            variant="soft"
-            :label="t('query.saveAs')"
-            :loading="!!tab.exporting"
-            :disabled="tab.running"
-            @click="download"
-          />
-          <UDropdownMenu :items="copyItems">
-            <UButton
-              icon="i-lucide-clipboard-copy"
-              size="xs"
-              variant="ghost"
-              color="neutral"
-              :label="t('query.copyAs')"
-            />
-          </UDropdownMenu>
-          <span
-            v-if="edit && 'block' in edit"
-            class="ml-auto flex items-center gap-1"
-            :title="t(`grid.readOnlyReasons.${edit.block}`, { columns: edit.columns?.join(', ') ?? '' })"
-          >
-            <UIcon name="i-lucide-lock" />{{ t('grid.readOnly') }}
-          </span>
-        </div>
+          v-model:format="exportFormat"
+          v-model:scope="exportScope"
+          v-model:table="insertTable"
+          v-model:batch="insertBatch"
+          :tab="tab"
+          :truncated="shown.truncated"
+          :scope-items="scopeItems"
+          :copy-items="copyItems"
+          :read-only="edit && 'block' in edit ? edit : undefined"
+          @download="download"
+        />
       </SplitterPanel>
     </SplitterGroup>
 
-    <UModal
-      :open="pendingUnfiltered !== undefined"
-      :title="t('query.unfilteredTitle')"
-      :description="t('query.unfilteredDescription', { connection: connection?.name })"
-      :close="false"
-      @update:open="(v) => !v && (pendingUnfiltered = undefined)"
-    >
-      <template #body>
-        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{
-          pendingUnfiltered?.statements.join(';\n\n')
-        }}</pre>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pendingUnfiltered = undefined" />
-          <UButton :label="t('query.unfilteredRun')" color="error" @click="confirmUnfiltered" />
-        </div>
-      </template>
-    </UModal>
-
-    <UModal
-      :open="pending !== undefined"
-      :title="t('query.confirmWriteTitle')"
-      :description="t('query.confirmWriteDescription', { connection: connection?.name })"
-      :close="false"
-      @update:open="(v) => !v && (pending = undefined)"
-    >
-      <template #body>
-        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending?.sql }}</pre>
-        <p v-if="pendingDryRun" class="mt-2 text-sm" :class="pendingDryRun.error ? 'text-error' : ''">
-          <template v-if="pendingDryRun.error">{{ pendingDryRun.error }}</template>
-          <template v-else>
-            {{ dryRunTitle(pendingDryRun.rows ?? null) }}
-            <span class="text-muted">{{ t('query.dryRunHint') }}</span>
-          </template>
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
-          <UButton
-            v-if="canDryRun && pending && isDml(pending.sql)"
-            :label="t('query.dryRun')"
-            icon="i-lucide-flask-conical"
-            color="neutral"
-            variant="outline"
-            :loading="tab.running"
-            @click="dryRunPending"
-          />
-          <UButton :label="t('common.run')" color="error" :disabled="tab.running" @click="confirmRun" />
-        </div>
-      </template>
-    </UModal>
-
-    <UModal
-      :open="planWarning !== undefined"
-      :title="t('query.planWarningTitle')"
-      :description="t('query.planWarningDescription', { connection: connection?.name })"
-      :close="false"
-      @update:open="(v) => !v && (planWarning = undefined)"
-    >
-      <template #body>
-        <ul class="text-sm">
-          <li v-for="w in planWarning?.warnings" :key="w.table">
-            {{ t('query.planWarningScan', { table: w.table, rows: w.rows.toLocaleString(locale) }) }}
-          </li>
-        </ul>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="planWarning = undefined" />
-          <UButton :label="t('query.showPlan')" color="neutral" variant="outline" @click="showWarnedPlan" />
-          <UButton :label="t('query.planWarningRun')" color="warning" @click="runWarned" />
-        </div>
-      </template>
-    </UModal>
-
-    <UModal
-      :open="variablePrompt?.tabId === tab.id"
-      :title="t('query.variablesTitle')"
-      :description="t('query.variablesHint')"
-      :close="false"
-      @update:open="(v) => !v && cancelVariables()"
-    >
-      <template #body>
-        <form id="query-variables" class="flex flex-col gap-3" @submit.prevent="confirmVariables">
-          <UFormField v-for="(_, name) in variablePrompt?.values" :key="name" :label="name">
-            <UInput v-model="variablePrompt!.values[name]" autofocus class="w-full" />
-          </UFormField>
-        </form>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="cancelVariables" />
-          <UButton :label="t('common.run')" type="submit" form="query-variables" />
-        </div>
-      </template>
-    </UModal>
-
-    <UModal
-      :open="!!pendingConnection"
-      :title="t('query.switchConnectionTitle')"
-      :description="t('query.switchConnectionDescription')"
-      :close="false"
-      @update:open="(v) => !v && (pendingConnection = undefined)"
-    >
-      <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pendingConnection = undefined" />
-          <UButton :label="t('query.switchConnection')" color="error" @click="confirmConnection" />
-        </div>
-      </template>
-    </UModal>
+    <QueryRunModals
+      v-model:unfiltered="pendingUnfiltered"
+      v-model:pending="pending"
+      v-model:plan-warning="planWarning"
+      :connection="connection?.name"
+      :running="tab.running"
+      :dry-run="pendingDryRun"
+      :can-dry-run="canDryRun && !!pending && isDml(pending.sql)"
+      :dry-run-title="dryRunTitle"
+      @confirm-unfiltered="confirmUnfiltered"
+      @confirm-run="confirmRun"
+      @dry-run="dryRunPending"
+      @run-warned="runWarned"
+      @show-plan="showWarnedPlan"
+    />
+    <VariablesModal :tab-id="tab.id" />
   </div>
 </template>

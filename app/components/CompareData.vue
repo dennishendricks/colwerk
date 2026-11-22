@@ -4,7 +4,7 @@ import type { CompareSideValue } from './CompareSide.vue'
 
 const emit = defineEmits<{ close: [] }>()
 
-const { connections } = useConnections()
+const { connectionOf } = useConnections()
 const { state, loadColumns } = useSchema()
 const { t, n } = useI18n()
 const toast = useToast()
@@ -16,7 +16,7 @@ const running = ref<string>()
 const error = ref<string>()
 const result = ref<DataCompareResult>()
 
-const dialectOf = (side: CompareSideValue) => connections.value.find((c) => c.id === side.connectionId)?.dialect
+const dialectOf = (side: CompareSideValue) => connectionOf(side.connectionId)?.dialect
 const supported = computed(
   () => !source.value.connectionId || (dataCompareDialects as readonly string[]).includes(dialectOf(source.value)!),
 )
