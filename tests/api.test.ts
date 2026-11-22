@@ -144,6 +144,24 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     assertEquals(statuses, [400, 400, 400])
   })
 
+  test('stores secret references instead of passwords', async () => {
+    const passwordRef = { provider: 'keepassxc', database: '/tmp/x.kdbx', entry: 'db' }
+    const conn = { name: 'ref', dialect: 'postgres', host: 'localhost', passwordRef, password: 'ignored' }
+    const { id } = await json(await call('/api/connections', { method: 'POST', body: JSON.stringify(conn) }))
+    const listed = (await json(await call('/api/connections'))).find((c: { id: string }) => c.id === id)
+    assertEquals([listed.passwordRef, listed.hasPassword], [passwordRef, false])
+    await json(await call(`/api/connections/${id}`, { method: 'DELETE' }))
+
+    const invalid = { ...conn, passwordRef: { provider: 'bitwarden', item: '' } }
+    const bad = await call('/api/connections', { method: 'POST', body: JSON.stringify(invalid) })
+    assertEquals([bad.status, (await bad.json()).data?.key], [400, 'invalidSecretRef'])
+    const unlock = await call('/api/vaults/unlock', {
+      method: 'POST',
+      body: JSON.stringify({ provider: 'nope', secret: 'x' }),
+    })
+    assertEquals((unlock.body?.cancel(), unlock.status), 400)
+  })
+
   describe.skipIf(!pgUp)('postgres', () => {
     const pg = testConnections.postgres
     let saved: { id: string; hasPassword: boolean }
