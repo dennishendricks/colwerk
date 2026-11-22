@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { HistoryEntry } from '#core'
+import { urlPromptOpen } from '~/composables/data-files'
 
 const props = defineProps<{ connectionId?: string; database?: string }>()
-const emit = defineEmits<{ newConnection: []; select: [entry: HistoryEntry] }>()
+const emit = defineEmits<{ newConnection: []; importConnections: []; select: [entry: HistoryEntry] }>()
 
 const { connections } = useConnections()
 const { openFile } = useTabs()
+const { pickAndQuery } = useDataFiles()
 const { t } = useI18n()
 
 const history = ref<HistoryEntry[]>([])
@@ -44,6 +46,28 @@ const recent = computed(() => {
         color="neutral"
         variant="soft"
         @click="openFile(connectionId, database)"
+      />
+      <UButton
+        v-if="!connections.length"
+        icon="i-lucide-import"
+        :label="t('empty.importConnections')"
+        color="neutral"
+        variant="soft"
+        @click="emit('importConnections')"
+      />
+      <UButton
+        icon="i-lucide-file-spreadsheet"
+        :label="t('empty.queryFile')"
+        color="neutral"
+        variant="soft"
+        @click="pickAndQuery()"
+      />
+      <UButton
+        icon="i-lucide-cloud"
+        :label="t('empty.queryUrl')"
+        color="neutral"
+        variant="soft"
+        @click="urlPromptOpen = true"
       />
     </div>
     <div v-if="recent.length" class="w-full max-w-xl">

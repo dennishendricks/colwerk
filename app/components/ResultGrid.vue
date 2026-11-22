@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
-import type { CellValue, ResultSet } from '#core'
+import type { CellValue, ResultColumn, ResultSet } from '#core'
+import { insertSql } from '~~/core/sql-literals.ts'
 import { csvField, markdownRow } from '~~/core/values.ts'
+import type { SplitDialect } from '~/utils/sql-split'
 import type { Changes, EditTarget, EditValue } from '~/utils/table-edit'
 
+// `insertTarget`: dialect and table of the row menu's INSERT statement; without it the item is disabled.
 const props = defineProps<{
   result: ResultSet
+  insertTarget?: { dialect: SplitDialect; table: string[] }
   /** Set when the result can be edited (see QueryPanel); `save` runs the reviewed statements. */
   edit?: { target: EditTarget; confirm: boolean; connection: string; save: (statements: string[]) => Promise<void> }
 }>()
@@ -106,13 +110,26 @@ const filteredCount = computed(() =>
     ? table.value?.tableApi.getFilteredRowModel().rows.length
     : undefined,
 )
-defineExpose({ filteredCount })
+// Columns and rows as the grid shows them now: visible columns in their order, rows sorted and filtered.
+function view(): { columns: ResultColumn[]; rows: CellValue[][] } {
+  const api = table.value!.tableApi
+  const indices = api
+    .getVisibleLeafColumns()
+    .filter((c) => c.id !== '#')
+    .map((c) => Number(c.id))
+  return {
+    columns: indices.map((i) => props.result.columns[i]!),
+    rows: api.getRowModel().rows.map((row) => indices.map((i) => row.original.cells[i] ?? null)),
+  }
+}
+defineExpose({ filteredCount, view })
 
 // The table has a fixed layout of exactly the column sizes, which pinned offsets and resizing rely on.
 const table = useTemplateRef<{
   $el: HTMLElement
   tableApi: {
     getTotalSize(): number
+    getVisibleLeafColumns(): { id: string }[]
     getRowModel(): { rows: TableRow<Row>[] }
     getFilteredRowModel(): { rows: unknown[] }
   }
@@ -440,6 +457,14 @@ function onRowContextmenu(e: Event, row: TableRow<Row>) {
             cells,
           ),
         ),
+    },
+    {
+      label: t('grid.copyInsert'),
+      enabled: !!props.insertTarget,
+      action: () => {
+        const target = props.insertTarget!
+        return navigator.clipboard.writeText(`${insertSql(target.dialect, target.table, columns, [cells])};`)
+      },
     },
     ...(props.edit
       ? [

@@ -1,5 +1,5 @@
 import { open, rename, rm } from 'node:fs/promises'
-import { AppError, createExporter, type ExportFormat, type RowSink } from '#core'
+import { AppError, createExporter, type ExportFormat, type ExportOptions, exportFormats, type RowSink } from '#core'
 
 // The server writes exports directly to the path chosen in the native save dialog (`/api/dialog`):
 // the desktop window does not save browser downloads. The file is written next to the target and
@@ -12,14 +12,19 @@ export async function writeExport(
   format: ExportFormat,
   path: string,
   produce: (sink: RowSink) => Promise<void>,
+  options?: ExportOptions,
 ): Promise<void> {
   const aborted = new AbortController()
   running.set(aborted, tabId)
   const part = `${path}.part`
   const file = await open(part, 'w')
-  const exporter = createExporter(format, async (chunk) => {
-    await file.write(chunk)
-  })
+  const exporter = createExporter(
+    format,
+    async (chunk) => {
+      await file.write(chunk)
+    },
+    options,
+  )
   let hasColumns = false
   let ok = false
   try {
@@ -53,6 +58,26 @@ export function cancelExports(tabId: string) {
 }
 
 export function parseFormat(value: unknown): ExportFormat {
-  if (value === 'csv' || value === 'parquet') return value
-  throw createError({ statusCode: 400, message: 'format must be csv or parquet' })
+  const format = exportFormats.find((f) => f === value)
+  if (format) return format
+  throw createError({ statusCode: 400, message: `format must be one of ${exportFormats.join(', ')}` })
+}
+
+/** Target table (1-3 parts) and rows per statement of an INSERT export. */
+export function parseInsertOptions(body: unknown, dialect: ExportOptions['dialect']): ExportOptions {
+  const { table, batchSize } = (body ?? {}) as { table?: unknown; batchSize?: unknown }
+  if (
+    !Array.isArray(table) ||
+    table.length < 1 ||
+    table.length > 3 ||
+    !table.every((p) => typeof p === 'string' && p)
+  ) {
+    throw createError({
+      statusCode: 400,
+      message: 'The target table for INSERT statements is missing',
+      data: { key: 'insertTableRequired' },
+    })
+  }
+  const size = Number.isInteger(batchSize) ? (batchSize as number) : 100
+  return { dialect, table, batchSize: Math.min(Math.max(size, 1), 10_000) }
 }

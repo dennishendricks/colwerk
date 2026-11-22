@@ -1,0 +1,40 @@
+config:
+  send_anonymous_usage_stats: false
+
+analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: dbt
+      password: secret
+      dbname: analytics
+      schema: dbt_dev
+      sslmode: require
+    prod:
+      type: postgres
+      host: warehouse.example.com
+      user: dbt
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      dbname: analytics
+
+warehouse:
+  target: sql
+  outputs:
+    sql:
+      type: sqlserver
+      server: sql.example.com
+      port: 1433
+      database: dw
+      authentication: ServicePrincipal
+      tenant_id: tenant-1
+      client_id: client-1
+      client_secret: shh
+    local:
+      type: duckdb
+      path: data/dw.duckdb
+    bq:
+      type: bigquery
+      project: p

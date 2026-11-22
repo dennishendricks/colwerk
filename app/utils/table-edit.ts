@@ -11,7 +11,6 @@ export {
   editStatements,
   type EditTarget,
   type EditValue,
-  quoteIdent,
   singleTableSource,
   sqlLiteral,
 } from '../../core/table-edit.ts'
