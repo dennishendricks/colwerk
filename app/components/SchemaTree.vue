@@ -170,12 +170,26 @@ async function showDdl(schema: string, name: string, object: 'table' | 'view' | 
 const copy = (text: string) => navigator.clipboard.writeText(text)
 
 // One context menu for the whole tree; the row right-clicked sets its target.
-const menuTarget = shallowRef<{ schema: string; table: TableInfo } | { schema: string; routine: RoutineInfo }>()
+const menuTarget = shallowRef<
+  { schema: string; table: TableInfo } | { schema: string; routine: RoutineInfo } | { schema: string }
+>()
+
+// ER diagram of a schema, or of a table and its neighbors.
+const er = ref<{ schema: string; table?: string }>()
+const openEr = (schema: string, table?: string) => (er.value = { schema, table })
 
 const menuItems = computed((): ContextMenuItem[][] => {
   const target = menuTarget.value
   if (!target) return []
   const { schema } = target
+  if (!('table' in target) && !('routine' in target)) {
+    return [
+      [
+        { label: t('er.open'), icon: 'i-lucide-network', onSelect: () => openEr(schema) },
+        { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(schema) },
+      ],
+    ]
+  }
   if ('routine' in target) {
     const { name } = target.routine
     return [
@@ -200,6 +214,12 @@ const menuItems = computed((): ContextMenuItem[][] => {
         children: statements.map((st) => ({ label: st.toUpperCase(), onSelect: () => generateSql(schema, name, st) })),
       },
       { label: t('schema.showDdl'), icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, kind) },
+    ],
+    [
+      { label: t('er.open'), icon: 'i-lucide-network', onSelect: () => openEr(schema, name) },
+      ...(flatSchema.value
+        ? [{ label: t('er.openSchema'), icon: 'i-lucide-network', onSelect: () => openEr(schema) }]
+        : []),
     ],
     [
       { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
@@ -326,6 +346,7 @@ function fkTitle(c: ColumnInfo) {
             v-if="!flatSchema"
             class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
             @click="toggleSchema(schema.name)"
+            @contextmenu="menuTarget = { schema: schema.name }"
           >
             <UIcon
               :name="schemaOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
@@ -496,5 +517,14 @@ function fkTitle(c: ColumnInfo) {
         </template>
       </div>
     </UContextMenu>
+
+    <LazyErDiagramModal
+      v-if="er"
+      :open="!!er"
+      :connection-id="connectionId"
+      :database="database"
+      :scope="er"
+      @update:open="(v: boolean) => !v && (er = undefined)"
+    />
   </div>
 </template>

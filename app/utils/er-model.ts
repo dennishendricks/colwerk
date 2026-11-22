@@ -207,6 +207,9 @@ const GAP_X = 120
 const GAP_Y = 32
 const CURVE = 60
 
+/** Dimensions of the drawn boxes, for rendering the layout. */
+export const ER_BOX = { header: HEADER, row: ROW, char: CHAR, pad: PAD }
+
 /**
  * Places the tables in layers: referenced tables to the right of the tables that reference them, tables without
  * relations in extra columns at the far right. With `focus`: that table in the middle, the tables it references to
