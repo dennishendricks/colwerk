@@ -20,6 +20,7 @@ import {
 import { connect, type Connection } from './duckdb-native.ts'
 import { DuckDBSession } from './duckdb.ts'
 import { entraToken } from './entra.ts'
+import { extensionsFor, fileFormat, isRemote, scanSql } from '../file-formats.ts'
 
 /** Extensions each format needs; installed from DuckDB's extension repository into `~/.duckdb/extensions`. */
 export const EXTENSIONS: Record<LakehouseDialect, string[]> = {
@@ -27,6 +28,8 @@ export const EXTENSIONS: Record<LakehouseDialect, string[]> = {
   delta: ['delta'],
   unity: ['httpfs', 'azure', 'delta', 'unity_catalog'],
   onelake: ['azure', 'delta'],
+  // files: excel/httpfs per source, see `Lake.extensions`.
+  files: [],
 }
 
 const lit = (value: string) => `'${value.replaceAll("'", "''")}'`
@@ -37,6 +40,8 @@ interface LakeTable {
   schema: string
   name: string
   location: string
+  /** Table function the view selects from. */
+  scan: string
 }
 
 /** What a format adds to a DuckDB session. */
@@ -50,6 +55,10 @@ interface Lake {
   catalog?: string
   /** Delta tables to expose as views, for formats without a catalog DuckDB can attach. */
   tables?(): Promise<LakeTable[]>
+  /** Further extensions the session needs; one that cannot be loaded is logged, and the views needing it are left out. */
+  extensions?(): string[]
+  /** The views of `tables()` stay listed as views (files) instead of tables (Delta). */
+  views?: boolean
   /** Databases to switch between (supportsDatabases). */
   databases?(): Promise<DatabaseInfo[]>
 }
@@ -93,10 +102,14 @@ function delta(c: ConnectionConfig): Lake {
   return {
     setup: async () => [],
     async tables() {
-      if (isTable(root)) return [{ schema: 'main', name: basename(root), location: root }]
+      if (isTable(root))
+        return [{ schema: 'main', name: basename(root), location: root, scan: `delta_scan(${lit(root)})` }]
       return (await readdir(root, { withFileTypes: true }))
         .filter((e) => e.isDirectory() && isTable(join(root, e.name)))
-        .map((e) => ({ schema: 'main', name: e.name, location: join(root, e.name) }))
+        .map((e) => {
+          const location = join(root, e.name)
+          return { schema: 'main', name: e.name, location, scan: `delta_scan(${lit(location)})` }
+        })
     },
   }
 }
@@ -189,11 +202,18 @@ function onelake(c: ConnectionConfig): Lake {
           const name = basename(dir.name)
           const children = await list(dir.name)
           if (children.some((ch) => basename(ch.name) === '_delta_log')) {
-            return [{ schema: 'main', name, location: location(dir.name) }]
+            return [
+              { schema: 'main', name, location: location(dir.name), scan: `delta_scan(${lit(location(dir.name))})` },
+            ]
           }
           return children
             .filter((ch) => ch.isDirectory)
-            .map((ch) => ({ schema: name, name: basename(ch.name), location: location(ch.name) }))
+            .map((ch) => ({
+              schema: name,
+              name: basename(ch.name),
+              location: location(ch.name),
+              scan: `delta_scan(${lit(location(ch.name))})`,
+            }))
         }),
       )
       return found.flat()
@@ -207,7 +227,76 @@ function onelake(c: ConnectionConfig): Lake {
   }
 }
 
-const LAKES: Record<LakehouseDialect, (c: ConnectionConfig) => Lake> = { iceberg, delta, unity, onelake }
+/** The DuckDB secret of a files connection's credential, as statements. */
+export function fileSecrets(c: ConnectionConfig): string[] {
+  const secret = (options: string[]) => [`create or replace secret colwerk_files (${options.join(', ')})`]
+  if (c.auth === 's3') {
+    const options = [
+      'type s3',
+      `key_id ${lit(c.user ?? '')}`,
+      `secret ${lit(c.password ?? '')}`,
+      `region ${lit(c.region ?? 'us-east-1')}`,
+    ]
+    if (c.host) {
+      options.push(`endpoint ${lit(c.host.replace(/^https?:\/\//i, '').replace(/\/+$/, ''))}`, `url_style 'path'`)
+      if (/^http:\/\//i.test(c.host)) options.push('use_ssl false')
+    }
+    return secret(options)
+  }
+  if (c.auth === 'gcs') return secret(['type gcs', `key_id ${lit(c.user ?? '')}`, `secret ${lit(c.password ?? '')}`])
+  if (c.auth === 'token') return secret(['type http', `bearer_token ${lit(c.password ?? '')}`])
+  return []
+}
+
+/**
+ * View names of data files and URLs: the file name without extension, lower case, other characters as `_`; names
+ * starting with a digit get a `t_` prefix, duplicates a number (`_2`, `_3`, ...) in list order.
+ */
+export function viewNames(sources: string[]): string[] {
+  const seen = new Map<string, number>()
+  return sources.map((source) => {
+    const path = /^[a-z][a-z0-9+.-]*:\/\//i.test(source) ? decodeURIComponent(new URL(source).pathname) : source
+    let name = (path.split(/[\\/]/).pop() ?? '')
+      .replace(/\.[a-z0-9]+(\.(?:gz|zst))?$/i, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+    if (!name || /^\d/.test(name)) name = `t_${name}`
+    const n = (seen.get(name) ?? 0) + 1
+    seen.set(name, n)
+    return n > 1 ? `${name}_${n}` : name
+  })
+}
+
+// Data files and URLs, each a view in schema `main`; the sources are those saved with the connection.
+function files(c: ConnectionConfig): Lake {
+  const sources = c.sources ?? []
+  const known = sources.flatMap((s) => {
+    const format = fileFormat(s)
+    return format ? [{ source: s, format }] : []
+  })
+  return {
+    views: true,
+    extensions: () => [
+      ...new Set([
+        ...(c.auth && c.auth !== 'none' ? ['httpfs'] : []),
+        ...known.flatMap((s) => extensionsFor(s.source, s.format)),
+      ]),
+    ],
+    setup: async () => fileSecrets(c),
+    async tables() {
+      const names = viewNames(known.map((s) => s.source))
+      return known.map((s, i) => ({
+        schema: 'main',
+        name: names[i]!,
+        location: s.source,
+        scan: scanSql(s.source, s.format),
+      }))
+    },
+  }
+}
+
+const LAKES: Record<LakehouseDialect, (c: ConnectionConfig) => Lake> = { iceberg, delta, unity, onelake, files }
 
 class LakehouseSession extends DuckDBSession {
   private applied = ''
@@ -265,15 +354,13 @@ class LakehouseSession extends DuckDBSession {
       if (!existing.has(key)) {
         try {
           if (t.schema !== 'main') await this.rows(`create schema if not exists ${ident(t.schema)}`)
-          await this.rows(
-            `create view if not exists ${ident(t.schema)}.${ident(t.name)} as select * from delta_scan(${lit(t.location)})`,
-          )
+          await this.rows(`create view if not exists ${ident(t.schema)}.${ident(t.name)} as select * from ${t.scan}`)
         } catch (e) {
-          console.warn(`Delta table ${t.location} left out: ${(e as Error).message}`)
+          console.warn(`${t.location} left out: ${(e as Error).message}`)
           continue
         }
       }
-      this.lakeTables.add(key)
+      if (!this.lake.views) this.lakeTables.add(key)
     }
   }
 
@@ -327,15 +414,22 @@ class LakehouseSession extends DuckDBSession {
   }
 }
 
+/** Name of the in-memory database of a connection (and database), shared by its sessions. */
+export const lakePath = (c: ConnectionConfig) => `:memory:lakehouse:${c.id}:${c.database ?? ''}`
+
 export function lakehouseDriver(dialect: LakehouseDialect): Driver {
   return {
     async connect(config) {
       // One in-memory database per connection and database, shared by its sessions: views and secrets are set up
       // once; a session closing last drops it.
-      const conn = await connect(`:memory:lakehouse:${config.id}:${config.database ?? ''}`, false, false)
-      const session = new LakehouseSession(conn, LAKES[dialect](config))
+      const conn = await connect(lakePath(config), false, false)
+      const lake = LAKES[dialect](config)
+      const session = new LakehouseSession(conn, lake)
       try {
-        await loadExtensions(conn, dialect)
+        await loadExtensions(conn, EXTENSIONS[dialect])
+        for (const name of lake.extensions?.() ?? []) {
+          await loadExtensions(conn, [name]).catch((e) => console.warn((e as Error).message))
+        }
         await session.prepare()
         if (!(await session.discovered())) await session.discover()
         return session
@@ -347,9 +441,9 @@ export function lakehouseDriver(dialect: LakehouseDialect): Driver {
   }
 }
 
-/** Installs (once, from DuckDB's extension repository) and loads the extensions of `dialect`. */
-async function loadExtensions(conn: Connection, dialect: LakehouseDialect): Promise<void> {
-  for (const name of EXTENSIONS[dialect]) {
+/** Installs (once, from DuckDB's extension repository) and loads the extensions. */
+async function loadExtensions(conn: Connection, names: string[]): Promise<void> {
+  for (const name of names) {
     try {
       for (const sql of [`install ${name}`, `load ${name}`]) (await conn.query(sql)).close()
     } catch (e) {
@@ -383,8 +477,61 @@ export async function missingExtensions(dialect: LakehouseDialect): Promise<stri
 export async function installExtensions(dialect: LakehouseDialect): Promise<void> {
   const conn = await connect(':memory:colwerk-extensions', false, false)
   try {
-    await loadExtensions(conn, dialect)
+    await loadExtensions(conn, EXTENSIONS[dialect])
   } finally {
     conn.close()
   }
+}
+
+/**
+ * Creates the views of new sources in the connection's in-memory database (shared with its open sessions; without
+ * one, they are created again from the saved sources on the next connect). Returns the sources read, with their
+ * view names, and the errors of the others.
+ */
+export async function addFileSources(config: ConnectionConfig, sources: string[]) {
+  const added: { source: string; name: string }[] = []
+  const failed: { source: string; error: DbError }[] = []
+  const conn = await connect(lakePath(config), false, false)
+  try {
+    let remoteError: DbError | undefined
+    if ((config.auth && config.auth !== 'none') || sources.some(isRemote)) {
+      try {
+        await loadExtensions(conn, ['httpfs'])
+        for (const sql of fileSecrets(config)) (await conn.query(sql)).close()
+      } catch (e) {
+        remoteError = wrap(e)
+      }
+    }
+    const accepted = [...(config.sources ?? [])]
+    for (const source of sources) {
+      const existing = accepted.indexOf(source)
+      if (existing >= 0) {
+        added.push({ source, name: viewNames(accepted)[existing]! })
+        continue
+      }
+      const format = fileFormat(source)
+      if (!format) {
+        failed.push({
+          source,
+          error: new AppError('unsupportedFile', `Not a supported data file: ${source}`, { params: { name: source } }),
+        })
+        continue
+      }
+      try {
+        if (remoteError && isRemote(source)) throw remoteError
+        await loadExtensions(conn, extensionsFor(source, format))
+        const name = viewNames([...accepted, source]).at(-1)!
+        // DuckDB binds the file now, so read errors surface here.
+        const sql = `create view if not exists main.${ident(name)} as select * from ${scanSql(source, format)}`
+        ;(await conn.query(sql)).close()
+        accepted.push(source)
+        added.push({ source, name })
+      } catch (e) {
+        failed.push({ source, error: wrap(e) })
+      }
+    }
+  } finally {
+    conn.close()
+  }
+  return { added, failed }
 }

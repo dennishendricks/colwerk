@@ -77,7 +77,14 @@ async function clientConfig(c: ConnectionConfig): Promise<pg.ClientConfig> {
     ssl: await tlsOptions(c),
     application_name: 'colwerk',
     // Spaces and backslashes in startup options are escaped with a backslash.
-    options: c.searchPath ? `-c search_path=${c.searchPath.replace(/[\\ ]/g, '\\$&')}` : undefined,
+    options:
+      [
+        c.searchPath && `-c search_path=${c.searchPath.replace(/[\\ ]/g, '\\$&')}`,
+        // Read-only connection: every transaction is read-only unless the session sets it back.
+        c.readOnly && '-c default_transaction_read_only=on',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined,
     connectionTimeoutMillis: 10_000,
     types,
   }
@@ -152,6 +159,21 @@ const sqlFor = (v: number) => ({
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = $1 and c.relname = $2
     order by i.indisprimary desc, ic.relname`,
+  // Foreign keys that partitions inherit are listed once, on the partitioned table.
+  foreignKeys: `
+    select k.conname as name, n.nspname as schema, c.relname as "table",
+      array(select a.attname::text from unnest(k.conkey) with ordinality u(attnum, i)
+              join pg_attribute a on a.attrelid = k.conrelid and a.attnum = u.attnum order by u.i) as columns,
+      rn.nspname as "refSchema", rc.relname as "refTable",
+      array(select a.attname::text from unnest(k.confkey) with ordinality u(attnum, i)
+              join pg_attribute a on a.attrelid = k.confrelid and a.attnum = u.attnum order by u.i) as "refColumns"
+    from pg_constraint k
+    join pg_class c on c.oid = k.conrelid join pg_namespace n on n.oid = c.relnamespace
+    join pg_class rc on rc.oid = k.confrelid join pg_namespace rn on rn.oid = rc.relnamespace
+    where k.contype = 'f' ${v >= 110000 ? 'and k.conparentid = 0' : ''}
+      and ((n.nspname = $1 and ($2::text is null or c.relname = $2))
+        or (rn.nspname = $1 and ($2::text is null or rc.relname = $2)))
+    order by 2, 3, 1`,
   // Overloads appear once; functions of extensions are left out.
   routines: `
     select p.proname as name, ${
@@ -340,6 +362,9 @@ class PostgresSession implements Session {
       }
       if (req.kind === 'routines') {
         return (await this.client.query(SQL.routines, [req.schema])).rows as IntrospectResult<R>
+      }
+      if (req.kind === 'foreignKeys') {
+        return (await this.client.query(SQL.foreignKeys, [req.schema, req.table ?? null])).rows as IntrospectResult<R>
       }
       if (req.kind === 'ddl') {
         const { rows } = await this.client.query<{ ddl: string }>(DDL[req.object], [req.schema, req.name])

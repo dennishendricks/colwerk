@@ -51,6 +51,38 @@
         "role": "Editor",
         "mimeType": "application/vnd.sqlite3",
         "exportedType": { "identifier": "app.colwerk.sqlite", "conformsTo": ["public.database", "public.data"] }
+      },
+      {
+        "ext": ["csv", "tsv"],
+        "name": "Delimited Text Data",
+        "description": "CSV or TSV data",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "text/csv"
+      },
+      {
+        "ext": ["parquet"],
+        "name": "Parquet Data",
+        "description": "Apache Parquet data",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.apache.parquet"
+      },
+      {
+        "ext": ["json", "ndjson", "jsonl"],
+        "name": "JSON Data",
+        "description": "JSON or NDJSON data",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/json"
+      },
+      {
+        "ext": ["xlsx"],
+        "name": "Excel Workbook",
+        "description": "Excel workbook",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       }
     ],
     "windows": {

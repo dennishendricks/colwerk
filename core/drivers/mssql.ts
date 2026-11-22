@@ -1,4 +1,5 @@
 import sql from 'mssql'
+import { groupForeignKeys, type ForeignKeyRow } from './foreign-keys.ts'
 import { lineStart, splitStatements } from '../sql-split.ts'
 import {
   AppError,
@@ -68,7 +69,7 @@ function cell(value: unknown, type: string): CellValue {
 }
 
 // Type of sys.columns `c` with length/precision, as in the table definition.
-const COLUMN_TYPE = `
+export const COLUMN_TYPE = `
       type_name(c.user_type_id) + case
         when type_name(c.user_type_id) in ('varchar', 'char', 'varbinary', 'binary')
           then '(' + case c.max_length when -1 then 'max' else cast(c.max_length as varchar) end + ')'
@@ -156,6 +157,18 @@ const sqlFor = (stringAgg: boolean) => {
     from sys.indexes i
     where i.object_id = object_id(quotename(@schema) + '.' + quotename(@table)) and i.type > 0 and i.is_hypothetical = 0
     order by i.is_primary_key desc, i.name`,
+    foreignKeys: `
+    select f.name, schema_name(p.schema_id) as [schema], p.name as [table], pc.name as col,
+      schema_name(r.schema_id) as ref_schema, r.name as ref_table, rc.name as ref_col
+    from sys.foreign_keys f
+    join sys.objects p on p.object_id = f.parent_object_id
+    join sys.objects r on r.object_id = f.referenced_object_id
+    join sys.foreign_key_columns fc on fc.constraint_object_id = f.object_id
+    join sys.columns pc on pc.object_id = fc.parent_object_id and pc.column_id = fc.parent_column_id
+    join sys.columns rc on rc.object_id = fc.referenced_object_id and rc.column_id = fc.referenced_column_id
+    where (p.schema_id = schema_id(@schema) and (@table is null or p.name = @table))
+       or (r.schema_id = schema_id(@schema) and (@table is null or r.name = @table))
+    order by 2, 3, f.name, fc.constraint_column_id`,
     routines: `
     select name, case type when 'P' then 'procedure' else 'function' end as kind from sys.objects
     where schema_id = schema_id(@schema) and type in ('FN', 'IF', 'TF', 'P') and is_ms_shipped = 0
@@ -459,6 +472,11 @@ class MssqlSession implements Session {
           })
         }
         return ddl.trim() as IntrospectResult<R>
+      }
+      if (req.kind === 'foreignKeys') {
+        request.input('table', sql.NVarChar, req.table ?? null)
+        const { recordset } = await request.query<ForeignKeyRow>(SQL.foreignKeys)
+        return groupForeignKeys(recordset) as IntrospectResult<R>
       }
       request.input('table', sql.NVarChar, req.table)
       if (req.kind === 'indexes') {
