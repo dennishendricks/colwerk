@@ -7,7 +7,8 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, load, openDatabaseFile } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, driverOf, load, openDatabaseFile } =
+  useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -149,6 +150,8 @@ const mcpOpen = ref(false)
 const historyOpen = ref(false)
 const aboutOpen = ref(false)
 const quickOpen = ref(false)
+const sessionsOpen = ref(false)
+watch(activeConnectionId, () => (sessionsOpen.value = false))
 const schemaTree = useTemplateRef('schemaTree')
 // Searches the schema tree's connection, so the selected table is queried on the same one.
 const canQuickOpen = computed(() => !!activeConnectionId.value && !activeConnection.value?.disconnected)
@@ -324,6 +327,19 @@ useApplicationMenu({
               :title="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               :aria-label="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               @click="toggleConnection()"
+            />
+            <UButton
+              v-if="
+                activeConnection &&
+                !activeConnection.disconnected &&
+                driverOf(activeConnectionId)?.capabilities.sessionActions.length
+              "
+              icon="i-lucide-activity"
+              color="neutral"
+              variant="outline"
+              :title="t('sessions.open')"
+              :aria-label="t('sessions.open')"
+              @click="sessionsOpen = true"
             />
           </div>
           <DatabasePicker />
@@ -526,6 +542,11 @@ useApplicationMenu({
       :connection-id="activeConnectionId"
       :database="activeDatabase"
       @select="(schema, table) => schemaTree?.selectTable(schema, table)"
+    />
+    <LazySessionMonitorModal
+      v-if="activeConnectionId"
+      v-model:open="sessionsOpen"
+      :connection-id="activeConnectionId"
     />
     <LazyHistoryModal
       v-model:open="historyOpen"
