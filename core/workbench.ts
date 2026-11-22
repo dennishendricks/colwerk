@@ -1,4 +1,5 @@
 import { drivers, loadDriver } from './registry.ts'
+import { writingStatement } from './sql-guard.ts'
 import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
 import {
@@ -70,11 +71,24 @@ export class Workbench {
     await session.close()
   }
 
+  /** Read-only connections: refuses scripts with a statement that may write, before anything runs. */
+  private async refuseWrites(connectionId: string, sql: string): Promise<void> {
+    const config = await this.resolveConfig(connectionId)
+    if (!config.readOnly) return
+    const statement = writingStatement(sql, sqlDialect(config.dialect))
+    if (!statement) return
+    const err = new AppError('readOnly', 'The connection is read-only: the statement may change data or structures.', {
+      code: 'EREADONLY',
+    })
+    err.position = statement.from
+    throw err
+  }
+
   /**
    * Cancels the statement when it has not finished after `timeoutSeconds` (connecting does not count).
    * Result and error carry the session's transaction state: a failed statement can leave a transaction open.
    */
-  execute(
+  async execute(
     tabId: string,
     connectionId: string,
     sql: string,
@@ -82,6 +96,7 @@ export class Workbench {
     timeoutSeconds: number,
     database?: string,
   ): Promise<QueryResult> {
+    await this.refuseWrites(connectionId, sql)
     return this.runTab(tabId, connectionId, database, async (s) => {
       const transaction = () => s.transactionState().catch(() => undefined)
       try {
@@ -166,7 +181,8 @@ export class Workbench {
   }
 
   /** Streams the full result through the tab's session (same session state as `execute`). */
-  stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
+  async stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
+    await this.refuseWrites(connectionId, sql)
     return this.runTab(tabId, connectionId, database, (s) => s.stream(sql, sink))
   }
 
@@ -265,6 +281,11 @@ export class Workbench {
     return result
   }
 
+  /** Runs `fn` on the metadata session of the connection (serially with introspection), e.g. for catalog queries. */
+  metadata<T>(connectionId: string, database: string | undefined, fn: (s: Session) => Promise<T>): Promise<T> {
+    return this.runMeta(connectionId, database, fn)
+  }
+
   /** Closes every session of a connection and drops its cache (after edit/delete). */
   async closeConnection(connectionId: string): Promise<void> {
     this.invalidate(connectionId)
@@ -319,13 +340,14 @@ export class Workbench {
         request.kind === 'schemas' ||
         (request.kind === 'databases' && kind === 'databases') ||
         (request.kind === 'tables' && schema === request.schema) ||
-        // Refreshing a table (its columns) also drops its indexes.
+        // Refreshing a table (its columns) also drops its indexes and foreign keys.
         (request.kind === 'columns' &&
-          (kind === 'columns' || kind === 'indexes') &&
+          (kind === 'columns' || kind === 'indexes' || kind === 'foreignKeys') &&
           schema === request.schema &&
           table === request.table) ||
         (request.kind === 'indexes' && kind === 'indexes' && schema === request.schema && table === request.table) ||
-        (request.kind === 'routines' && kind === 'routines' && schema === request.schema)
+        (request.kind === 'routines' && kind === 'routines' && schema === request.schema) ||
+        (request.kind === 'foreignKeys' && kind === 'foreignKeys' && schema === request.schema)
       if (below) this.cache.delete(key)
     }
   }

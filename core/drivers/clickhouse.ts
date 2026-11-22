@@ -10,6 +10,7 @@ import {
   type ConnectionConfig,
   DbError,
   type Driver,
+  type ForeignKeyInfo,
   type IndexInfo,
   type IntrospectRequest,
   type IntrospectResult,
@@ -62,6 +63,8 @@ function send(
   { queryId, sessionId, params = {} }: Request,
 ): { response: Promise<IncomingMessage>; abort: () => void } {
   const query = new URLSearchParams({ ...SETTINGS, database: config.database || 'default' })
+  // Read-only connection: only reading and changing settings (readonly = 2 keeps the settings Colwerk sends allowed).
+  if (config.readOnly) query.set('readonly', '2')
   if (queryId) query.set('query_id', queryId)
   if (sessionId) {
     query.set('session_id', sessionId)
@@ -345,6 +348,8 @@ class ClickHouseSession implements Session {
         clustering: t.sorting_key ? `ORDER BY (${t.sorting_key})` : null,
       })) as IntrospectResult<R>
     }
+    // ClickHouse has no foreign keys.
+    if (req.kind === 'foreignKeys') return [] as ForeignKeyInfo[] as IntrospectResult<R>
     if (req.kind === 'routines') return (await this.rows<{ name: string }>(SQL.routines)) as IntrospectResult<R>
     if (req.kind === 'ddl') {
       const sql = req.object === 'routine' ? SQL.routineDdl : SQL.tableDdl

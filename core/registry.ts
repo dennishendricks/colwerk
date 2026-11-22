@@ -1,6 +1,7 @@
 import {
   AppError,
   type ConnectionAuth,
+  type ConnectionConfig,
   type Dialect,
   type Driver,
   type DriverCapabilities,
@@ -132,6 +133,12 @@ const registry: Record<Dialect, RegistryEntry> = {
     supportsNetwork: true,
     supportsDatabases: true,
   }),
+  // Data files and URLs as views of an in-memory DuckDB database.
+  files: lakehouse('files', 'Files (DuckDB)', ['none', 's3', 'gcs', 'token'], {
+    supportsSchemas: true,
+    supportsNetwork: false,
+    supportsDatabases: false,
+  }),
 }
 
 function lakehouse(
@@ -189,6 +196,12 @@ export function loadDriver(dialect: Dialect): Promise<Driver> {
     loaded.set(dialect, driver)
   }
   return driver
+}
+
+/** Adds data files or URLs to a files connection as views (see lakehouse.ts). */
+export async function addFileSources(config: ConnectionConfig, sources: string[]) {
+  await prepareDuckdb()
+  return (await import('./drivers/lakehouse.ts')).addFileSources(config, sources)
 }
 
 let installing: { progress?: number; done: Promise<void> } | undefined

@@ -3,8 +3,11 @@ import type { SplitDialect } from './sql-split.ts'
 
 export type Dialect = 'postgres' | 'mysql' | 'mssql' | 'duckdb' | 'sqlite' | 'clickhouse' | LakehouseDialect
 
-/** Lakehouse formats, read through DuckDB and its extensions (core/drivers/lakehouse.ts); their SQL is DuckDB's. */
-export const lakehouseDialects = ['iceberg', 'delta', 'unity', 'onelake'] as const
+/**
+ * Formats read through DuckDB and its extensions (core/drivers/lakehouse.ts), including plain data files (`files`);
+ * their SQL is DuckDB's.
+ */
+export const lakehouseDialects = ['iceberg', 'delta', 'unity', 'onelake', 'files'] as const
 export type LakehouseDialect = (typeof lakehouseDialects)[number]
 
 export const isLakehouse = (dialect: Dialect): dialect is LakehouseDialect =>
@@ -23,8 +26,11 @@ export type ConnectionColor = (typeof connectionColors)[number]
  * - `entra-default`: Microsoft Entra token from the environment (Azure CLI `az login`, Azure PowerShell, azd, environment variables)
  * - `entra-interactive`: Microsoft Entra login in the system browser (with MFA); `user` is the account to suggest
  * - `entra-service-principal`: Microsoft Entra application with `clientId`, `tenantId` and the client secret in `password`
- * - `token`: bearer token (e.g. a Databricks personal access token) in `password`
+ * - `token`: bearer token (e.g. a Databricks personal access token) in `password`; also the bearer token for
+ *   `https://` sources of files connections
  * - `oauth-client`: OAuth2 client credentials with `clientId` and the client secret in `password`
+ * - `s3`: S3 access key ID in `user`, secret in `password` (files connections)
+ * - `gcs`: Google Cloud Storage HMAC key ID in `user`, secret in `password` (files connections)
  * - `none`: no login (e.g. a local Iceberg REST catalog)
  */
 export const connectionAuths = [
@@ -36,6 +42,8 @@ export const connectionAuths = [
   'token',
   'oauth-client',
   'none',
+  's3',
+  'gcs',
 ] as const
 export type ConnectionAuth = (typeof connectionAuths)[number]
 
@@ -53,7 +61,8 @@ export interface ConnectionConfig {
   /** Folder in the connection list (one level, empty = top level). */
   folder?: string
   dialect: Dialect
-  /** Network databases: server name. Iceberg: URL of the REST catalog; Unity: URL of the workspace; OneLake: workspace. */
+  /** Network databases: server name. Iceberg: URL of the REST catalog; Unity: URL of the workspace; OneLake: workspace.
+   * Files: endpoint of S3-compatible storage (optional). */
   host?: string
   port?: number
   /** Iceberg: warehouse; Unity: default catalog; OneLake: default lakehouse. */
@@ -95,12 +104,14 @@ export interface ConnectionConfig {
   sslServerName?: string
   /** DuckDB, SQLite: path to the database file, or `:memory:`. Delta: folder of the Delta tables (or of one table). */
   file?: string
-  /** DuckDB, SQLite: open the database file read-only. */
+  /** Read-only connection: DuckDB and SQLite open the file read-only, PostgreSQL, MySQL and ClickHouse restrict the session; on every engine the workbench refuses statements that may write (see core/sql-guard.ts). */
   readOnly?: boolean
   /** DuckDB: create a new database file in the storage format of DuckDB 1.4, so that DuckDB 1.x can open it. */
   v1Storage?: boolean
-  /** Unity Catalog: AWS region of the S3 storage the tables are in. */
+  /** Unity Catalog: AWS region of the S3 storage the tables are in. Files: S3 region. */
   region?: string
+  /** Files: data files (absolute paths) and URLs (s3://, gs://, https://), each shown as a view. */
+  sources?: string[]
   /** Iceberg `oauth-client`: token endpoint; undefined = `<catalog URL>/v1/oauth/tokens`. */
   oauthServerUri?: string
   /** Iceberg `oauth-client`: requested scope, e.g. `PRINCIPAL_ROLE:ALL` (Apache Polaris). */
@@ -122,6 +133,8 @@ export interface ConnectionConfig {
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */
   confirmWrites?: boolean
+  /** Stop UPDATE and DELETE without WHERE and TRUNCATE before running them (UI only); undefined = as `confirmWrites`. */
+  requireWhere?: boolean
 }
 
 export type SessionAction = 'cancel' | 'terminate'
@@ -243,6 +256,18 @@ export interface IndexInfo {
   primary: boolean
 }
 
+/** A foreign key; `columns[i]` references `refColumns[i]`. */
+export interface ForeignKeyInfo {
+  /** Constraint name; empty when the database does not name it (SQLite). */
+  name: string
+  schema: string
+  table: string
+  columns: string[]
+  refSchema: string
+  refTable: string
+  refColumns: string[]
+}
+
 export interface RoutineInfo {
   name: string
   kind: 'function' | 'procedure'
@@ -256,6 +281,8 @@ export type IntrospectRequest =
   | { kind: 'columns'; schema: string; table: string }
   | { kind: 'indexes'; schema: string; table: string }
   | { kind: 'routines'; schema: string }
+  /** Foreign keys of a schema (either side in it), or of one table (either side). */
+  | { kind: 'foreignKeys'; schema: string; table?: string }
   /** Source of a table, view or routine (all overloads of the name); never cached. */
   | { kind: 'ddl'; schema: string; name: string; object: 'table' | 'view' | 'routine' }
 
@@ -271,7 +298,9 @@ export type IntrospectResult<R extends IntrospectRequest> = R extends { kind: 'd
           ? IndexInfo[]
           : R extends { kind: 'routines' }
             ? RoutineInfo[]
-            : string
+            : R extends { kind: 'foreignKeys' }
+              ? ForeignKeyInfo[]
+              : string
 
 /** A session (ClickHouse: a running query) of the database server, as shown by the session monitor. */
 export interface ServerSession {
