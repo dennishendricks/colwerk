@@ -82,6 +82,14 @@ async function preloadColumns() {
 // SQL that waits for confirmation because the connection asks before writes.
 const pending = ref<{ sql: string; from: number; offset: (position: number) => number }>()
 
+// Statements that change every row (#65), waiting for explicit confirmation.
+const pendingUnfiltered = ref<{
+  sql: string
+  from: number
+  offset: (position: number) => number
+  statements: string[]
+}>()
+
 // Variables first, so the write check sees the SQL that will run.
 async function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
@@ -89,9 +97,19 @@ async function execute() {
   const substituted = await withVariables(props.tab, runnable.sql)
   if (!substituted) return
   const next = { ...substituted, from: runnable.from }
-  if (connection.value?.confirmWrites && mayWrite(next.sql, sqlDialect(connection.value.dialect))) {
-    pending.value = next
-  } else run(props.tab, next.sql, next.from, next.offset)
+  const c = connection.value
+  // The server refuses writes on read-only connections; there is nothing to confirm.
+  if (!c || c.readOnly) return run(props.tab, next.sql, next.from, next.offset)
+  const dialect = sqlDialect(c.dialect)
+  if (c.requireWhere ?? !!c.confirmWrites) {
+    const unfiltered = unfilteredWrites(next.sql, dialect)
+    if (unfiltered.length) {
+      pendingUnfiltered.value = { ...next, statements: unfiltered.map((r) => next.sql.slice(r.from, r.to)) }
+      return
+    }
+  }
+  if (c.confirmWrites && mayWrite(next.sql, dialect)) pending.value = next
+  else run(props.tab, next.sql, next.from, next.offset)
 }
 
 function confirmVariables() {
@@ -107,6 +125,12 @@ function cancelVariables() {
 function confirmRun() {
   if (pending.value) run(props.tab, pending.value.sql, pending.value.from, pending.value.offset)
   pending.value = undefined
+}
+
+function confirmUnfiltered() {
+  const p = pendingUnfiltered.value
+  if (p) run(props.tab, p.sql, p.from, p.offset)
+  pendingUnfiltered.value = undefined
 }
 
 // isReadOnlyStatement is false for any script with several statements, so check them one by one:
@@ -494,6 +518,16 @@ const status = computed(() => {
         :disabled="!tab.sql.trim()"
         @click="format"
       />
+      <UBadge
+        v-if="connection?.readOnly"
+        :label="t('common.readOnly')"
+        :title="t('query.readOnlyHint')"
+        icon="i-lucide-lock"
+        color="neutral"
+        variant="subtle"
+        class="shrink-0"
+        :ui="{ label: '@max-4xl:hidden' }"
+      />
       <template v-if="tab.transaction">
         <UBadge
           :label="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
@@ -785,6 +819,26 @@ const status = computed(() => {
         </div>
       </SplitterPanel>
     </SplitterGroup>
+
+    <UModal
+      :open="pendingUnfiltered !== undefined"
+      :title="t('query.unfilteredTitle')"
+      :description="t('query.unfilteredDescription', { connection: connection?.name })"
+      :close="false"
+      @update:open="(v) => !v && (pendingUnfiltered = undefined)"
+    >
+      <template #body>
+        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{
+          pendingUnfiltered?.statements.join(';\n\n')
+        }}</pre>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pendingUnfiltered = undefined" />
+          <UButton :label="t('query.unfilteredRun')" color="error" @click="confirmUnfiltered" />
+        </div>
+      </template>
+    </UModal>
 
     <UModal
       :open="pending !== undefined"

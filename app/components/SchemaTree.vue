@@ -4,12 +4,15 @@ import type { ColumnInfo, RoutineInfo, TableInfo } from '#core'
 
 const props = defineProps<{ connectionId: string; database?: string }>()
 
-const { driverOf } = useConnections()
+const { connections, driverOf } = useConnections()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
 const { tabs, activeTabId, addTab } = useTabs()
 const { run } = useExecution()
 const toast = useToast()
 const { t, locale } = useI18n()
+
+// Read-only connections refuse the others.
+const readOnly = computed(() => connections.value.find((c) => c.id === props.connectionId)?.readOnly)
 
 const schemaTarget = computed(() => ({ connectionId: props.connectionId, database: props.database }))
 const s = computed(() => state(schemaTarget.value))
@@ -200,7 +203,8 @@ const menuItems = computed((): ContextMenuItem[][] => {
     ]
   }
   const { name, kind } = target.table
-  const statements: Statement[] = kind === 'view' ? ['select'] : ['select', 'insert', 'update', 'delete']
+  const statements: Statement[] =
+    kind === 'view' || readOnly.value ? ['select'] : ['select', 'insert', 'update', 'delete']
   return [
     [
       { label: t('schema.query'), icon: 'i-lucide-play', onSelect: () => selectTable(schema, name) },

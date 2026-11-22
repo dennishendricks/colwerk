@@ -1,4 +1,5 @@
 import { drivers, loadDriver } from './registry.ts'
+import { writingStatement } from './sql-guard.ts'
 import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
 import {
@@ -66,11 +67,24 @@ export class Workbench {
     await session.close()
   }
 
+  /** Read-only connections: refuses scripts with a statement that may write, before anything runs. */
+  private async refuseWrites(connectionId: string, sql: string): Promise<void> {
+    const config = await this.resolveConfig(connectionId)
+    if (!config.readOnly) return
+    const statement = writingStatement(sql, sqlDialect(config.dialect))
+    if (!statement) return
+    const err = new AppError('readOnly', 'The connection is read-only: the statement may change data or structures.', {
+      code: 'EREADONLY',
+    })
+    err.position = statement.from
+    throw err
+  }
+
   /**
    * Cancels the statement when it has not finished after `timeoutSeconds` (connecting does not count).
    * Result and error carry the session's transaction state: a failed statement can leave a transaction open.
    */
-  execute(
+  async execute(
     tabId: string,
     connectionId: string,
     sql: string,
@@ -78,6 +92,7 @@ export class Workbench {
     timeoutSeconds: number,
     database?: string,
   ): Promise<QueryResult> {
+    await this.refuseWrites(connectionId, sql)
     return this.runTab(tabId, connectionId, database, async (s) => {
       const transaction = () => s.transactionState().catch(() => undefined)
       try {
@@ -162,7 +177,8 @@ export class Workbench {
   }
 
   /** Streams the full result through the tab's session (same session state as `execute`). */
-  stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
+  async stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
+    await this.refuseWrites(connectionId, sql)
     return this.runTab(tabId, connectionId, database, (s) => s.stream(sql, sink))
   }
 

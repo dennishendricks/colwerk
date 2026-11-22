@@ -54,6 +54,13 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
         <span v-if="active?.folder" class="text-muted">{{ active.folder }} / </span
         >{{ active?.name ?? t('common.selectConnection') }}
       </span>
+      <UIcon
+        v-if="active?.readOnly"
+        name="i-lucide-lock"
+        class="size-3.5 shrink-0 text-muted"
+        :title="t('common.readOnly')"
+        :aria-label="t('common.readOnly')"
+      />
       <span
         v-if="active?.color"
         class="size-2 shrink-0 rounded-full"
@@ -111,6 +118,13 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
                 >
                   <UIcon :name="dialectIcon(c.id)" class="size-4 shrink-0 text-muted" />
                   <span class="truncate">{{ c.name }}</span>
+                  <UIcon
+                    v-if="c.readOnly"
+                    name="i-lucide-lock"
+                    class="size-3.5 shrink-0 text-muted"
+                    :title="t('common.readOnly')"
+                    :aria-label="t('common.readOnly')"
+                  />
                   <span
                     v-if="c.color"
                     class="size-2 shrink-0 rounded-full"

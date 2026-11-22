@@ -12,7 +12,8 @@
     "transactionOpen": "Transaktion offen",
     "transactionFailed": "Transaktion fehlgeschlagen",
     "reload": "Neu laden",
-    "selectConnection": "Verbindung wählen"
+    "selectConnection": "Verbindung wählen",
+    "readOnly": "Schreibgeschützt"
   },
   "app": {
     "noServer": "Keine Verbindung zum lokalen Server",
@@ -223,7 +224,16 @@
     "file": "Datenbankdatei",
     "fileHelp": "Absoluter Pfad oder :memory:",
     "browse": "Durchsuchen …",
-    "readOnly": "Schreibgeschützt öffnen",
+    "readOnly": "Schreibgeschützt",
+    "readOnlyHelps": {
+      "postgres": "Setzt default_transaction_read_only, und Colwerk verweigert schreibende Anweisungen. Eine Sitzung kann das wieder abschalten (SET …); echten Schutz bietet nur ein Login mit reinen SELECT-Rechten.",
+      "mysql": "SET SESSION TRANSACTION READ ONLY, und Colwerk verweigert schreibende Anweisungen. Temporäre Tabellen bleiben beschreibbar und eine Sitzung kann es wieder abschalten; echten Schutz bietet nur ein Konto mit reinen SELECT-Rechten (GRANT SELECT ON db.* TO …).",
+      "mssql": "SQL Server kennt keine schreibgeschützte Sitzung: Colwerk verweigert schreibende Anweisungen selbst, anhand des SQL-Texts. Echten Schutz bietet nur ein Login, das nur in der Rolle db_datareader ist.",
+      "clickhouse": "Sendet readonly = 2 mit jeder Anfrage: nur Lesen und Ändern von Einstellungen. Echten Schutz bietet nur ein Benutzer mit readonly = 1 im Einstellungsprofil.",
+      "duckdb": "Öffnet die Datenbankdatei schreibgeschützt. In-Memory-Datenbanken: Colwerk verweigert schreibende Anweisungen.",
+      "sqlite": "Öffnet die Datenbankdatei schreibgeschützt.",
+      "lakehouse": "Colwerk verweigert schreibende Anweisungen, anhand des SQL-Texts. Echten Schutz bieten nur Zugangsdaten mit reinem Lesezugriff auf den Katalog."
+    },
     "v1Storage": "Neue Datei kompatibel mit DuckDB 1.x anlegen",
     "v1StorageHelp": "Wirkt nur, wenn die Datei noch nicht existiert. DuckDB 1.x kann Dateien im Format von DuckDB 2 nicht öffnen.",
     "color": "Farbe",
@@ -231,6 +241,8 @@
     "noColor": "Keine",
     "confirmWritesHelp": "Fragt vor dem Ausführen nach, wenn eine Anweisung Daten oder Strukturen ändern kann.",
     "confirmWrites": "Schreibende Anweisungen bestätigen",
+    "requireWhere": "UPDATE und DELETE ohne WHERE stoppen",
+    "requireWhereHelp": "Auch TRUNCATE. Führt sie erst nach ausdrücklicher Bestätigung aus. Standardmäßig an, wenn schreibende Anweisungen bestätigt werden.",
     "delete": "Löschen",
     "deleted": "Gelöscht",
     "installDriver": "Datenbanktreiber laden",
@@ -432,6 +444,10 @@
     "saveAs": "Speichern unter …",
     "confirmWriteTitle": "Schreibende Anweisung ausführen?",
     "confirmWriteDescription": "Die Abfrage kann Daten oder Strukturen in „{connection}“ ändern.",
+    "readOnlyHint": "Schreibende Anweisungen werden verweigert",
+    "unfilteredTitle": "Alle Zeilen ändern?",
+    "unfilteredDescription": "Diese Anweisungen haben keine WHERE-Klausel und ändern alle Zeilen ihrer Tabelle in „{connection}“.",
+    "unfilteredRun": "Trotzdem ausführen",
     "variablesTitle": "Abfragevariablen",
     "variablesHint": "Wird unverändert eingesetzt, ohne Anführungszeichen. Für Text '{'${name}'}' in die Abfrage schreiben.",
     "switchConnectionTitle": "Verbindung wechseln?",
@@ -562,6 +578,7 @@
     "sshNoAgent": "Kein SSH-Agent gefunden: SSH_AUTH_SOCK ist nicht gesetzt.",
     "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
     "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
-    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren."
+    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren.",
+    "readOnly": "Die Verbindung ist schreibgeschützt: Die Anweisung kann Daten oder Strukturen ändern."
   }
 }

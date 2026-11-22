@@ -402,6 +402,8 @@ export const mysqlDriver: Driver = {
     const conn = await connect(config)
     try {
       await conn.promise().query(`set time_zone = '+00:00'`)
+      // Read-only connection: refuses writes to non-temporary tables until the session sets it back.
+      if (config.readOnly) await conn.promise().query('set session transaction read only')
     } catch (e) {
       conn.destroy()
       throw wrap(e)

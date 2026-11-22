@@ -77,7 +77,14 @@ async function clientConfig(c: ConnectionConfig): Promise<pg.ClientConfig> {
     ssl: await tlsOptions(c),
     application_name: 'colwerk',
     // Spaces and backslashes in startup options are escaped with a backslash.
-    options: c.searchPath ? `-c search_path=${c.searchPath.replace(/[\\ ]/g, '\\$&')}` : undefined,
+    options:
+      [
+        c.searchPath && `-c search_path=${c.searchPath.replace(/[\\ ]/g, '\\$&')}`,
+        // Read-only connection: every transaction is read-only unless the session sets it back.
+        c.readOnly && '-c default_transaction_read_only=on',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined,
     connectionTimeoutMillis: 10_000,
     types,
   }

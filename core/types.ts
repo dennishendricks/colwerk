@@ -104,7 +104,7 @@ export interface ConnectionConfig {
   sslServerName?: string
   /** DuckDB, SQLite: path to the database file, or `:memory:`. Delta: folder of the Delta tables (or of one table). */
   file?: string
-  /** DuckDB, SQLite: open the database file read-only. */
+  /** Read-only connection: DuckDB and SQLite open the file read-only, PostgreSQL, MySQL and ClickHouse restrict the session; on every engine the workbench refuses statements that may write (see core/sql-guard.ts). */
   readOnly?: boolean
   /** DuckDB: create a new database file in the storage format of DuckDB 1.4, so that DuckDB 1.x can open it. */
   v1Storage?: boolean
@@ -133,6 +133,8 @@ export interface ConnectionConfig {
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */
   confirmWrites?: boolean
+  /** Stop UPDATE and DELETE without WHERE and TRUNCATE before running them (UI only); undefined = as `confirmWrites`. */
+  requireWhere?: boolean
 }
 
 export interface DriverCapabilities {
