@@ -48,8 +48,12 @@ are listed there, along with a software bill of materials of the npm packages an
   structure.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
-- **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
-  cursors and a searchable query history.
+- **Editor comforts** – autocomplete for tables, columns, aliases (also of CTEs and subqueries) and the engine's
+  functions, JOINs along foreign keys with their `ON` clause, optional checks for unknown or ambiguous names and for
+  `UPDATE`/`DELETE` without `WHERE`, SQL formatting, execution plans, SQL templates, multiple cursors, searchable
+  history.
+- **ER diagrams** – read-only, from the foreign keys of a schema or of a table and its neighbors; export as Mermaid or
+  DBML.
 - **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
   `.sqlite3`) to open it as a connection.
 - **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).
@@ -108,7 +112,8 @@ Core decisions:
 
 - **One session per tab.** Each editor tab holds exactly one database connection, so transactions, temp tables and `SET`
   options persist per tab. Open transactions are detected and shown with Commit/Rollback. Introspection uses a separate
-  metadata session per connection.
+  metadata session per connection. Foreign keys are loaded on demand too, per table for the editor and per schema for ER
+  diagrams.
 - **Unified type model.** `BIGINT`/`DECIMAL` as strings, timestamps as ISO 8601, binary as `0x` hex, everything else as
   JSON.
 - **Bounded results.** Drivers read at most `rowLimit + 1` rows and cancel the rest; each tab has a timeout (default 60
