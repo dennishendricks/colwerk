@@ -1,6 +1,7 @@
 import mysql from 'mysql2'
 import type { Connection, ConnectionOptions, FieldPacket, ResultSetHeader, TypeCast } from 'mysql2'
 import { mysqlGeometryToText } from '../geometry.ts'
+import { groupForeignKeys, type ForeignKeyRow } from './foreign-keys.ts'
 import { mysqlServerScript, splitStatements } from '../sql-split.ts'
 import {
   AppError,
@@ -145,6 +146,14 @@ const SQL = {
     from information_schema.statistics where table_schema = ? and table_name = ?
     group by index_name, non_unique
     order by index_name = 'PRIMARY' desc, index_name`,
+  foreignKeys: `
+    select constraint_name as name, table_schema as \`schema\`, table_name as \`table\`, column_name as col,
+      referenced_table_schema as ref_schema, referenced_table_name as ref_table, referenced_column_name as ref_col
+    from information_schema.key_column_usage
+    where referenced_table_name is not null
+      and ((table_schema = ? and (? is null or table_name = ?))
+        or (referenced_table_schema = ? and (? is null or referenced_table_name = ?)))
+    order by table_schema, table_name, constraint_name, ordinal_position`,
   routines: `
     select routine_name as name, lower(routine_type) as kind from information_schema.routines
     where routine_schema = ? order by routine_name`,
@@ -333,6 +342,11 @@ class MysqlSession implements Session {
         })) as IntrospectResult<R>
       }
       if (req.kind === 'routines') return (await db.query(SQL.routines, [req.schema]))[0] as IntrospectResult<R>
+      if (req.kind === 'foreignKeys') {
+        const t = req.table ?? null
+        const [rows] = await db.query(SQL.foreignKeys, [req.schema, t, t, req.schema, t, t])
+        return groupForeignKeys(rows as ForeignKeyRow[]) as IntrospectResult<R>
+      }
       if (req.kind === 'ddl') {
         const types =
           req.object === 'routine'

@@ -1,4 +1,4 @@
-import type { QueryResult, TransactionState } from '#core'
+import type { ExportFormat, QueryResult, TransactionState } from '#core'
 import type { PinnedResult, QueryTab } from './tabs'
 
 // Running statements in a tab's server-side session.
@@ -10,6 +10,17 @@ export const variablePrompt = ref<{
   values: Record<string, string>
   done: (values?: Record<string, string>) => void
 }>()
+
+// Not taken from core/export.ts, which pulls in `node:fs`.
+const extensions: Record<ExportFormat, string> = {
+  csv: 'csv',
+  parquet: 'parquet',
+  xlsx: 'xlsx',
+  json: 'json',
+  ndjson: 'ndjson',
+  markdown: 'md',
+  insert: 'sql',
+}
 
 const openTransaction = (state?: TransactionState) => (state === 'idle' ? undefined : state)
 
@@ -132,29 +143,30 @@ export function useExecution() {
    */
   async function exportResult(
     tab: QueryTab,
-    format: 'csv' | 'parquet',
+    format: ExportFormat,
     full: boolean,
     pin?: PinnedResult,
+    insert?: { table: string[]; batchSize: number },
   ): Promise<string | undefined> {
     const shown = pin?.set ?? tab.result?.resultSets[tab.resultIndex]
     const source = pin?.source ?? tab.source
     tab.exporting = 'running'
     try {
       const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
-      const path = await fileDialog('save', t('dialog.save'), `export-${stamp}.${format}`)
+      const path = await fileDialog('save', t('dialog.save'), `export-${stamp}.${extensions[format]}`)
       // Widened: `cancel()` changes it while this call is waiting.
       if (!path || (tab.exporting as QueryTab['exporting']) === 'cancelled') return undefined
       const { statement } = shown ?? {}
+      const common = {
+        format,
+        path,
+        connectionId: source?.connectionId,
+        insert: format === 'insert' ? insert : undefined,
+      }
       const body =
         full && source && statement
-          ? {
-              format,
-              path,
-              connectionId: source.connectionId,
-              database: source.database,
-              sql: source.sql.slice(statement.from, statement.to),
-            }
-          : { format, path, columns: shown?.columns, rows: shown?.rows }
+          ? { ...common, database: source.database, sql: source.sql.slice(statement.from, statement.to) }
+          : { ...common, columns: shown?.columns, rows: shown?.rows }
       await api(`/api/tabs/${tab.id}/export`, { method: 'POST', body })
       return path
     } catch (e) {
