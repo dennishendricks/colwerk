@@ -1,8 +1,8 @@
 name: Website
 
 # Checks the website on changes, and publishes it once a release is published (the release workflow only creates a
-# draft). Cloudflare builds the `website` branch through the deploy hook, without automatic builds. That branch is moved
-# to the release's commit here, so documentation merged into main after a release stays offline until the next one.
+# draft). Cloudflare builds the `website` branch on every push to it, and only that branch. It is moved to the release's
+# commit here, so documentation merged into main after a release stays offline until the next one.
 on:
   pull_request:
     paths: ['website/**', '.github/workflows/website.yml']
@@ -49,6 +49,3 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
       - run: git push --force origin HEAD:refs/heads/website
-      - run: curl --fail-with-body --silent --show-error -X POST "$DEPLOY_HOOK"
-        env:
-          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
