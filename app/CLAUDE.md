@@ -63,7 +63,7 @@
 - `utils/sql-format.ts`: exports formatSql
 - `utils/sql-functions.ts`: exports SqlFunction, SQL_FUNCTIONS
 - `utils/sql-guard.ts`: The checks live in core; re-exported for the app's auto-imports
-- `utils/sql-ident.ts`: exports quoteIdent, identifier
+- `utils/sql-ident.ts`: exports identifier
 - `utils/sql-lint.ts`: exports LintOptions, SqlDiagnostic, lintSql
 - `utils/sql-scope.ts`: exports SchemaModel, TableSource, DerivedSource, Source, QueryBlock, Token, Analysis, tokenize, visibleName, findTable, +9 more; **21 KB: grep, then read in parts**
 - `utils/sql-split.ts`: The splitter lives in core (the drivers split scripts too); re-exported for the app's auto-imports

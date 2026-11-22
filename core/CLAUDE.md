@@ -11,7 +11,7 @@
 - `compare/snapshot-mysql.ts`: exports snapshotMysql
 - `compare/snapshot-postgres.ts`: exports snapshotPostgres
 - `compare/snapshot.ts`: exports Snapshot, group, groupByTable, append, buildTables, toViews
-- `compare/sql.ts`: exports quoteIdent, qualified, stringLiteral, replaceSchema, query, normalize, flag, MSSQL_VIEW_HEAD
+- `compare/sql.ts`: exports qualified, stringLiteral, replaceSchema, query, normalize, flag, MSSQL_VIEW_HEAD
 - `compare/types.ts`: exports schemaCompareDialects, dataCompareDialects, SchemaRef, TableRef, SnapshotColumn, SnapshotConstraint, SnapshotIndex, SnapshotTable, SnapshotView, SchemaSnapshot, +8 more
 - `connection-import/ads.ts`: exports parseJsonc, parseAds
 - `connection-import/beekeeper.ts`: exports BEEKEEPER_DEFAULT_KEY, simpleDecrypt, readBeekeeper
@@ -53,7 +53,7 @@
 - `sql-tables.ts`: exports TableRef, referencedTables
 - `ssh-tunnel.ts`: exports Tunnel, hostKeyFingerprint, openTunnel
 - `store.ts`: exports ConnectionSummary, ConnectionInput, ConnectionStore
-- `table-edit.ts`: exports editDialects, editBlocker, singleTableSource, EditColumn, EditTarget, EditBlock, buildEditTarget, EditValue, Changes, canUpdateToDefault, +4 more
+- `table-edit.ts`: exports editDialects, editBlocker, singleTableSource, EditColumn, EditTarget, EditBlock, buildEditTarget, EditValue, Changes, canUpdateToDefault, +3 more
 - `text-file.ts`: exports decodeText
 - `types.ts`: Runtime-agnostic contracts shared by drivers, the server layer and (type-only) the UI
 - `values.ts`: exports STREAM_BATCH, toHex, sqlTimestampToIso, normalizeValue, cellText, csvField, markdownField, markdownTable, markdownRow, uniqueNames, +1 more
