@@ -418,6 +418,7 @@
     "busy": "A statement is already running in this tab.",
     "explainSingle": "An execution plan is only available for a single statement.",
     "analyzeReadOnly": "ANALYZE executes the statement and is only available for read-only statements.",
+    "planMissing": "SQL Server returned no execution plan.",
     "noResultSet": "The statement returned no result set.",
     "exportCancelled": "The export was cancelled.",
     "driverMissing": "The DuckDB driver is not installed. Open the connection in Colwerk and choose “Load database driver”.",

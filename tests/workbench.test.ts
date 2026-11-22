@@ -145,7 +145,7 @@ const explainCases: { config: ConnectionConfig; create: string; table: string; a
     config: testConnections.mssql,
     create: 'create table #wb_explain_t (x int)',
     table: '#wb_explain_t',
-    analyze: false,
+    analyze: true,
   },
   {
     config: testConnections.clickhouse,
@@ -163,11 +163,21 @@ for (const c of explainCases) {
     const id = c.config.id
     await wb.execute('tab', id, c.create, 1, 10)
     const select = `select x from ${c.table} where x % 2 = 0;`
-    assertMatch((await wb.explain('tab', id, select, false, 10)).plan, c.plan ?? /wb_explain_t/)
-    if (c.analyze) assert((await wb.explain('tab', id, select, true, 10)).plan.trim())
+    const plan = await wb.explain('tab', id, select, false, 10)
+    if (c.config.dialect === 'mssql') {
+      assertEquals(plan.format, 'showplan')
+      assertMatch(plan.plan, /<ShowPlanXML/)
+    } else assertMatch(plan.plan, c.plan ?? /wb_explain_t/)
+    if (c.analyze) {
+      const actual = await wb.explain('tab', id, select, true, 10)
+      if (c.config.dialect === 'mssql') {
+        assertEquals(actual.format, 'showplan')
+        assertMatch(actual.plan, /<ShowPlanXML/)
+      } else assert(actual.plan.trim())
+    }
     await assertRejects(() => wb.explain('tab', id, `insert into ${c.table} values (1)`, true, 10), Error, 'read-only')
     await assertRejects(() => wb.explain('tab', id, 'select 1; select 2', false, 10), Error, 'single statement')
-    // SQL Server: SHOWPLAN is switched off again, so statements run normally afterwards.
+    // SQL Server: SHOWPLAN and STATISTICS XML are switched off again, so statements run normally afterwards.
     await wb.execute('tab', id, `insert into ${c.table} values (2)`, 1, 10)
     assertEquals((await wb.execute('tab', id, select, 10, 10)).resultSets[0]!.rows, [[2]])
     await wb.closeAll()
