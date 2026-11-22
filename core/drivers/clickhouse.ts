@@ -17,7 +17,9 @@ import {
   type ResultColumn,
   type ResultSet,
   type RowSink,
+  type ServerSession,
   type Session,
+  type SessionAction,
   type TableInfo,
 } from '../types.ts'
 import { normalizeValue, STREAM_BATCH } from '../values.ts'
@@ -177,6 +179,10 @@ async function readResult(
 }
 
 const SQL = {
+  sessions: `
+    select query_id as id, user, current_database as database, toString(address) as client,
+      if(client_name != '', client_name, nullIf(http_user_agent, '')) as application, 'running' as state, elapsed as seconds, query
+    from system.processes where is_initial_query and query_id != queryID() order by elapsed desc`,
   databases: `
     select name from system.databases
     where name not in ('system', 'information_schema', 'INFORMATION_SCHEMA')
@@ -290,12 +296,25 @@ class ClickHouseSession implements Session {
   }
 
   /** Stops a query of this session through a request outside of it (the session is locked while the query runs). */
-  private async kill(queryId: string): Promise<void> {
-    const { response } = send(this.endpoint, 'kill query where query_id = {id:String} sync', {
+  private async kill(queryId: string, mode: 'sync' | 'async' = 'sync'): Promise<void> {
+    const { response } = send(this.endpoint, `kill query where query_id = {id:String} ${mode}`, {
       params: { id: queryId },
     })
     const res = await response
     res.resume()
+  }
+
+  // ClickHouse has queries, not sessions: the monitor lists the running queries and can only cancel them.
+  async sessions(): Promise<ServerSession[]> {
+    const rows = await this.rows<Omit<ServerSession, 'active' | 'wait' | 'blockedBy'>>(SQL.sessions)
+    return rows.map((r) => ({ ...r, active: true, wait: null, blockedBy: [] }))
+  }
+
+  async stopSession(id: string, action: SessionAction): Promise<void> {
+    if (action === 'terminate') {
+      throw new AppError('sessionActionUnsupported', 'ClickHouse can only cancel queries.')
+    }
+    await this.kill(id, 'async')
   }
 
   // Transactions are experimental in ClickHouse and off by default.

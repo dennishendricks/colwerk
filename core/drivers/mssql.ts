@@ -17,7 +17,9 @@ import {
   type RoutineInfo,
   type RowSink,
   type SchemaInfo,
+  type ServerSession,
   type Session,
+  type SessionAction,
   type TableInfo,
   type TransactionState,
 } from '../types.ts'
@@ -88,6 +90,19 @@ const listAgg = (stringAgg: boolean, expr: string, sep: string, order: string, f
 const sqlFor = (stringAgg: boolean) => {
   const agg = (expr: string, sep: string, order: string, from: string) => listAgg(stringAgg, expr, sep, order, from)
   return {
+    // Without VIEW SERVER STATE only the login's own sessions are listed.
+    sessions: `
+    select cast(s.session_id as varchar(10)) as id, s.login_name as [user], db_name(coalesce(r.database_id, s.database_id)) as [database],
+      c.client_net_address as client, nullif(s.program_name, '') as application, coalesce(r.status, s.status) as state,
+      cast(case when r.session_id is not null or s.open_transaction_count > 0 then 1 else 0 end as bit) as active,
+      datediff(second, coalesce(r.start_time, s.last_request_end_time), getdate()) as seconds,
+      t.text as query, r.wait_type as wait, cast(nullif(r.blocking_session_id, 0) as varchar(10)) as blocked_by
+    from sys.dm_exec_sessions s
+    left join sys.dm_exec_requests r on r.session_id = s.session_id
+    outer apply (select top 1 client_net_address from sys.dm_exec_connections where session_id = s.session_id) c
+    outer apply sys.dm_exec_sql_text(r.sql_handle) t
+    where s.is_user_process = 1 and s.session_id <> @@spid
+    order by s.session_id`,
     databases: `
     select name from sys.databases
     where has_dbaccess(name) = 1 and state_desc = 'ONLINE'
@@ -413,6 +428,30 @@ class MssqlSession implements Session {
   async cancel(): Promise<void> {
     this.stopReason = 'cancel'
     this.current?.cancel()
+  }
+
+  async sessions(): Promise<ServerSession[]> {
+    try {
+      const { recordset } = await this.pool
+        .request()
+        .query<ServerSession & { blocked_by: string | null }>(this.SQL.sessions)
+      return recordset.map(({ blocked_by, ...r }) => ({ ...r, blockedBy: blocked_by ? [blocked_by] : [] }))
+    } catch (e) {
+      throw wrap(e)
+    }
+  }
+
+  // T-SQL cannot cancel another session's request: `KILL` ends the session.
+  async stopSession(id: string, action: SessionAction): Promise<void> {
+    if (action === 'cancel') {
+      throw new AppError('sessionActionUnsupported', 'SQL Server can only terminate sessions.')
+    }
+    if (!/^\d+$/.test(id)) throw new AppError('sessionNotFound', `Session ${id} not found`)
+    try {
+      await this.pool.request().batch(`kill ${Number(id)}`)
+    } catch (e) {
+      throw wrap(e)
+    }
   }
 
   // XACT_STATE() is -1 for a doomed transaction that can only be rolled back.

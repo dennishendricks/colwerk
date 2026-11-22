@@ -10,7 +10,9 @@ import {
   type IntrospectResult,
   type QueryResult,
   type RowSink,
+  type ServerSession,
   type Session,
+  type SessionAction,
   sqlDialect,
 } from './types.ts'
 
@@ -28,6 +30,8 @@ const CONNECTION_LOST = new Set([
 ])
 
 const PLAN_ROW_LIMIT = 10_000
+const MONITOR_TIMEOUT = 15
+const monitorTab = (connectionId: string) => `monitor:${connectionId}`
 
 interface TabSession {
   connectionId: string
@@ -197,6 +201,33 @@ export class Workbench {
   async cancel(tabId: string): Promise<void> {
     const tab = this.tabs.get(tabId)
     if (tab?.busy) await (await tab.session).cancel()
+  }
+
+  /**
+   * The server's sessions, in a session of its own per connection: the metadata session may be waiting on the very
+   * locks the monitor is there to look into.
+   */
+  sessions(connectionId: string): Promise<ServerSession[]> {
+    return this.runTab(monitorTab(connectionId), connectionId, undefined, (s) =>
+      withTimeout(s, MONITOR_TIMEOUT, async () => {
+        if (!s.sessions) throw new AppError('sessionsUnsupported', 'The database has no session monitor.')
+        return s.sessions()
+      }),
+    )
+  }
+
+  /** Cancels the running statement of a server session, or terminates it (monitor session, see `sessions`). */
+  stopSession(connectionId: string, id: string, action: SessionAction): Promise<void> {
+    return this.runTab(monitorTab(connectionId), connectionId, undefined, (s) =>
+      withTimeout(s, MONITOR_TIMEOUT, async () => {
+        if (!s.stopSession) throw new AppError('sessionsUnsupported', 'The database has no session monitor.')
+        return s.stopSession(id, action)
+      }),
+    )
+  }
+
+  closeMonitor(connectionId: string): Promise<void> {
+    return this.closeTab(monitorTab(connectionId))
   }
 
   async closeTab(tabId: string): Promise<void> {
@@ -432,6 +463,8 @@ function releasing(session: Session, release: () => void): Session {
     cancel: () => session.cancel(),
     transactionState: () => session.transactionState(),
     introspect: (request) => session.introspect(request),
+    sessions: session.sessions && (() => session.sessions!()),
+    stopSession: session.stopSession && ((id, action) => session.stopSession!(id, action)),
     close: () => session.close().finally(release),
   }
 }
