@@ -37,10 +37,14 @@
 - `components/HistoryModal.vue`
 - `components/McpModal.vue`
 - `components/PlanView.vue`
-- `components/QueryPanel.vue`: **42 KB: grep, then read in parts**
+- `components/QueryPanel.vue`
+- `components/QueryRunModals.vue`
+- `components/QueryToolbar.vue`
 - `components/QuickOpen.vue`
 - `components/ReleaseNotesModal.vue`
+- `components/ResultExportBar.vue`
 - `components/ResultGrid.vue`
+- `components/ResultSwitcher.vue`
 - `components/SchemaTree.vue`: **24 KB: grep, then read in parts**
 - `components/SecretInput.vue`
 - `components/SessionMonitorModal.vue`
@@ -49,16 +53,22 @@
 - `components/StoredPasswordField.vue`
 - `components/TabBarActions.vue`
 - `components/UnlockModal.vue`
+- `components/VariablesModal.vue`
 - `composables/connection-form.ts`: State of the connection dialog: the form, which fields the dialect and login show, and the payload to save
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
 - `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
 - `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
+- `composables/editor-schema.ts`: Schema of a query tab's connection for the editor's autocomplete, preloaded for the tables the SQL refers to
 - `composables/execution.ts`: exports variablePrompt, useExecution
 - `composables/grid-columns.ts`: Column definitions of the result grid: header menus, resize handles, row menus, cell rendering, column filter
 - `composables/grid-edits.ts`: Pending edits of one result grid (#60): changed, inserted and deleted rows; nothing is written until "Save"
 - `composables/import.ts`: exports ImportRequest, importRequest, useImport
 - `composables/lint.ts`: exports useLintSettings
 - `composables/menu.ts`: exports useApplicationMenu
+- `composables/pinned-results.ts`: Result sets of a query tab: the current one, pinned ones, and which of them is shown
+- `composables/query-run.ts`: Running a query tab's SQL: variables, write confirmation, unfiltered writes, plan check and dry run
+- `composables/result-editability.ts`: Whether a query tab's current result can be edited in the grid, resolved from the schema (#60)
+- `composables/result-export.ts`: Exporting and copying the shown result of a query tab, including the target of SQL INSERT statements
 - `composables/schema-levels.ts`: Select items and loading of cascading schema and table pickers for a connection (and database)
 - `composables/schema.ts`: exports SchemaTarget, forgetSchemas, useSchema
 - `composables/tabs.ts`: exports PinnedResult, QueryTab, ReturnedTab, hasOpenTransaction, forgetTransactions, useTabs
