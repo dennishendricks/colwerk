@@ -47,6 +47,23 @@ export type DateFormat = (typeof dateFormats)[number]
 export const sshAuths = ['password', 'key', 'agent'] as const
 export type SshAuth = (typeof sshAuths)[number]
 
+/** Password managers a secret can be read from at connect time (core/secrets.ts). */
+export const secretProviders = ['1password', 'bitwarden', 'bitwarden-sm', 'keepassxc'] as const
+export type SecretProvider = (typeof secretProviders)[number]
+
+/**
+ * Where a secret is read at connect time instead of being stored by Colwerk (core/secrets.ts):
+ * - `1password`: secret reference `op://vault/item/field`
+ * - `bitwarden`: field of an item (`password` by default, `username`, `notes` or a custom field)
+ * - `bitwarden-sm`: secret of Bitwarden Secrets Manager
+ * - `keepassxc`: attribute (`Password` by default) of an entry, given by its path in the database
+ */
+export type SecretRef =
+  | { provider: '1password'; reference: string }
+  | { provider: 'bitwarden'; item: string; field?: string }
+  | { provider: 'bitwarden-sm'; secretId: string }
+  | { provider: 'keepassxc'; database: string; entry: string; attribute?: string; keyFile?: string }
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -60,6 +77,8 @@ export interface ConnectionConfig {
   database?: string
   user?: string
   password?: string
+  /** Instead of `password`: read from a password manager on every connect, never stored. */
+  passwordRef?: SecretRef
   /** Network databases: how the login is authenticated (see ConnectionAuth); undefined = `password`. */
   auth?: ConnectionAuth
   /** SQL Server Windows login: domain of the account. */
@@ -116,6 +135,8 @@ export interface ConnectionConfig {
   sshKeyFile?: string
   /** Password (auth `password`) or passphrase of the key (auth `key`); stored like `password`. */
   sshSecret?: string
+  /** Instead of `sshSecret`: read from a password manager on every connect, never stored. */
+  sshSecretRef?: SecretRef
   /** SHA256 fingerprint of the SSH server's host key, recorded on the first connect (trust on first use). */
   sshHostKey?: string
   /** Marks the connection in the UI (connection list, tabs, query toolbar). */
