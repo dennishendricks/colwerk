@@ -310,8 +310,10 @@ export const duckdbDriver: Driver = {
   async connect(config: ConnectionConfig) {
     try {
       // Named in-memory databases keep one shared database per connection across all its sessions.
-      const path = !config.file || config.file === ':memory:' ? `:memory:${config.id}` : config.file
-      return new DuckDBSession(await connect(path, !!config.readOnly, !!config.v1Storage))
+      const memory = !config.file || config.file === ':memory:'
+      const path = memory ? `:memory:${config.id}` : config.file!
+      // An in-memory database cannot be opened read-only; the workbench refuses writes to it.
+      return new DuckDBSession(await connect(path, !!config.readOnly && !memory, !!config.v1Storage))
     } catch (e) {
       throw wrap(e)
     }

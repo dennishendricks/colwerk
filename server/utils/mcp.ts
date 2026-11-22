@@ -67,14 +67,18 @@ const GUARD: Record<SplitDialect, string> = {
 
 /** Runs one SELECT/WITH statement in a session of its own, closed afterwards. */
 export async function readQuery(connectionId: string, sql: string, rowLimit: number): Promise<QueryResult> {
-  const dialect = sqlDialect((await connectionOf(connectionId)).dialect)
+  const connection = await connectionOf(connectionId)
+  const dialect = sqlDialect(connection.dialect)
   if (!isSelectStatement(sql, dialect)) {
     throw createError({ statusCode: 400, message: 'Only a single SELECT or WITH statement is allowed.' })
   }
   const tabId = `mcp:${crypto.randomUUID()}`
   try {
     return await dbCall(async () => {
-      await workbench.execute(tabId, connectionId, GUARD[dialect], 1, QUERY_TIMEOUT_SECONDS)
+      // On read-only connections the request setting already protects; setting `readonly` again may be refused.
+      if (!(dialect === 'clickhouse' && connection.readOnly)) {
+        await workbench.execute(tabId, connectionId, GUARD[dialect], 1, QUERY_TIMEOUT_SECONDS)
+      }
       return workbench.execute(tabId, connectionId, sql, rowLimit, QUERY_TIMEOUT_SECONDS)
     })
   } finally {

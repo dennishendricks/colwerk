@@ -12,7 +12,8 @@
     "transactionOpen": "Transaction open",
     "transactionFailed": "Transaction failed",
     "reload": "Reload",
-    "selectConnection": "Select connection"
+    "selectConnection": "Select connection",
+    "readOnly": "Read-only"
   },
   "app": {
     "noServer": "No connection to the local server",
@@ -210,7 +211,16 @@
     "file": "Database file",
     "fileHelp": "Absolute path or :memory:",
     "browse": "Browse …",
-    "readOnly": "Open read-only",
+    "readOnly": "Read-only",
+    "readOnlyHelps": {
+      "postgres": "Sets default_transaction_read_only, and Colwerk refuses writing statements. A session can switch this off again (SET …); for real protection use a login with SELECT privileges only.",
+      "mysql": "SET SESSION TRANSACTION READ ONLY, and Colwerk refuses writing statements. Temporary tables stay writable and a session can switch it off again; for real protection use an account with only SELECT privileges (GRANT SELECT ON db.* TO …).",
+      "mssql": "SQL Server has no read-only session: Colwerk refuses writing statements itself, based on the SQL text. For real protection use a login that is only in the db_datareader role.",
+      "clickhouse": "Sends readonly = 2 with every request: reading and changing settings only. For real protection use a user with readonly = 1 in its settings profile.",
+      "duckdb": "Opens the database file read-only. In-memory databases: Colwerk refuses writing statements.",
+      "sqlite": "Opens the database file read-only.",
+      "lakehouse": "Colwerk refuses writing statements, based on the SQL text. For real protection use catalog credentials with read access only."
+    },
     "v1Storage": "Create a new file compatible with DuckDB 1.x",
     "v1StorageHelp": "Only applies when the file does not exist yet. DuckDB 1.x cannot open files in the format of DuckDB 2.",
     "color": "Color",
@@ -218,6 +228,8 @@
     "noColor": "None",
     "confirmWritesHelp": "Asks before running a statement that may change data or structures.",
     "confirmWrites": "Confirm writing statements",
+    "requireWhere": "Stop UPDATE and DELETE without WHERE",
+    "requireWhereHelp": "Also TRUNCATE. Runs them only after an explicit confirmation. On by default when writing statements are confirmed.",
     "delete": "Delete",
     "deleted": "Deleted",
     "installDriver": "Load database driver",
@@ -354,6 +366,10 @@
     "saveAs": "Save as …",
     "confirmWriteTitle": "Run writing statement?",
     "confirmWriteDescription": "The query may change data or structures in “{connection}”.",
+    "readOnlyHint": "Writing statements are refused",
+    "unfilteredTitle": "Change every row?",
+    "unfilteredDescription": "These statements have no WHERE clause and change every row of their table in “{connection}”.",
+    "unfilteredRun": "Run anyway",
     "variablesTitle": "Query variables",
     "variablesHint": "Inserted as typed, without quotes. Write '{'${name}'}' in the query for a text value.",
     "switchConnectionTitle": "Switch connection?",
@@ -445,6 +461,7 @@
     "sshNoAgent": "No SSH agent found: SSH_AUTH_SOCK is not set.",
     "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
     "sshKeyRequired": "Please enter the path of the private key file.",
-    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance."
+    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance.",
+    "readOnly": "The connection is read-only: the statement may change data or structures."
   }
 }

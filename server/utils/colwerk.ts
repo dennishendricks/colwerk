@@ -172,5 +172,6 @@ export function parseConnection(body: unknown): ConnectionInput {
     sshHostKey: ssh ? str('sshHostKey') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,
+    requireWhere: typeof b.requireWhere === 'boolean' ? b.requireWhere : undefined,
   }
 }

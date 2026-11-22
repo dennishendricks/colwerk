@@ -3,7 +3,7 @@ import { test } from 'bun:test'
 import { rm } from 'node:fs/promises'
 import { assert, assertEquals, assertMatch, assertRejects } from './assert.ts'
 import { join } from 'node:path'
-import { type ConnectionConfig, DbError } from '../core/types.ts'
+import { type AppError, type ConnectionConfig, DbError } from '../core/types.ts'
 import { Workbench } from '../core/workbench.ts'
 import { reachable, tempDir, testConnections } from './helpers.ts'
 
@@ -210,5 +210,31 @@ test('refreshing a table drops its cached indexes; DDL is never cached', async (
   assert((await ddl()).includes('t_x'))
   await wb.introspect('wb-cache', { kind: 'columns', schema: 'main', table: 't' }, true)
   assertEquals(await indexes(), ['t_x'])
+  await wb.closeAll()
+})
+
+test('read-only: statement check refuses writes before they run', async () => {
+  const dir = await tempDir()
+  const config: ConnectionConfig = { id: 'wb-ro-check', name: 'lite', dialect: 'sqlite', file: join(dir, 'ro.sqlite') }
+  const wb = workbench(config)
+  await wb.execute('tab', 'wb-ro-check', 'create table t (x int)', 1, 10)
+  await wb.closeConnection('wb-ro-check')
+  config.readOnly = true
+  await wb.execute('tab', 'wb-ro-check', 'select 1', 1, 10)
+  await wb.execute('tab', 'wb-ro-check', 'begin', 1, 10)
+  await wb.execute('tab', 'wb-ro-check', 'rollback', 1, 10)
+  const sql = 'select 1;\nupdate t set x = 2'
+  const err = await assertRejects(() => wb.execute('tab', 'wb-ro-check', sql, 1, 10), DbError)
+  assertEquals((err as AppError).key, 'readOnly')
+  assertEquals(err.position, sql.indexOf('update'))
+  await wb.closeAll()
+  await rm(dir, { recursive: true })
+})
+
+test('duckdb: in-memory read-only connection reads and refuses writes', async () => {
+  const wb = workbench({ id: 'wb-ro-mem', name: 'duck', dialect: 'duckdb', file: ':memory:', readOnly: true })
+  assertEquals((await wb.execute('tab', 'wb-ro-mem', 'select 1 as x', 1, 10)).resultSets[0]!.rows, [[1]])
+  const err = await assertRejects(() => wb.execute('tab', 'wb-ro-mem', 'create table t (x int)', 1, 10), DbError)
+  assertEquals((err as AppError).key, 'readOnly')
   await wb.closeAll()
 })

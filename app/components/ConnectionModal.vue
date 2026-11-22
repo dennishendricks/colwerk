@@ -64,6 +64,7 @@ watch(
       sshHostKey: c?.sshHostKey,
       color: c?.color,
       confirmWrites: c?.confirmWrites ?? false,
+      requireWhere: c?.requireWhere,
     })
     // Opens with the further options shown when the connection uses one of them.
     showAdvanced.value = !!(
@@ -720,9 +721,6 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               />
             </div>
           </UFormField>
-          <UFormField v-if="!lakehouse" class="col-span-2">
-            <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
-          </UFormField>
           <UFormField
             v-if="form.dialect === 'duckdb' && form.file && form.file !== ':memory:'"
             class="col-span-2"
@@ -758,8 +756,18 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             />
           </div>
         </UFormField>
+        <UFormField class="col-span-2" :help="t(`connection.readOnlyHelps.${lakehouse ? 'lakehouse' : form.dialect}`)">
+          <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
+        </UFormField>
         <UFormField class="col-span-2" :help="t('connection.confirmWritesHelp')">
           <USwitch v-model="form.confirmWrites" :label="t('connection.confirmWrites')" />
+        </UFormField>
+        <UFormField class="col-span-2" :help="t('connection.requireWhereHelp')">
+          <USwitch
+            :model-value="form.requireWhere ?? !!form.confirmWrites"
+            :label="t('connection.requireWhere')"
+            @update:model-value="(v) => (form.requireWhere = v)"
+          />
         </UFormField>
 
         <button type="submit" class="hidden" />
