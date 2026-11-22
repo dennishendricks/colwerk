@@ -77,9 +77,9 @@ forgets them after an hour without a query. ClickHouse has no transactions.
 
 - **Database file**: an absolute path, chosen with **Browse …**. Empty or `:memory:` creates an in-memory database,
   shared by the connection's tabs.
-- **Create a new file compatible with DuckDB 1.x**: only applies when the file does not exist yet. DuckDB 1.x cannot
+- **Create a new file compatible with DuckDB 1.x** (More options): only applies when the file does not exist yet. DuckDB 1.x cannot
   open files in the format of DuckDB 2.
-- **Let AI assistants (MCP) read files and URLs**: see [DuckDB files](/docs/mcp/#duckdb-files).
+- **Let AI assistants (MCP) read files and URLs** (More options): see [DuckDB files](/docs/mcp/#duckdb-files).
 
 DuckDB locks its file while it is open; **Disconnect** releases it for other programs.
 

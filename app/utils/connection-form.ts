@@ -80,6 +80,14 @@ export function usesAdvancedOptions(c?: ConnectionSummary): boolean {
       c.oauthServerUri ||
       c.oauthScope ||
       c.ssh ||
-      c.mcpLogin)
+      c.mcpLogin ||
+      c.v1Storage ||
+      c.mcpExternalAccess ||
+      c.color ||
+      c.readOnly ||
+      c.confirmWrites ||
+      c.requireWhere !== undefined ||
+      c.checkPlan !== undefined ||
+      c.scanRowThreshold !== undefined)
   )
 }

@@ -19,8 +19,8 @@ engine:
 - [Files and URLs](/docs/connections/files/): CSV, Parquet, JSON and Excel through DuckDB.
 
 Less common settings are under **More options**, which opens by itself when a saved connection uses any of them:
-[SSH tunnel and TLS](/docs/connections/ssh-tls/), engine-specific options and the
-[MCP login](/docs/mcp/#a-login-of-its-own).
+[SSH tunnel and TLS](/docs/connections/ssh-tls/), engine-specific options, the
+[MCP login](/docs/mcp/#a-login-of-its-own), the [color](#color) and the [guard rails](#guard-rails).
 
 **Test** tries to connect with the values in the dialog; **Save** (or Enter) stores the connection. Passwords are
 stored encrypted, or read from a [password manager](/docs/connections/passwords/) on every connect. When you edit a
@@ -40,7 +40,7 @@ toolbar of every tab that uses it. Choices: none, red, orange, yellow, green, bl
 
 ## Guard rails
 
-These settings are at the bottom of the dialog. They protect against mistakes, not against a determined user: for real
+These settings are at the end of **More options**. They protect against mistakes, not against a determined user: for real
 protection, use a database login with the permissions it needs and no more.
 
 ### Read-only

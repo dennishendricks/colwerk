@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Further options of the connection dialog: login details, socket, SQL Server settings, SSH tunnel, TLS and MCP login
+// Engine options under "More options" in the connection dialog: login details, socket, SQL Server settings, SSH tunnel, TLS and MCP login
 import type { ConnectionInput, ConnectionSummary, DateFormat } from '#core'
 
 defineProps<{ connection?: ConnectionSummary; mcpLoginAvailable: boolean }>()
@@ -20,7 +20,7 @@ const dateFormat = computed({
 </script>
 
 <template>
-  <div class="grid grid-cols-2 gap-3 pt-3">
+  <div class="col-span-2 grid grid-cols-2 gap-3">
     <template v-if="form.auth === 'oauth-client'">
       <UFormField :label="t('connection.oauthServerUri')" :help="t('connection.oauthServerUriHelp')" class="col-span-2">
         <UInput
