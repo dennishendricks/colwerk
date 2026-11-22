@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ContextMenuItem } from '@nuxt/ui'
-import type { ColumnInfo, Dialect, RoutineInfo, TableInfo } from '#core'
+import type { ColumnInfo, RoutineInfo, TableInfo } from '#core'
 
 const props = defineProps<{ connectionId: string; database?: string }>()
 
@@ -70,13 +70,7 @@ function refreshTable(schema: string, table: string) {
   loadIndexes(schemaTarget.value, schema, table, true)
 }
 
-function quoteIdent(dialect: Dialect, name: string) {
-  if (dialect === 'mysql') return `\`${name.replaceAll('`', '``')}\``
-  if (dialect === 'mssql') return `[${name.replaceAll(']', ']]')}]`
-  return `"${name.replaceAll('"', '""')}"`
-}
-
-const q = (name: string) => quoteIdent(driver.value!.dialect, name)
+const q = (name: string) => quoteIdent(sqlDialect(driver.value!.dialect), name)
 
 async function columnsOf(schema: string, table: string) {
   const key = keyOf(schema, table)
