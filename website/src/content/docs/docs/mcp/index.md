@@ -14,8 +14,15 @@ below, and Colwerk must be running when the assistant calls it.
 
 ## Set up the client
 
-Open **Colwerk → Set Up MCP …** in the menu (in the browser version: the sparkles button in the tab bar). The dialog
-shows the configuration for your system, with the real path of the `colwerk-server` program. Copy it from there.
+:::tip[Copy the configuration from the app]
+The examples below use the placeholder `<path-to-colwerk-server>`. The real path depends on your system and where you
+installed Colwerk. Colwerk shows the ready-to-copy configuration with the correct path:
+
+- **Desktop app:** menu **Colwerk → Set Up MCP …**
+- **Browser version:** the sparkles button at the right end of the tab bar
+
+The dialog has an entry for Claude Desktop, Claude Code and Codex. Click a code block to select all of it, then copy it.
+:::
 
 The client starts `colwerk-server mcp`, a small bridge that forwards its requests to the running app. It finds the app on
 its own, so you can start Colwerk before or after the assistant.
@@ -28,7 +35,7 @@ In Claude, open **Settings → Developer → Edit Config**, add the entry to `cl
 {
   "mcpServers": {
     "colwerk": {
-      "command": "/Applications/Colwerk.app/Contents/MacOS/colwerk-server",
+      "command": "<path-to-colwerk-server>",
       "args": ["mcp"]
     }
   }
@@ -38,7 +45,7 @@ In Claude, open **Settings → Developer → Edit Config**, add the entry to `cl
 ### Claude Code
 
 ```sh
-claude mcp add colwerk -- /Applications/Colwerk.app/Contents/MacOS/colwerk-server mcp
+claude mcp add colwerk -- <path-to-colwerk-server> mcp
 ```
 
 ### Codex
@@ -47,12 +54,12 @@ ChatGPT only accepts MCP servers on the internet over HTTPS, not local programs 
 supports them, by command or in `~/.codex/config.toml`:
 
 ```sh
-codex mcp add colwerk -- /Applications/Colwerk.app/Contents/MacOS/colwerk-server mcp
+codex mcp add colwerk -- <path-to-colwerk-server> mcp
 ```
 
 ```toml
 [mcp_servers.colwerk]
-command = "/Applications/Colwerk.app/Contents/MacOS/colwerk-server"
+command = "<path-to-colwerk-server>"
 args = ["mcp"]
 ```
 
@@ -60,8 +67,6 @@ args = ["mcp"]
 
 Cursor, VS Code and other clients take the same command as a stdio server: the path to `colwerk-server` with the
 argument `mcp`.
-
-The paths above are those of macOS. On Windows and Linux, copy the path from the dialog.
 
 ## What the assistant can do
 
