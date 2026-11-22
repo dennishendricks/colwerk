@@ -4,10 +4,12 @@ import type { ConnectionSummary } from '#core'
 import type { QueryTab, ReturnedTab } from '~/composables/tabs'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
+import { dropActive } from '~/composables/data-files'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, load, openDatabaseFile } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, load } = useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -33,7 +35,7 @@ const {
   saveFile,
 } = useTabs()
 const { t, locale } = useI18n()
-const toast = useToast()
+const { openPaths } = useDataFiles()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -68,6 +70,13 @@ async function init() {
         await listen<ReturnedTab[]>('tabs-returned', (e) => takeTabs(e.payload))
       }
       if (isDesktop && windowLabel !== 'main') await getCurrentWindow().onCloseRequested(returnTabs)
+      // Files dropped onto the window (desktop app; the browser gives no paths).
+      if (isDesktop) {
+        await getCurrentWebview().onDragDropEvent(({ payload }) => {
+          dropActive.value = payload.type === 'enter' || payload.type === 'over'
+          if (payload.type === 'drop') openPaths(payload.paths)
+        })
+      }
     }
     if (isDesktop && windowLabel === 'main') openSystemFiles()
   } catch (e) {
@@ -88,25 +97,10 @@ function onServerEvent(type: string, data: string) {
 }
 
 // Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
-// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection.
+// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection, data files
+// are queried (composables/data-files.ts).
 async function openSystemFiles() {
-  for (const path of await invoke<string[]>('take_opened_files')) {
-    const dialect = /\.duckdb$/i.test(path) ? 'duckdb' : /\.sqlite3?$/i.test(path) ? 'sqlite' : undefined
-    if (!dialect) {
-      await openFile(activeConnectionId.value, activeDatabase.value, path)
-      continue
-    }
-    try {
-      await openDatabaseFile(path, dialect)
-    } catch (e) {
-      toast.add({
-        title: t('app.openFailed'),
-        description: errorMessage(e),
-        color: 'error',
-        icon: 'i-lucide-circle-alert',
-      })
-    }
-  }
+  await openPaths(await invoke<string[]>('take_opened_files'))
 }
 
 function openInNewTab(connectionId: string, sql: string, title?: string) {
@@ -288,6 +282,12 @@ useApplicationMenu({
 
 <template>
   <UApp :locale="locale === 'de' ? de : en">
+    <div
+      v-if="dropActive"
+      class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center border-2 border-dashed border-primary bg-default/80 text-lg"
+    >
+      {{ t('files.dropHint') }}
+    </div>
     <div v-if="loadError" class="flex h-full items-center justify-center p-8">
       <UAlert
         color="error"
@@ -516,6 +516,7 @@ useApplicationMenu({
     </SplitterGroup>
 
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
+    <FileQueryModals />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
     <ReleaseNotesModal />
