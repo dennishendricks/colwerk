@@ -48,10 +48,10 @@ are listed there, along with a software bill of materials of the npm packages an
   structure.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
-- **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
+- **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans (graphical for SQL Server, estimated and actual), SQL templates, multiple
   cursors and a searchable query history.
-- **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
-  `.sqlite3`) to open it as a connection.
+- **Opens your files** – double-click a `.sql` file to open it in a tab, a SQL Server execution plan (`.sqlplan`) to
+  show it as a plan, a DuckDB or SQLite file (`.duckdb`, `.sqlite`, `.sqlite3`) to open it as a connection.
 - **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).
 - **Local by design** – the server only listens on `127.0.0.1`, passwords are encrypted, the key lives in the OS
   keychain.
