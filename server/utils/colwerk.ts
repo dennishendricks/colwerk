@@ -15,6 +15,8 @@ import {
   sshAuths,
   Workbench,
 } from '#core'
+import { isAbsolute } from 'node:path'
+import { isRemote } from '~~/core/file-formats.ts'
 
 export const store = new ConnectionStore()
 export const workbench = new Workbench(
@@ -51,6 +53,29 @@ export function parseDatabase(database: unknown): string | undefined {
   if (database === undefined || database === null || database === '') return undefined
   if (typeof database !== 'string') throw createError({ statusCode: 400, message: 'Invalid database' })
   return database
+}
+
+/** Sources of a files connection: absolute paths or s3://, gs://, https:// URLs. */
+export function parseSources(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const sources = [
+    ...new Set(
+      value
+        .filter((s) => typeof s === 'string')
+        .map((s: string) => s.trim())
+        .filter(Boolean),
+    ),
+  ]
+  for (const source of sources) {
+    if (!isAbsolute(source) && !isRemote(source)) {
+      throw createError({
+        statusCode: 400,
+        message: `Not an absolute path or URL: ${source}`,
+        data: { key: 'invalidSource', params: { source } },
+      })
+    }
+  }
+  return sources
 }
 
 export function parseConnection(body: unknown): ConnectionInput {
@@ -97,7 +122,7 @@ export function parseConnection(body: unknown): ConnectionInput {
     throw createError({ statusCode: 400, message: 'Client ID is required', data: { key: 'clientIdRequired' } })
   }
   // Catalog URL (Iceberg, Unity) or workspace (OneLake); the Delta folder.
-  if (isLakehouse(dialect) && !(dialect === 'delta' ? str('file') : str('host'))) {
+  if (isLakehouse(dialect) && dialect !== 'files' && !(dialect === 'delta' ? str('file') : str('host'))) {
     throw createError({
       statusCode: 400,
       message: dialect === 'delta' ? 'Folder is required' : 'Address is required',
@@ -158,7 +183,8 @@ export function parseConnection(body: unknown): ConnectionInput {
     file: str('file'),
     readOnly: b.readOnly === true,
     v1Storage: b.v1Storage === true,
-    region: dialect === 'unity' ? str('region') : undefined,
+    region: dialect === 'unity' || dialect === 'files' ? str('region') : undefined,
+    sources: dialect === 'files' ? parseSources(b.sources) : undefined,
     oauthServerUri: auth === 'oauth-client' ? str('oauthServerUri') : undefined,
     oauthScope: auth === 'oauth-client' ? str('oauthScope') : undefined,
     ssh: ssh || undefined,
@@ -172,5 +198,6 @@ export function parseConnection(body: unknown): ConnectionInput {
     sshHostKey: ssh ? str('sshHostKey') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,
+    requireWhere: typeof b.requireWhere === 'boolean' ? b.requireWhere : undefined,
   }
 }

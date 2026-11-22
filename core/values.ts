@@ -58,12 +58,30 @@ export function markdownField(v: CellValue): string {
         .replace(/\r?\n|\r/g, '<br>')
 }
 
-/** Header, separator and one row. */
-export function markdownRow(names: string[], cells: CellValue[]): string {
+/** Header, separator and one line per row. */
+export function markdownTable(names: string[], rows: CellValue[][]): string {
   const line = (fields: string[]) => `| ${fields.join(' | ')} |`
   return [
     line(names.map(markdownField)),
     line(names.map(() => '---')),
-    line(names.map((_, i) => markdownField(cells[i] ?? null))),
+    ...rows.map((cells) => line(names.map((_, i) => markdownField(cells[i] ?? null)))),
   ].join('\n')
 }
+
+/** Header, separator and one row. */
+export const markdownRow = (names: string[], cells: CellValue[]) => markdownTable(names, [cells])
+
+/** Repeated names (e.g. `id` of a join) get a suffix, for formats that address columns by name. */
+export function uniqueNames(names: string[]): string[] {
+  const seen = new Set<string>()
+  return names.map((name) => {
+    let unique = name
+    for (let i = 1; seen.has(unique); i++) unique = `${name}_${i}`
+    seen.add(unique)
+    return unique
+  })
+}
+
+/** One JSON object per row, keyed by column name. */
+export const jsonRecord = (names: string[], row: CellValue[]) =>
+  JSON.stringify(Object.fromEntries(names.map((n, i) => [n, row[i] ?? null])))

@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import type { ContextMenuItem } from '@nuxt/ui'
-import type { ColumnInfo, Dialect, RoutineInfo, TableInfo } from '#core'
+import type { ColumnInfo, RoutineInfo, TableInfo } from '#core'
 
 const props = defineProps<{ connectionId: string; database?: string }>()
 
-const { driverOf } = useConnections()
+const { connections, driverOf } = useConnections()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
 const { tabs, activeTabId, addTab } = useTabs()
 const { run } = useExecution()
 const { openImport } = useImport()
 const toast = useToast()
 const { t, locale } = useI18n()
+
+// Read-only connections refuse the others.
+const readOnly = computed(() => connections.value.find((c) => c.id === props.connectionId)?.readOnly)
 
 const schemaTarget = computed(() => ({ connectionId: props.connectionId, database: props.database }))
 const s = computed(() => state(schemaTarget.value))
@@ -71,13 +74,7 @@ function refreshTable(schema: string, table: string) {
   loadIndexes(schemaTarget.value, schema, table, true)
 }
 
-function quoteIdent(dialect: Dialect, name: string) {
-  if (dialect === 'mysql') return `\`${name.replaceAll('`', '``')}\``
-  if (dialect === 'mssql') return `[${name.replaceAll(']', ']]')}]`
-  return `"${name.replaceAll('"', '""')}"`
-}
-
-const q = (name: string) => quoteIdent(driver.value!.dialect, name)
+const q = (name: string) => quoteIdent(sqlDialect(driver.value!.dialect), name)
 
 async function columnsOf(schema: string, table: string) {
   const key = keyOf(schema, table)
@@ -177,12 +174,26 @@ async function showDdl(schema: string, name: string, object: 'table' | 'view' | 
 const copy = (text: string) => navigator.clipboard.writeText(text)
 
 // One context menu for the whole tree; the row right-clicked sets its target.
-const menuTarget = shallowRef<{ schema: string; table: TableInfo } | { schema: string; routine: RoutineInfo }>()
+const menuTarget = shallowRef<
+  { schema: string; table: TableInfo } | { schema: string; routine: RoutineInfo } | { schema: string }
+>()
+
+// ER diagram of a schema, or of a table and its neighbors.
+const er = ref<{ schema: string; table?: string }>()
+const openEr = (schema: string, table?: string) => (er.value = { schema, table })
 
 const menuItems = computed((): ContextMenuItem[][] => {
   const target = menuTarget.value
   if (!target) return []
   const { schema } = target
+  if (!('table' in target) && !('routine' in target)) {
+    return [
+      [
+        { label: t('er.open'), icon: 'i-lucide-network', onSelect: () => openEr(schema) },
+        { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(schema) },
+      ],
+    ]
+  }
   if ('routine' in target) {
     const { name } = target.routine
     return [
@@ -193,7 +204,8 @@ const menuItems = computed((): ContextMenuItem[][] => {
     ]
   }
   const { name, kind } = target.table
-  const statements: Statement[] = kind === 'view' ? ['select'] : ['select', 'insert', 'update', 'delete']
+  const statements: Statement[] =
+    kind === 'view' || readOnly.value ? ['select'] : ['select', 'insert', 'update', 'delete']
   return [
     [
       { label: t('schema.query'), icon: 'i-lucide-play', onSelect: () => selectTable(schema, name) },
@@ -235,6 +247,10 @@ const menuItems = computed((): ContextMenuItem[][] => {
             },
           }),
       },
+      { label: t('er.open'), icon: 'i-lucide-network', onSelect: () => openEr(schema, name) },
+      ...(flatSchema.value
+        ? [{ label: t('er.openSchema'), icon: 'i-lucide-network', onSelect: () => openEr(schema) }]
+        : []),
     ],
     [
       { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
@@ -372,6 +388,7 @@ function fkTitle(c: ColumnInfo) {
             v-if="!flatSchema"
             class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
             @click="toggleSchema(schema.name)"
+            @contextmenu="menuTarget = { schema: schema.name }"
           >
             <UIcon
               :name="schemaOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
@@ -542,5 +559,14 @@ function fkTitle(c: ColumnInfo) {
         </template>
       </div>
     </UContextMenu>
+
+    <LazyErDiagramModal
+      v-if="er"
+      :open="!!er"
+      :connection-id="connectionId"
+      :database="database"
+      :scope="er"
+      @update:open="(v: boolean) => !v && (er = undefined)"
+    />
   </div>
 </template>

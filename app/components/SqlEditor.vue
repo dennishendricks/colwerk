@@ -2,6 +2,7 @@
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
+import { forceLinting } from '@codemirror/lint'
 import { MSSQL, MySQL, PostgreSQL, sql, SQLDialect, SQLite } from '@codemirror/lang-sql'
 import { search, searchKeymap } from '@codemirror/search'
 import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
@@ -23,12 +24,17 @@ import {
 } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import type { Dialect } from '#core'
+import type { LintOptions } from '~/utils/sql-lint'
+import type { SchemaModel } from '~/utils/sql-scope'
 import type { SplitDialect } from '~/utils/sql-split'
 
 const props = defineProps<{
   dialect?: Dialect
   schema: Record<string, Record<string, string[]>>
   defaultSchema?: string
+  /** What completion and linting know beyond `schema`: foreign keys, functions, aliases need columns. */
+  schemaModel?: SchemaModel
+  lint: LintOptions
   /** Document offset of the last run's error. */
   errorAt?: number
 }>()
@@ -86,6 +92,7 @@ const theme = EditorView.theme({
     border: '1px solid var(--ui-border)',
     color: 'var(--ui-text)',
   },
+  '.cm-diagnostic-warning': { borderLeftColor: 'var(--ui-warning)' },
   '.cm-tooltip-autocomplete ul li[aria-selected]': {
     backgroundColor: 'var(--ui-bg-accented)',
     color: 'var(--ui-text-highlighted)',
@@ -179,6 +186,7 @@ function errorDecorations(state: EditorState, pos: number): DecorationSet {
 const host = ref<HTMLElement>()
 const language = new Compartment()
 const localization = new Compartment()
+const linting = new Compartment()
 const { t, locale } = useI18n()
 let view: EditorView | undefined
 
@@ -189,6 +197,17 @@ function languageExtension() {
     defaultSchema: props.defaultSchema,
     upperCaseKeywords: false,
   })
+}
+
+// One source for the editor's lifetime: CodeMirror tells sources apart by identity.
+const assist = assistCompletion(() => ({ dialect: sqlDialect(props.dialect ?? 'postgres'), model: props.schemaModel }))
+
+function lintExtension() {
+  if (!props.lint.names && !props.lint.writes) return []
+  return assistLinter(
+    () => ({ dialect: sqlDialect(props.dialect ?? 'postgres'), model: props.schemaModel, options: props.lint }),
+    (d) => t(`lint.${d.key}`, d.params),
+  )
 }
 
 function localizationExtension() {
@@ -224,6 +243,8 @@ onMounted(() => {
         syntaxHighlighting(highlight),
         localization.of(localizationExtension()),
         language.of(languageExtension()),
+        EditorState.languageData.of(() => [{ autocomplete: assist }]),
+        linting.of(lintExtension()),
         errorField,
         variableMarks,
         keymap.of([
@@ -259,6 +280,17 @@ watch(
 
 // CodeMirror caches the character width and line height.
 watch(useZoom().size, () => nextTick(() => view?.requestMeasure()))
+
+watch(
+  () => [props.lint.names, props.lint.writes, locale.value],
+  () => view?.dispatch({ effects: linting.reconfigure(lintExtension()) }),
+)
+
+// New columns, tables or keys change what is unknown.
+watch(
+  () => props.schemaModel,
+  () => view && forceLinting(view),
+)
 
 watch(locale, () => {
   view?.dispatch({ effects: localization.reconfigure(localizationExtension()) })
