@@ -353,6 +353,7 @@ function jsonExporter(write: Write): Exporter {
       names = uniqueNames(columns.map((c) => c.name))
     },
     rows: async (rows) => {
+      if (!rows.length) return
       const lines = rows.map((row) => `\n${jsonRecord(names!, row)}`)
       await write(encoder.encode((first ? '[' : ',') + lines.join(',')))
       first = false
