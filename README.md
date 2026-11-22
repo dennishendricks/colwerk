@@ -46,8 +46,9 @@ are listed there, along with a software bill of materials of the npm packages an
   statistics instead of `COUNT(*)`.
 - **Production guard rails** – color-coded connections and optional confirmation before statements that change data or
   structure.
-- **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
-- **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
+- **Result grid** – sort, filter, pin, hide and resize columns; copy rows or the whole result as JSON, CSV, Markdown or INSERT statements.
+- **Export** – CSV, Parquet, Excel (XLSX), JSON/NDJSON, Markdown and SQL INSERT statements in the connection's dialect;
+  the visible rows or the full, unlimited result, written straight to disk.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
   cursors and a searchable query history.
 - **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
@@ -113,7 +114,7 @@ Core decisions:
   JSON.
 - **Bounded results.** Drivers read at most `rowLimit + 1` rows and cancel the rest; each tab has a timeout (default 60
   s).
-- **Server-side export.** CSV/Parquet files are written by the server to the path chosen in a native save dialog,
+- **Server-side export.** Export files are written by the server to the path chosen in a native save dialog,
   because the desktop webview does not handle downloads.
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
@@ -152,6 +153,8 @@ first use, verified by hash and stored in the data directory.
 ### Known limitations
 
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
+- INSERT exports write arrays, structs and maps as JSON text; columns of such types may need a cast. XLSX holds at most
+  1,048,576 rows.
 - SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and
   drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the
   background; outside a transaction its changes are committed.
