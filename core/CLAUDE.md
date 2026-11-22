@@ -52,8 +52,10 @@
 - `mcp-session.ts`: exports ownMcpSessions, mcpConfig
 - `mcp-token.ts`: exports mcpToken
 - `plan-check.ts`: exports DEFAULT_SCAN_ROWS, planCheckDialects, Scan, PlanWarning, postgresScans, mysqlScans, mssqlScans, clickhouseScans
+- `plans.ts`: Execution plans in an open session: the plan shown to the user (`explainPlan`) and the scans of the plan check
 - `registry.ts`: exports drivers, loadDriver, addFileSources, driverStatus, installDriver
 - `secrets.ts`: Reads secrets through the CLIs of password managers (1Password, Bitwarden, KeePassXC)
+- `session-utils.ts`: Helpers around an open database session, shared by the workbench and the plan queries
 - `sql-dml.ts`: exports DmlKind, dryRunDialects, dmlKind
 - `sql-guard.ts`: Text checks against unintended writes, on top of the statement splitter
 - `sql-literals.ts`: SQL text of identifiers and values in a dialect, for generated statements (INSERT export, data import)
@@ -65,4 +67,4 @@
 - `text-file.ts`: exports decodeText
 - `types.ts`: Runtime-agnostic contracts shared by drivers, the server layer and (type-only) the UI
 - `values.ts`: exports STREAM_BATCH, toHex, sqlTimestampToIso, normalizeValue, cellText, csvField, markdownField, markdownTable, markdownRow, uniqueNames, +1 more
-- `workbench.ts`: exports Workbench; **28 KB: grep, then read in parts**
+- `workbench.ts`: exports Workbench; **21 KB: grep, then read in parts**
