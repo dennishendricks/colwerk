@@ -60,7 +60,7 @@ for (const c of cases) {
   test.skipIf(ignore)(`${dialect}: exported INSERT statements restore the rows`, async () => {
     const session: Session = await (await loadDriver(dialect)).connect(c.config)
     const run = (sql: string) => session.execute(sql, { rowLimit: 100 })
-    const names = ['id', 'dec', 'txt', 'flag', 'ts', 'bin']
+    const names = ['id', 'num', 'txt', 'flag', 'ts', 'bin']
     const columns = names.flatMap((n, i) => (c.types[i] ? [`${n} ${c.types[i]}`] : []))
     const create = (table: string) =>
       `create table ${table} (${columns.join(', ')}${dialect === 'clickhouse' ? ') engine = Memory' : ')'}`

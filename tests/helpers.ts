@@ -1,6 +1,7 @@
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { loadDriver } from '../core/registry.ts'
 import type { ConnectionConfig } from '../core/types.ts'
 
 /** Connections to the databases from docker-compose.yml. */
@@ -52,6 +53,9 @@ export async function reachable(config: ConnectionConfig): Promise<boolean> {
   try {
     const socket = await Bun.connect({ hostname: config.host!, port: config.port!, socket: { data() {} } })
     socket.end()
+    // An open port alone can deceive (ephemeral ports of other tests, TCP self-connect): the databases must log in.
+    if (Object.values(testConnections).includes(config))
+      await (await (await loadDriver(config.dialect)).connect(config)).close()
     return true
   } catch {
     return false
