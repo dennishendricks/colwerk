@@ -7,11 +7,11 @@ import { assertEquals, assertRejects } from './assert.ts'
 import { tempDir } from './helpers.ts'
 import type { ConnectionSummary } from '../core/store.ts'
 import { AppError } from '../core/types.ts'
-import { DBEAVER_CREDENTIALS_KEY } from '../core/import/dbeaver.ts'
-import { BEEKEEPER_DEFAULT_KEY } from '../core/import/beekeeper.ts'
-import { importPaths, previewImport, readImport, sameConnection } from '../core/import/index.ts'
+import { DBEAVER_CREDENTIALS_KEY } from '../core/connection-import/dbeaver.ts'
+import { BEEKEEPER_DEFAULT_KEY } from '../core/connection-import/beekeeper.ts'
+import { importPaths, previewImport, readImport, sameConnection } from '../core/connection-import/index.ts'
 
-const fixtures = join(import.meta.dir, 'fixtures', 'import')
+const fixtures = join(import.meta.dir, 'fixtures', 'connection-import')
 const fixture = (name: string) => join(fixtures, name)
 
 const byKey = (result: Awaited<ReturnType<typeof readImport>>, key: string) =>

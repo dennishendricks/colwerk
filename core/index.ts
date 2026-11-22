@@ -22,4 +22,4 @@ export {
   previewImport,
   readImport,
   sameConnection,
-} from './import/index.ts'
+} from './connection-import/index.ts'
