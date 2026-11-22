@@ -7,6 +7,9 @@
     "url": "https://github.com/dennishendricks/colwerk"
   },
   "type": "module",
+  "imports": {
+    "#core": "./core/index.ts"
+  },
   "scripts": {
     "dev": "bun scripts/dev.ts",
     "desktop": "bun scripts/package.ts desktop",
@@ -14,6 +17,7 @@
     "release": "bun scripts/release.ts",
     "hooks": "git config core.hooksPath .githooks",
     "agent-docs": "bun scripts/agent-docs.ts",
+    "docs-data": "bun scripts/docs-data.ts",
     "lint": "bun --bun nuxt prepare && bun --bun eslint .",
     "lint:fix": "bun --bun nuxt prepare && bun --bun eslint --fix .",
     "typecheck": "bun --bun nuxt typecheck",

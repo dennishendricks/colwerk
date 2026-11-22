@@ -1,0 +1,407 @@
+{
+  "engines": [
+    {
+      "dialect": "postgres",
+      "label": "PostgreSQL",
+      "lakehouse": false,
+      "defaultPort": 5432,
+      "auths": ["password", "entra-default", "entra-interactive", "entra-service-principal"],
+      "features": {
+        "schemas": true,
+        "databases": true,
+        "cancel": true,
+        "sessionActions": ["cancel", "terminate"],
+        "editRows": true,
+        "dryRun": true,
+        "planCheck": true,
+        "schemaCompare": true,
+        "dataCompare": true
+      }
+    },
+    {
+      "dialect": "mysql",
+      "label": "MySQL / MariaDB",
+      "lakehouse": false,
+      "defaultPort": 3306,
+      "auths": ["password", "entra-default", "entra-interactive", "entra-service-principal"],
+      "features": {
+        "schemas": false,
+        "databases": true,
+        "cancel": true,
+        "sessionActions": ["cancel", "terminate"],
+        "editRows": true,
+        "dryRun": true,
+        "planCheck": true,
+        "schemaCompare": true,
+        "dataCompare": true
+      }
+    },
+    {
+      "dialect": "mssql",
+      "label": "SQL Server",
+      "lakehouse": false,
+      "defaultPort": 1433,
+      "auths": ["password", "windows", "entra-default", "entra-interactive", "entra-service-principal"],
+      "features": {
+        "schemas": true,
+        "databases": true,
+        "cancel": true,
+        "sessionActions": ["terminate"],
+        "editRows": true,
+        "dryRun": true,
+        "planCheck": true,
+        "schemaCompare": true,
+        "dataCompare": true
+      }
+    },
+    {
+      "dialect": "duckdb",
+      "label": "DuckDB",
+      "lakehouse": false,
+      "defaultPort": null,
+      "auths": [],
+      "features": {
+        "schemas": true,
+        "databases": false,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": true,
+        "dryRun": true,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": true
+      }
+    },
+    {
+      "dialect": "sqlite",
+      "label": "SQLite",
+      "lakehouse": false,
+      "defaultPort": null,
+      "auths": [],
+      "features": {
+        "schemas": true,
+        "databases": false,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": true,
+        "dryRun": true,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": true
+      }
+    },
+    {
+      "dialect": "clickhouse",
+      "label": "ClickHouse",
+      "lakehouse": false,
+      "defaultPort": 8123,
+      "auths": ["password"],
+      "features": {
+        "schemas": false,
+        "databases": true,
+        "cancel": true,
+        "sessionActions": ["cancel"],
+        "editRows": false,
+        "dryRun": false,
+        "planCheck": true,
+        "schemaCompare": false,
+        "dataCompare": false
+      }
+    },
+    {
+      "dialect": "iceberg",
+      "label": "Apache Iceberg (REST catalog)",
+      "lakehouse": true,
+      "defaultPort": null,
+      "auths": ["oauth-client", "token", "none"],
+      "features": {
+        "schemas": true,
+        "databases": false,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": false,
+        "dryRun": false,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": false
+      }
+    },
+    {
+      "dialect": "delta",
+      "label": "Delta Lake (folder)",
+      "lakehouse": true,
+      "defaultPort": null,
+      "auths": [],
+      "features": {
+        "schemas": false,
+        "databases": false,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": false,
+        "dryRun": false,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": false
+      }
+    },
+    {
+      "dialect": "unity",
+      "label": "Databricks Unity Catalog",
+      "lakehouse": true,
+      "defaultPort": null,
+      "auths": ["token"],
+      "features": {
+        "schemas": true,
+        "databases": true,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": false,
+        "dryRun": false,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": false
+      }
+    },
+    {
+      "dialect": "onelake",
+      "label": "Microsoft Fabric OneLake",
+      "lakehouse": true,
+      "defaultPort": null,
+      "auths": ["entra-default", "entra-interactive", "entra-service-principal"],
+      "features": {
+        "schemas": true,
+        "databases": true,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": false,
+        "dryRun": false,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": false
+      }
+    },
+    {
+      "dialect": "files",
+      "label": "Files (DuckDB)",
+      "lakehouse": true,
+      "defaultPort": null,
+      "auths": ["none", "s3", "gcs", "token"],
+      "features": {
+        "schemas": true,
+        "databases": false,
+        "cancel": true,
+        "sessionActions": [],
+        "editRows": false,
+        "dryRun": false,
+        "planCheck": false,
+        "schemaCompare": false,
+        "dataCompare": false
+      }
+    }
+  ],
+  "shortcuts": [
+    { "keys": ["meta", "T"], "label": "New tab" },
+    { "keys": ["meta", "W"], "label": "Close current tab" },
+    { "keys": ["meta", "1–9"], "label": "Switch to tab 1–9" },
+    { "keys": ["meta", "shift", "D"], "label": "Duplicate current tab" },
+    { "keys": ["meta", "O"], "label": "Open query from file" },
+    { "keys": ["meta", "S"], "label": "Save query" },
+    { "keys": ["meta", "shift", "S"], "label": "Save query as" },
+    { "keys": ["meta", "B"], "label": "Toggle sidebar" },
+    { "keys": ["meta", "P"], "label": "Go to table or view (all schemas)" },
+    { "keys": ["meta", "+/−/0"], "label": "Zoom in, zoom out, actual size" },
+    { "keys": ["meta", "shift", "["], "label": "Switch to previous tab" },
+    { "keys": ["meta", "shift", "]"], "label": "Switch to next tab" },
+    { "keys": ["←/→"], "label": "Switch to previous/next tab (in the tab bar)" },
+    { "keys": ["F2"], "label": "Rename tab (in the tab bar)" },
+    { "keys": ["backspace"], "label": "Close tab (in the tab bar)" },
+    { "keys": ["meta", "enter"], "label": "Run query (in the editor)" },
+    { "keys": ["meta", "shift", "F"], "label": "Format SQL" },
+    { "keys": ["meta", "F"], "label": "Search (in editor, result or schema)" },
+    { "keys": ["ctrl", "C"], "label": "Cancel running query" },
+    { "keys": ["meta", "E"], "label": "Show execution plan (in the editor)" },
+    { "keys": ["meta", "alt", "↑/↓"], "label": "Add cursor above/below (in the editor)" },
+    { "keys": ["alt", "Drag"], "label": "Block selection across lines (in the editor)" },
+    { "keys": ["?"], "label": "Show shortcut overview" }
+  ],
+  "exportFormats": ["csv", "parquet", "xlsx", "json", "ndjson", "markdown", "insert"],
+  "limits": {
+    "historyEntries": 50,
+    "auditEntries": 10000,
+    "auditRetentionDays": [7, 30, 90, 365],
+    "defaultAuditRetentionDays": 30,
+    "planCheckScanRows": 1000000
+  },
+  "mcpTools": [
+    {
+      "name": "describe-table",
+      "title": "Describe table",
+      "description": "Describes the structure of a table or view: columns with data type, nullability, primary key,\nforeign keys (target schema, table and column), indexes and comments; the table's indexes with key columns, uniqueness and primary flag;\nplus partitioning and clustering if present.\n\nWHEN TO USE: Before writing a query against a table, to get column names, types and join paths right.",
+      "readOnly": true,
+      "parameters": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "connectionId from list-connections"
+        },
+        {
+          "name": "schema",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "Schema name from list-schemas"
+        },
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "Table or view name from list-tables"
+        }
+      ]
+    },
+    {
+      "name": "list-connections",
+      "title": "List connections",
+      "description": "Lists the database connections configured in Colwerk, with their databases and whether they are reachable.\n\nWHEN TO USE: Always call this first. Every other tool needs a connectionId from this list.\nWrite SQL in the dialect given in \"dialect\": postgres (PostgreSQL), mysql (MySQL/MariaDB), mssql (SQL Server, T-SQL), duckdb (DuckDB), sqlite (SQLite), clickhouse (ClickHouse).\nThe lakehouse dialects iceberg (Apache Iceberg), delta (Delta Lake), unity (Databricks Unity Catalog) and onelake (Microsoft Fabric OneLake) are queried with DuckDB SQL.\nNames are not unique; identify a connection by connectionId.",
+      "readOnly": true,
+      "parameters": []
+    },
+    {
+      "name": "list-schemas",
+      "title": "List schemas",
+      "description": "Lists the schemas of a connection with the number of tables and views in each.\n\nWHEN TO USE: To get an overview of a database before looking for tables.\nFor MySQL/MariaDB a schema is a database.",
+      "readOnly": true,
+      "parameters": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "connectionId from list-connections"
+        },
+        {
+          "name": "database",
+          "type": "string",
+          "required": false,
+          "default": null,
+          "description": "One of the connection's databases from list-connections; defaults to all"
+        }
+      ]
+    },
+    {
+      "name": "list-tables",
+      "title": "List tables",
+      "description": "Lists the tables and views of a schema with estimated row counts and comments.\n\nWHEN TO USE: To find the tables relevant for a question. Use describe-table for their columns.\nrowEstimate comes from the catalog statistics and may be outdated; it is null for views.",
+      "readOnly": true,
+      "parameters": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "connectionId from list-connections"
+        },
+        {
+          "name": "schema",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "Schema name from list-schemas"
+        },
+        {
+          "name": "filter",
+          "type": "string",
+          "required": false,
+          "default": null,
+          "description": "Only names containing this text (case-insensitive)"
+        }
+      ]
+    },
+    {
+      "name": "open-query",
+      "title": "Open query in editor",
+      "description": "Opens a query in a new tab of the Colwerk editor so the user can review, change and run it.\nThe query is not run.\n\nWHEN TO USE: When the user wants to see or keep working on a query, or when the query is long or complex.",
+      "readOnly": false,
+      "parameters": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "connectionId from list-connections"
+        },
+        { "name": "sql", "type": "string", "required": true, "default": null, "description": "The SQL to open" },
+        { "name": "title", "type": "string", "required": false, "default": null, "description": "Tab title" },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "default": null,
+          "description": "Explanation, inserted as a comment above the SQL"
+        }
+      ]
+    },
+    {
+      "name": "run-query",
+      "title": "Run query",
+      "description": "Runs one read-only SQL query (SELECT or WITH) and returns its rows.\n\nWHEN TO USE: To answer questions from the data.\nOnly a single SELECT/WITH statement is accepted; it runs in a transaction that is rolled back.\nThe server enforces a statement timeout of 30 s and the row limit. On large tables filter and aggregate\nin SQL instead of fetching raw rows. Write SQL in the connection's dialect (see list-connections).\nWHEN NOT TO USE: When the user wants to see, edit or run the query themselves; use open-query.",
+      "readOnly": true,
+      "parameters": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "connectionId from list-connections"
+        },
+        {
+          "name": "sql",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "One SELECT or WITH statement"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "default": 100,
+          "description": "Maximum number of rows returned (1-1000)"
+        }
+      ]
+    },
+    {
+      "name": "sample-rows",
+      "title": "Sample rows",
+      "description": "Returns a few rows of a table or view as JSON objects, in no particular order.\n\nWHEN TO USE: To understand what the values of a table look like (formats, codes, typical ranges).\nWHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-query with filters and aggregations.",
+      "readOnly": true,
+      "parameters": [
+        {
+          "name": "connectionId",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "connectionId from list-connections"
+        },
+        {
+          "name": "schema",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "Schema name from list-schemas"
+        },
+        {
+          "name": "table",
+          "type": "string",
+          "required": true,
+          "default": null,
+          "description": "Table or view name from list-tables"
+        },
+        { "name": "limit", "type": "integer", "required": false, "default": 10, "description": "Number of rows (1-50)" }
+      ]
+    }
+  ]
+}

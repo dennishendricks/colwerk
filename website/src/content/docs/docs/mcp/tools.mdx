@@ -1,0 +1,15 @@
+---
+title: MCP tools
+description: Reference of the tools Colwerk's MCP server offers to AI assistants, with their parameters.
+sidebar:
+  order: 2
+---
+
+import McpTools from '../../../../components/docs/McpTools.astro'
+
+These are the tools an assistant can call. Every query runs in a read-only transaction that is rolled back, with a
+timeout of 30 seconds (see [Connect an AI assistant](/docs/mcp/)). Assistants usually start with `list-connections`.
+
+{/* Generated from server/mcp/tools/ by scripts/docs-data.ts */}
+
+<McpTools />

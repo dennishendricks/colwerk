@@ -1,6 +1,8 @@
 #!/bin/sh
-# Updates the agents' file indexes (scripts/agent-docs.ts), then formats staged files with `bun fmt` and stages the
+# Updates the agents' file indexes (scripts/agent-docs.ts) and the reference data of the documentation
+# (scripts/docs-data.ts), then formats staged files with `bun fmt` and stages the
 # result. Enable with `bun run hooks`.
 # Staged files with further unstaged changes are only checked: staging them again would add those changes.
 bun scripts/agent-docs.ts && git add core/CLAUDE.md server/CLAUDE.md app/CLAUDE.md || exit 1
+bun scripts/docs-data.ts && git add website/src/data/reference.json || exit 1
 exec bun fmt --staged

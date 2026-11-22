@@ -2,7 +2,8 @@
 // release (.github/workflows/website.yml), so the docs never describe unreleased changes.
 import { defineConfig, envField } from 'astro/config'
 import starlight from '@astrojs/starlight'
-import { repo } from './src/config'
+import starlightLinksValidator from 'starlight-links-validator'
+import { docsSidebar, repo } from './src/config'
 
 const site = 'https://colwerk.app'
 
@@ -51,10 +52,9 @@ export default defineConfig({
           },
         },
       ],
-      sidebar: [
-        // Documentation pages go to src/content/docs/docs/; add `{ label: 'Documentation', autogenerate: { directory: 'docs' } }` here.
-        { label: 'Changelog', link: '/changelog/' },
-      ],
+      // Fails the build on dead links between the Markdown pages; the pages in src/pages/ are not checked.
+      plugins: [starlightLinksValidator({ exclude: ['/', '/changelog/', '/changelog/**'] })],
+      sidebar: [...docsSidebar, { label: 'Changelog', link: '/changelog/' }],
     }),
   ],
 })

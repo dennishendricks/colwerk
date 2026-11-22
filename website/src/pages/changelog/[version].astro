@@ -1,0 +1,53 @@
+---
+// Release notes of one published release, from the GitHub API; the overview is /changelog/.
+import type { GetStaticPaths } from 'astro'
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
+import { Badge } from '@astrojs/starlight/components'
+import { changelogSidebar, formatDate, getReleases, versionOf } from '../../github'
+
+export const getStaticPaths = (async () => {
+  const { releases } = await getReleases()
+  return releases.map((release, i) => ({
+    params: { version: versionOf(release) },
+    // releases are sorted newest first
+    props: { release, newer: releases[i - 1], older: releases[i + 1] },
+  }))
+}) satisfies GetStaticPaths
+
+const { release: r, newer, older } = Astro.props
+const { releases } = await getReleases()
+const version = versionOf(r)
+const link = (other?: typeof r) => other && { label: versionOf(other), link: `/changelog/${versionOf(other)}/` }
+
+// release notes use <h2> for their sections, like the page itself
+const headings = [...(r.body_html ?? '').matchAll(/<h2[^>]*>(.*?)<\/h2>/gs)].map(([, text]) => {
+  const plain = text!.replace(/<[^>]+>/g, '').trim()
+  return { depth: 2, slug: slug(plain), text: plain }
+})
+function slug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+const body = (r.body_html ?? '').replace(/<h2([^>]*)>(.*?)<\/h2>/gs, (_, attrs: string, text: string) => {
+  return `<h2${attrs} id="${slug(text.replace(/<[^>]+>/g, '').trim())}">${text}</h2>`
+})
+---
+
+<StarlightPage
+  frontmatter={{
+    title: `Colwerk ${version}`,
+    description: `Release notes of Colwerk ${version}, published on ${formatDate(r.published_at)}.`,
+    prev: link(older) || { label: 'All releases', link: '/changelog/' },
+    next: link(newer) || false,
+  }}
+  headings={headings}
+  sidebar={changelogSidebar(releases)}
+>
+  <p>
+    <time datetime={r.published_at}>{formatDate(r.published_at)}</time>
+    {r.prerelease && <Badge text="Pre-release" variant="caution" />} · <a href={r.html_url}>Downloads on GitHub</a>
+  </p>
+  <Fragment set:html={body} />
+</StarlightPage>

@@ -18,6 +18,9 @@ file). Use it instead of listing directories or opening files to find your way.
 - `tests/`: `bun test`, one `<topic>.test.ts` per module; driver contract tests in `tests/drivers.test.ts`.
 - `website/`: colwerk.app and the documentation (Astro Starlight), with its own `package.json`; check with
   `bun run build` there. Goes live only with the next published release (`.github/workflows/website.yml`).
+  Pages in `website/src/content/docs/docs/`; a user-facing change updates them (`.github/workflows/docs.yml` fails
+  otherwise, unless the PR has the label `no_docs`). Engines, shortcuts (`app/utils/shortcuts.ts`), limits and MCP
+  tools reach the reference pages through `website/src/data/reference.json`, written by `bun run docs-data`.
 - `i18n/locales/{en,de}.json`: UI strings, about 45 KB each. Never read them whole: grep for the key, read around the
   line number, and add every key to both files.
 

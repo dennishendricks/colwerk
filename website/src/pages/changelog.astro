@@ -1,15 +1,15 @@
 ---
-// Release notes of every published release, from the GitHub API, in Starlight's page layout.
+// Overview of every published release, from the GitHub API; the notes of each are on /changelog/<version>/.
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
 import { Badge } from '@astrojs/starlight/components'
 import { releases as releasesUrl } from '../config'
-import { formatDate, getReleases } from '../github'
+import { changelogSidebar, formatDate, getReleases, versionOf } from '../github'
 
 const { releases, version } = await getReleases()
-const headings = releases.map((r) => ({ depth: 2, slug: r.tag_name, text: r.tag_name.replace(/^v/, '') }))
 
-// release notes use <h2> for their sections; each release is the <h2> here
-const demote = (html = '') => html.replace(/<(\/?)h2\b/g, '<$1h3')
+// grouped by minor version (0.7.x), newest first
+const groups = Map.groupBy(releases, (r) => versionOf(r).split('.').slice(0, 2).join('.'))
+const headings = [...groups.keys()].map((minor) => ({ depth: 2, slug: `v${minor}`, text: minor }))
 ---
 
 <StarlightPage
@@ -18,21 +18,46 @@ const demote = (html = '') => html.replace(/<(\/?)h2\b/g, '<$1h3')
     description: `What's new in Colwerk: release notes for every version, from ${version} back to the first release.`,
   }}
   headings={headings}
+  sidebar={changelogSidebar(releases)}
 >
   <p>
     Release notes for every version. Downloads, checksums and SBOMs are on <a href={releasesUrl}>GitHub Releases</a>.
   </p>
 
   {
-    releases.map((r) => (
+    [...groups].map(([minor, list]) => (
       <section>
-        <h2 id={r.tag_name}>{r.tag_name.replace(/^v/, '')}</h2>
-        <p>
-          <time datetime={r.published_at}>{formatDate(r.published_at)}</time>
-          {r.prerelease && <Badge text="Pre-release" variant="caution" />} · <a href={r.html_url}>On GitHub</a>
-        </p>
-        <Fragment set:html={demote(r.body_html)} />
+        <h2 id={`v${minor}`}>{minor}</h2>
+        <ul class="releases">
+          {list.map((r) => (
+            <li>
+              <a href={`/changelog/${versionOf(r)}/`}>{versionOf(r)}</a>
+              <time datetime={r.published_at}>{formatDate(r.published_at)}</time>
+              {r.prerelease && <Badge text="Pre-release" variant="caution" />}
+            </li>
+          ))}
+        </ul>
       </section>
     ))
   }
 </StarlightPage>
+
+<style>
+  .releases {
+    padding: 0;
+    list-style: none;
+  }
+  .releases li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 1rem;
+  }
+  .releases a {
+    min-width: 5rem;
+    font-weight: 600;
+  }
+  .releases time {
+    color: var(--sl-color-gray-3);
+  }
+</style>

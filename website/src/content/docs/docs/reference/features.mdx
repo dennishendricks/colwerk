@@ -1,0 +1,23 @@
+---
+title: Feature matrix
+description: Which database engine supports which Colwerk feature, from schemas and cancelling to editing, dry runs, compare and the session monitor.
+sidebar:
+  order: 2
+---
+
+import FeatureMatrix from '../../../../components/docs/FeatureMatrix.astro'
+
+What each engine supports. Lakehouse and files connections run on DuckDB.
+
+{/* Generated from core/ by scripts/docs-data.ts */}
+
+<FeatureMatrix />
+
+- **Database picker**: switching between the databases (or catalogs, lakehouses) of a connection.
+- **Edit rows**: see [Edit rows](/docs/data/editing/).
+- **Dry run** and **plan check**: see [Guard rails](/docs/editor/safety/).
+- **Schema and data compare**: see [Schema and data compare](/docs/data/compare/).
+- **Session monitor**: the actions available, see [Session monitor](/docs/data/session-monitor/).
+
+[Export](/docs/data/export/), the [schema tree](/docs/data/schema-tree/), [execution plans](/docs/editor/plans/) and
+[MCP](/docs/mcp/) work with every engine.
