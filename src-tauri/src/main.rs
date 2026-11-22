@@ -22,10 +22,11 @@
 // Windows: besides `main`, the page opens windows `window-<n>` for tabs moved out of a window (`open_window`). All
 // show the same server; closing `main` ends the app.
 //
-// Opening files: Colwerk is registered for query files (.sql) and DuckDB and SQLite databases (bundle.fileAssociations
-// in tauri.conf.json). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
-// through the single-instance plugin) or with `RunEvent::Opened` (macOS). They wait in `Opened` until the page takes
-// them with `take_opened_files`: once it has loaded, and on the `open-files` event while it runs.
+// Opening files: Colwerk is registered for query files (.sql), SQL Server execution plans (.sqlplan) and DuckDB and
+// SQLite databases (bundle.fileAssociations in tauri.conf.json). The system passes them in the arguments (Windows,
+// Linux; those of a second instance arrive through the single-instance plugin) or with `RunEvent::Opened` (macOS).
+// They wait in `Opened` until the page takes them with `take_opened_files`: once it has loaded, and on the
+// `open-files` event while it runs.
 //
 // Updates: tauri-plugin-updater, driven by the page (app/utils/update.ts). On Windows the installer replaces
 // `colwerk-server.exe`, which must not be running then: the page stops it with `pause_server` before installing,
@@ -58,7 +59,7 @@ struct ServerUrl(Mutex<Option<String>>);
 struct Opened(Mutex<Vec<PathBuf>>);
 
 /// Extensions of the file associations in tauri.conf.json; other arguments are no files to open.
-const OPENED_EXTENSIONS: [&str; 4] = ["sql", "duckdb", "sqlite", "sqlite3"];
+const OPENED_EXTENSIONS: [&str; 5] = ["sql", "sqlplan", "duckdb", "sqlite", "sqlite3"];
 
 /// Set once the app exits, when the sidecar ending is expected.
 static EXITING: AtomicBool = AtomicBool::new(false);

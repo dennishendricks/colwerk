@@ -29,6 +29,14 @@
         "exportedType": { "identifier": "app.colwerk.sql", "conformsTo": ["public.plain-text"] }
       },
       {
+        "ext": ["sqlplan"],
+        "name": "SQL Server Execution Plan",
+        "description": "SQL Server Execution Plan",
+        "role": "Viewer",
+        "mimeType": "application/xml",
+        "exportedType": { "identifier": "app.colwerk.sqlplan", "conformsTo": ["public.xml"] }
+      },
+      {
         "ext": ["duckdb"],
         "name": "DuckDB Database",
         "description": "DuckDB Database",

@@ -42,8 +42,11 @@ export interface QueryTab {
   compare?: boolean
   /** Connection and script that produced `result` (for exporting the full result of one of its statements). */
   source?: { connectionId: string; database?: string; sql: string }
-  /** Execution plan shown instead of `result` (cleared by the next execute and vice versa). */
-  plan?: { text: string; durationMs: number; executedAt: number }
+  /**
+   * Execution plan shown instead of `result` (cleared by the next execute and vice versa). `format` `showplan`: SQL
+   * Server's Showplan XML, shown as a tree; `file`: the name of the .sqlplan file it was opened from.
+   */
+  plan?: { text: string; durationMs: number; executedAt: number; format?: 'showplan'; file?: string }
   /** Set while a download is being written; `cancelled` after the user aborted it. */
   exporting?: 'running' | 'cancelled'
   error?: string
@@ -110,12 +113,12 @@ export function forgetTransactions(connectionId: string) {
   }
 }
 
-/** File name without directory and `.sql` extension, used as tab title. */
+/** File name without directory and `.sql`/`.sqlplan` extension, used as tab title. */
 const fileTitle = (path: string) =>
   path
     .split(/[\\/]/)
     .pop()!
-    .replace(/\.sql$/i, '')
+    .replace(/\.(sql|sqlplan)$/i, '')
 
 export function useTabs() {
   const { t } = useNuxtApp().$i18n
@@ -277,13 +280,30 @@ export function useTabs() {
 
   /**
    * Opens a query file in a new tab (or switches to the tab that already has it): `path` (a file opened from the
-   * system), otherwise one asked for in a native dialog.
+   * system), otherwise one asked for in a native dialog. A .sqlplan file opens as a plan in a new tab whose SQL is
+   * the plan's statements; it has no `path`, so saving cannot overwrite the plan file.
    */
   async function openFile(connectionId?: string, database?: string, path?: string) {
     try {
       path ??= (await fileDialog('open', t('dialog.open'))) ?? undefined
       if (!path) return
       const { sql } = await api<{ sql: string }>('/api/files/read', { method: 'POST', body: { path } })
+      if (/\.sqlplan$/i.test(path)) {
+        const statements = parseShowplan(sql)
+        const tab = addTab(connectionId, database)
+        Object.assign(tab, {
+          title: fileTitle(path),
+          sql: statements.map((s) => s.text).join('\n\n'),
+          plan: {
+            text: sql,
+            durationMs: 0,
+            executedAt: Date.now(),
+            format: 'showplan',
+            file: path.split(/[\\/]/).pop(),
+          },
+        })
+        return
+      }
       const existing = tabs.value.find((t) => t.path === path)
       if (existing) {
         activeTabId.value = existing.id

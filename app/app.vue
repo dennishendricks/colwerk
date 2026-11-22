@@ -88,7 +88,7 @@ function onServerEvent(type: string, data: string) {
 }
 
 // Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
-// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection.
+// and takes them (src-tauri/src/main.rs). Query and plan files (.sql, .sqlplan) open in a tab, database files as a connection.
 async function openSystemFiles() {
   for (const path of await invoke<string[]>('take_opened_files')) {
     const dialect = /\.duckdb$/i.test(path) ? 'duckdb' : /\.sqlite3?$/i.test(path) ? 'sqlite' : undefined
