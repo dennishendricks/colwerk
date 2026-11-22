@@ -16,6 +16,8 @@ file). Use it instead of listing directories or opening files to find your way.
 - `launcher/`: entry point of the server binary, MCP stdio bridge. `scripts/`: dev server, packaging, release.
 - `src-tauri/`: Rust desktop shell, starts the server binary as sidecar.
 - `tests/`: `bun test`, one `<topic>.test.ts` per module; driver contract tests in `tests/drivers.test.ts`.
+- `website/`: colwerk.app and the documentation (Astro Starlight), with its own `package.json`; check with
+  `bun run build` there. Goes live only with the next published release (`.github/workflows/website.yml`).
 - `i18n/locales/{en,de}.json`: UI strings, about 45 KB each. Never read them whole: grep for the key, read around the
   line number, and add every key to both files.
 

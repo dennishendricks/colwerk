@@ -1,0 +1,182 @@
+---
+// MCP section of the landing page: four-step timeline, what the AI can and cannot do, and a handed-over query.
+const steps = [
+  { title: 'Ask', text: '“Which city buys the most coffee?” in Claude, ChatGPT or any other MCP client.' },
+  {
+    title: 'Explore',
+    text: 'Your AI looks at schemas, tables and sample rows and runs read-only queries to find the answer.',
+  },
+  { title: 'Hand over', text: 'The final query opens in a new Colwerk tab, with an explanation as SQL comment.' },
+  { title: 'You run it', text: 'Review it, change it, run it. Colwerk never runs it for you.' },
+]
+
+const can = [
+  'Browse connections, schemas, tables and columns',
+  'Look at sample rows to understand the data',
+  'Run SELECT queries for exploratory analysis',
+  'Open finished queries in a new editor tab',
+]
+
+const cannot = [
+  'See passwords or other credentials',
+  'Insert, update, delete or change the schema',
+  'Run anything in your editor tabs',
+  'Connect without its own access token',
+]
+---
+
+<section id="ai" class="cw-section not-content">
+  <p class="cw-eyebrow">Ask your AI. You run it.</p>
+  <h2>Bring your <span>own AI.</span></h2>
+  <p class="cw-lead">
+    Colwerk has no AI inside. It speaks MCP, the open Model Context Protocol, so you can connect the cloud or local
+    assistant you already use and decide what it sees.
+  </p>
+
+  <ol class="steps">
+    {
+      steps.map((s, i) => (
+        <li>
+          <span class="num">{i + 1}</span>
+          <h3>{s.title}</h3>
+          <p>{s.text}</p>
+        </li>
+      ))
+    }
+  </ol>
+
+  <div class="split">
+    <div class="rules">
+      <div>
+        <h3>Your AI can</h3>
+        <ul class="can">{can.map((c) => <li>{c}</li>)}</ul>
+      </div>
+      <div>
+        <h3>Your AI cannot</h3>
+        <ul class="cannot">{cannot.map((c) => <li>{c}</li>)}</ul>
+      </div>
+    </div>
+    <figure>
+      <pre class="code"><span class="c">-- Which city buys the most coffee?
+-- Sums coffee orders per customer city
+-- and returns the city with the most cups.</span>
+<span class="k">SELECT</span> c.city, <span class="k">SUM</span>(o.quantity) <span class="k">AS</span> cups
+<span class="k">FROM</span> orders o
+<span class="k">JOIN</span> customers c <span class="k">ON</span> c.id = o.customer_id
+<span class="k">WHERE</span> o.category = <span class="s">'Coffee'</span>
+<span class="k">GROUP BY</span> c.city
+<span class="k">ORDER BY</span> cups <span class="k">DESC</span>
+<span class="k">LIMIT</span> 1;</pre>
+      <figcaption class="cw-muted">Handed over by your AI, waiting in a new tab for you to run.</figcaption>
+    </figure>
+  </div>
+
+  <p class="note cw-muted">
+    Queries from your AI run in a separate session inside a read-only transaction that is always rolled back, with a 30
+    s timeout and a row limit. Setup is a single entry in your MCP client; Colwerk shows it for you.
+  </p>
+</section>
+
+<style>
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 2.5rem 0;
+    margin: 3rem 0 3.5rem;
+    padding: 0;
+    list-style: none;
+  }
+  /* each step carries its own segment of the timeline, so wrapping rows still read */
+  .steps li {
+    padding-right: 1.5rem;
+    border-top: 2px solid var(--sl-color-gray-5);
+  }
+  .steps li:last-child {
+    border-top-color: var(--cw-brand);
+  }
+  .steps p {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+  }
+  .num {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin: -1.05rem 0 1rem;
+    border-radius: 50%;
+    background: var(--sl-color-text-accent);
+    color: var(--sl-color-black);
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: 0 0 0 0.4rem var(--sl-color-bg);
+  }
+  .split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 2.5rem;
+    align-items: start;
+  }
+  .rules {
+    display: grid;
+    gap: 2rem;
+  }
+  .rules ul {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .rules li {
+    padding-left: 1.5rem;
+    text-indent: -1.5rem;
+  }
+  .rules li::before {
+    display: inline-block;
+    width: 1.5rem;
+    text-indent: 0;
+    font-weight: 700;
+  }
+  .can li::before {
+    content: '✓';
+    color: var(--sl-color-text-accent);
+  }
+  .cannot li::before {
+    content: '✕';
+    color: var(--sl-color-gray-3);
+  }
+  figure {
+    min-width: 0;
+    margin: 0;
+  }
+  figcaption {
+    margin-top: 0.6rem;
+    font-size: var(--sl-text-sm);
+  }
+  .code {
+    margin: 0;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.75rem;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  .code .k {
+    color: var(--cw-sql-keyword);
+  }
+  .code .s {
+    color: var(--cw-sql-string);
+  }
+  .code .c {
+    color: var(--cw-sql-comment);
+  }
+  .note {
+    margin-top: 2.5rem;
+    font-size: var(--sl-text-sm);
+  }
+</style>

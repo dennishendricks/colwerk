@@ -1,0 +1,74 @@
+---
+// Privacy section of the landing page: a full-width band with four key figures.
+const points = [
+  {
+    figure: 'DE',
+    title: 'Developed in Germany',
+    text: 'Colwerk is built and maintained in Germany. The code is MIT licensed, so anyone can audit it. Updates are signed, and every release includes a software bill of materials.',
+  },
+  {
+    figure: '0',
+    title: 'No tracking',
+    text: 'Colwerk has no telemetry, no analytics and no account, and it does not report what you do or which databases you connect to.',
+  },
+  {
+    figure: '0',
+    title: 'No built-in AI',
+    text: 'Colwerk sends nothing to any AI service. If you want an assistant, you connect your own and decide which model sees your data.',
+  },
+  {
+    figure: '256-bit',
+    title: 'Credentials stay local',
+    text: 'Passwords are encrypted with AES-256-GCM, and the key lives in your OS keychain. They never leave your machine and are never shown to an AI.',
+  },
+]
+---
+
+<section id="privacy" class="privacy cw-section not-content">
+  <p class="cw-eyebrow">Privacy by design</p>
+  <h2>Your databases. <span>Your rules.</span></h2>
+  <p class="cw-lead">A database client sees everything you query. Colwerk keeps all of it on your machine.</p>
+  <div class="points">
+    {
+      points.map((p) => (
+        <article>
+          <strong class="figure">{p.figure}</strong>
+          <h3>{p.title}</h3>
+          <p>{p.text}</p>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  /* full-bleed band behind the centered content */
+  .privacy {
+    background: var(--sl-color-gray-6);
+    box-shadow: 0 0 0 100vmax var(--sl-color-gray-6);
+    clip-path: inset(0 -100vmax);
+  }
+  .points {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 2rem;
+    margin-top: 2.5rem;
+  }
+  article {
+    padding-left: 1.25rem;
+    border-left: 1px solid var(--sl-color-gray-5);
+  }
+  .figure {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--sl-color-text-accent);
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  article p {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+  }
+</style>

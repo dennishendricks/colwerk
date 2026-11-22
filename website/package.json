@@ -1,0 +1,19 @@
+{
+  "name": "colwerk-website",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "check": "astro check",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "generate:types": "wrangler types"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@astrojs/starlight": "^0.43.1",
+    "astro": "7.4.13",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.161.0"
+  }
+}

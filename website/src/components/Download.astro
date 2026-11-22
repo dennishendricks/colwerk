@@ -1,0 +1,110 @@
+---
+// Download section of the landing page: latest version, platform links and the app's structured data.
+import { releases, repo } from '../config'
+import { formatDate, getReleases } from '../github'
+import logo from '../assets/favicon.svg'
+
+const { latest, version } = await getReleases()
+
+const downloads = [
+  { os: 'macOS', detail: 'Apple Silicon · dmg' },
+  { os: 'Windows', detail: 'x64 · exe' },
+  { os: 'Linux', detail: 'x64 & arm64 · deb' },
+]
+
+const softwareLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Colwerk',
+  description:
+    'Colwerk is a free, open-source SQL editor and database client for SQLite, PostgreSQL, MySQL/MariaDB, SQL Server, ClickHouse, DuckDB and different lakehouses, on macOS, Windows and Linux.',
+  url: Astro.site,
+  image: new URL('/og-image.jpg', Astro.site),
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  softwareVersion: version,
+  dateModified: latest.published_at,
+  releaseNotes: new URL('/changelog/', Astro.site),
+  downloadUrl: releases,
+  license: 'https://opensource.org/license/mit',
+  author: { '@type': 'Person', name: 'Dennis Hendricks' },
+  sameAs: [repo],
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+}
+---
+
+<section id="download" class="download cw-section not-content">
+  <img src={logo.src} alt="" width="72" height="72" />
+  <h2>Get Colwerk</h2>
+  <p class="cw-lead">
+    Free, with builds for macOS, Windows and Linux. On macOS and Windows, Colwerk installs signed updates itself.
+  </p>
+  <p class="cw-muted version">
+    Version {version} · released <time datetime={latest.published_at}>{formatDate(latest.published_at)}</time> ·
+    <a href="/changelog/">What’s new</a>
+  </p>
+  <div class="platforms">
+    {
+      downloads.map((d) => (
+        <a class="platform" href={releases}>
+          <strong>{d.os}</strong>
+          <span>{d.detail}</span>
+        </a>
+      ))
+    }
+  </div>
+  <p class="cw-muted small">
+    <a href={releases}>All release files, checksums &amp; SBOM (CycloneDX)</a> · The release files are attested.
+  </p>
+</section>
+<script is:inline type="application/ld+json" set:html={JSON.stringify(softwareLd)} />
+
+<style>
+  .download {
+    text-align: center;
+  }
+  img {
+    margin: 0 auto 1.5rem;
+  }
+  .cw-lead {
+    margin-inline: auto;
+  }
+  a {
+    color: var(--sl-color-text-accent);
+  }
+  .version {
+    font-variant-numeric: tabular-nums;
+  }
+  .platforms {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+    margin-block: 2rem 1.5rem;
+  }
+  .platform {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1.5rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.75rem;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    transition: border-color 0.15s;
+  }
+  .platform:hover {
+    border-color: var(--cw-brand);
+  }
+  .platform strong {
+    color: var(--sl-color-white);
+    font-size: 1.2rem;
+  }
+  .platform span {
+    color: var(--sl-color-gray-3);
+    font-size: 0.9rem;
+  }
+  .small {
+    font-size: var(--sl-text-sm);
+  }
+</style>

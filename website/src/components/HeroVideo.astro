@@ -1,0 +1,97 @@
+---
+// Launch video on the landing page, with a responsive poster and a vertical cut for phones.
+import { getImage } from 'astro:assets'
+import poster from '../assets/colwerk-poster.jpg'
+import posterVertical from '../assets/colwerk-vertical-poster.jpg'
+import av1 from '../assets/video/colwerk-av1.webm'
+import vp9 from '../assets/video/colwerk-vp9.webm'
+import mp4 from '../assets/video/colwerk-h264.mp4'
+import av1Vertical from '../assets/video/colwerk-vertical-av1.webm'
+import vp9Vertical from '../assets/video/colwerk-vertical-vp9.webm'
+import mp4Vertical from '../assets/video/colwerk-vertical-h264.mp4'
+
+// keep in sync with the media query in <style>
+const mobile = '(max-width: 600px)'
+const sizes = '(max-width: 72rem) calc(100vw - 3rem), 67.5rem'
+const sizesVertical = 'calc(100vw - 3rem)'
+const [posterAvif, posterWebp, posterVerticalAvif, posterVerticalWebp] = await Promise.all([
+  getImage({ src: poster, format: 'avif', widths: [640, 960, 1280, 1920] }),
+  getImage({ src: poster, format: 'webp', widths: [640, 960, 1280, 1920] }),
+  getImage({ src: posterVertical, format: 'avif', widths: [360, 540, 720, 1080] }),
+  getImage({ src: posterVertical, format: 'webp', widths: [360, 540, 720, 1080] }),
+])
+
+const videoLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoObject',
+  name: 'Colwerk launch video',
+  description: 'A short introduction to Colwerk, a lightweight SQL editor and database client for the desktop.',
+  thumbnailUrl: new URL(posterWebp.src, Astro.site),
+  uploadDate: '2026-11-03T18:49:48+01:00',
+  duration: 'PT25S',
+  contentUrl: new URL(mp4, Astro.site),
+}
+---
+
+<div class="video not-content">
+  <!-- the picture is the poster: unlike the poster attribute it supports art direction and srcset; the video covers it once it plays -->
+  <picture>
+    <source media={mobile} type="image/avif" srcset={posterVerticalAvif.srcSet.attribute} sizes={sizesVertical} />
+    <source media={mobile} type="image/webp" srcset={posterVerticalWebp.srcSet.attribute} sizes={sizesVertical} />
+    <source type="image/avif" srcset={posterAvif.srcSet.attribute} sizes={sizes} />
+    <img
+      src={posterWebp.src}
+      srcset={posterWebp.srcSet.attribute}
+      sizes={sizes}
+      alt=""
+      width="1920"
+      height="1080"
+      fetchpriority="high"
+    />
+  </picture>
+  <video muted loop playsinline controls preload="none" width="1920" height="1080" aria-label="Colwerk launch video">
+    <source media={mobile} src={av1Vertical} type='video/webm; codecs="av01.0.08M.08, opus"' />
+    <source media={mobile} src={vp9Vertical} type='video/webm; codecs="vp9, opus"' />
+    <source media={mobile} src={mp4Vertical} type="video/mp4" />
+    <source src={av1} type='video/webm; codecs="av01.0.08M.08, opus"' />
+    <source src={vp9} type='video/webm; codecs="vp9, opus"' />
+    <source src={mp4} type="video/mp4" />
+  </video>
+</div>
+<script is:inline type="application/ld+json" set:html={JSON.stringify(videoLd)} />
+
+<script>
+  // autoplay only without reduced motion; otherwise nothing is downloaded until the user presses play
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const video = document.querySelector<HTMLVideoElement>('.video video')
+    if (video) {
+      video.autoplay = true
+      video.play().catch(() => {})
+    }
+  }
+</script>
+
+<style>
+  .video {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.9rem;
+    overflow: hidden;
+    background: var(--sl-color-gray-6);
+    box-shadow: 0 2rem 6rem -1rem var(--cw-video-glow);
+  }
+  .video img,
+  .video video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  @media (max-width: 600px) {
+    .video {
+      aspect-ratio: 9 / 16;
+    }
+  }
+</style>

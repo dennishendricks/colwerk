@@ -1,0 +1,45 @@
+---
+// Replaces Starlight's hero on the landing page: eyebrow, headline, actions and the launch video.
+import { LinkButton } from '@astrojs/starlight/components'
+import HeroVideo from './HeroVideo.astro'
+import { repo } from '../config'
+---
+
+<div class="hero cw-section not-content">
+  <p class="cw-eyebrow">Open source · Made in Germany · No tracking</p>
+  <h1 id="_top" data-page-title>Write SQL. <span>Watch it come alive.</span></h1>
+  <p class="cw-lead">A lightweight SQL editor and database client for the desktop. One app for your databases.</p>
+  <div class="actions">
+    <LinkButton href="#download" icon="right-arrow">Download Colwerk</LinkButton>
+    <LinkButton href={repo} variant="secondary" icon="external">View on GitHub</LinkButton>
+  </div>
+  <HeroVideo />
+</div>
+
+<style>
+  .hero {
+    padding-block: 3rem 1rem;
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 1rem;
+    color: var(--sl-color-white);
+    font-size: clamp(2.4rem, 6vw, 4.25rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  h1 span {
+    color: var(--sl-color-text-accent);
+  }
+  .cw-lead {
+    margin-inline: auto;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-block: 2rem 3rem;
+  }
+</style>
