@@ -15,6 +15,11 @@ export default defineConfig({
     assets: '_assets',
   },
 
+  // Without a fixed tsconfig, Vite looks for one upwards from each file that website/tsconfig.json does not cover and
+  // reaches the app's tsconfig.json, whose references into .nuxt/ do not exist in CI. Loading this config has the same
+  // problem with the importer website/index.html, which is why tsconfig.json lists that file.
+  vite: { tsconfig: './tsconfig.json' },
+
   env: {
     schema: {
       // optional: raises the GitHub API rate limit when fetching releases at build time
