@@ -402,6 +402,32 @@
     "procedure": "Prozedur",
     "function": "Funktion"
   },
+  "er": {
+    "open": "ER-Diagramm",
+    "openSchema": "ER-Diagramm des Schemas",
+    "title": "ER-Diagramm",
+    "schemaScope": "Schema {name}",
+    "tableScope": "{name} und seine direkten Beziehungen",
+    "diagram": "Diagramm",
+    "keysOnly": "Nur Schlüssel",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "fit": "An Fenster anpassen",
+    "loadingColumns": "Lade Spalten {n}/{total} …",
+    "limited": "{shown} von {total} Tabellen angezeigt: die mit Beziehungen. Für die Umgebung einer Tabelle das Diagramm an der Tabelle öffnen.",
+    "empty": "Keine Tabellen vorhanden.",
+    "copied": "In die Zwischenablage kopiert",
+    "saveFailed": "Speichern fehlgeschlagen",
+    "label": "Entity-Relationship-Diagramm von {name}"
+  },
+  "lint": {
+    "checkNames": "Tabellen- und Spaltennamen prüfen",
+    "checkWrites": "Bei UPDATE/DELETE ohne WHERE warnen",
+    "unknownTable": "Unbekannte Tabelle {name}",
+    "unknownColumn": "{table} hat keine Spalte {name}",
+    "ambiguousColumn": "Spalte {name} ist mehrdeutig ({tables})",
+    "missingWhere": "{statement} ohne WHERE betrifft alle Zeilen"
+  },
   "editor": {
     "label": "SQL-Editor",
     "placeholder": "SQL eingeben … (⌘/Strg + Enter führt aus)"

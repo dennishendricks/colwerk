@@ -10,7 +10,18 @@ const emit = defineEmits<{ newConnection: [] }>()
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
 const { run, explain, withVariables, cancel, exportResult } = useExecution()
-const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
+const {
+  loadSchemas,
+  loadTables,
+  loadColumns,
+  loadForeignKeys,
+  keyOf,
+  defaultSchema,
+  completionSchema,
+  schemaModel,
+  state,
+} = useSchema()
+const { names: lintNames, writes: lintWrites } = useLintSettings()
 const { t, locale } = useI18n()
 
 const editor = useTemplateRef('editor')
@@ -20,6 +31,7 @@ const connection = computed(() => connections.value.find((c) => c.id === props.t
 const schemaTarget = computed(() =>
   props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined,
 )
+const model = computed(() => schemaTarget.value && schemaModel(schemaTarget.value))
 
 // Autocomplete needs at least the tables of the default schema.
 watch(
@@ -59,6 +71,8 @@ async function preloadColumns() {
     const table =
       tables.find((t) => t.name === ref.name) ?? tables.find((t) => t.name.toLowerCase() === ref.name.toLowerCase())
     if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(target, schema, table.name)
+    // JOIN suggestions need the keys of the tables in the query.
+    if (table && !s.foreignKeys[keyOf(schema, table.name)]) loadForeignKeys(target, schema, table.name)
   }
 }
 
@@ -104,10 +118,28 @@ function showPlan(analyze = false) {
 
 // SQL Server, SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
-  { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-  ...(driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
-    ? []
-    : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
+  [
+    { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
+    ...(driver.value?.dialect === 'mssql' ||
+    driver.value?.dialect === 'sqlite' ||
+    driver.value?.dialect === 'clickhouse'
+      ? []
+      : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
+  ],
+  [
+    {
+      type: 'checkbox' as const,
+      label: t('lint.checkNames'),
+      checked: lintNames.value,
+      onUpdateChecked: (v: boolean) => (lintNames.value = v),
+    },
+    {
+      type: 'checkbox' as const,
+      label: t('lint.checkWrites'),
+      checked: lintWrites.value,
+      onUpdateChecked: (v: boolean) => (lintWrites.value = v),
+    },
+  ],
 ])
 
 async function copyPlan() {
@@ -456,6 +488,8 @@ const status = computed(() => {
           :dialect="driver?.dialect"
           :schema="schemaTarget ? completionSchema(schemaTarget) : {}"
           :default-schema="schemaTarget ? defaultSchema(schemaTarget) : undefined"
+          :schema-model="model"
+          :lint="{ names: lintNames, writes: lintWrites }"
           :error-at="tab.errorAt"
           @run="execute"
           @explain="showPlan()"

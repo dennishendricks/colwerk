@@ -402,6 +402,32 @@
     "procedure": "Procedure",
     "function": "Function"
   },
+  "er": {
+    "open": "ER diagram",
+    "openSchema": "ER diagram of schema",
+    "title": "ER diagram",
+    "schemaScope": "Schema {name}",
+    "tableScope": "{name} and its direct relations",
+    "diagram": "Diagram",
+    "keysOnly": "Keys only",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to window",
+    "loadingColumns": "Loading columns {n}/{total} …",
+    "limited": "Showing {shown} of {total} tables: those with relations. Open the diagram from a table for its neighborhood.",
+    "empty": "No tables to show.",
+    "copied": "Copied to the clipboard",
+    "saveFailed": "Saving failed",
+    "label": "Entity-relationship diagram of {name}"
+  },
+  "lint": {
+    "checkNames": "Check table and column names",
+    "checkWrites": "Warn on UPDATE/DELETE without WHERE",
+    "unknownTable": "Unknown table {name}",
+    "unknownColumn": "{table} has no column {name}",
+    "ambiguousColumn": "Column {name} is ambiguous ({tables})",
+    "missingWhere": "{statement} without WHERE affects all rows"
+  },
   "editor": {
     "label": "SQL editor",
     "placeholder": "Enter SQL … (⌘/Ctrl + Enter runs)"
