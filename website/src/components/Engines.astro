@@ -1,0 +1,36 @@
+---
+// Supported databases and lakehouses as pills below the hero.
+const engines = ['SQLite', 'PostgreSQL', 'MySQL / MariaDB', 'SQL Server', 'ClickHouse', 'DuckDB']
+const lakehouses = ['Apache Iceberg', 'Delta Lake', 'Databricks Unity Catalog', 'Microsoft Fabric OneLake']
+---
+
+<div class="engines not-content">
+  <div class="row" aria-label="Supported databases">{engines.map((e) => <span>{e}</span>)}</div>
+  <div class="row lakehouses" aria-label="Lakehouses">{lakehouses.map((e) => <span>{e}</span>)}</div>
+</div>
+
+<style>
+  .engines {
+    padding-block: 2rem 1rem;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  span {
+    padding: 0.35rem 0.9rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 999px;
+    color: var(--sl-color-gray-3);
+    font-size: 0.9rem;
+  }
+  .lakehouses {
+    margin-top: 0.75rem;
+  }
+  .lakehouses span {
+    border-style: dashed;
+    font-size: 0.85rem;
+  }
+</style>

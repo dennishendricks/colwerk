@@ -32,7 +32,7 @@ export default defineConfig({
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: repo }],
       customCss: ['./src/styles/theme.css'],
-      components: { Footer: './src/components/Footer.astro' },
+      components: { Footer: './src/components/Footer.astro', Hero: './src/components/Hero.astro' },
       head: [
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.svg' } },
         { tag: 'meta', attrs: { property: 'og:image', content: `${site}/og-image.jpg` } },

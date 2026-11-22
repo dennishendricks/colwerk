@@ -1,0 +1,159 @@
+---
+// Feature section of the landing page: numbered spec list "Under the hood" and the "Every day" grid.
+const general = [
+  {
+    title: 'One session per tab',
+    text: 'Every editor tab holds its own connection. Transactions, temp tables and SET options stay where you left them. If a transaction is still open, Colwerk offers to commit or roll it back.',
+  },
+  {
+    title: 'Gentle on your database',
+    text: 'Drivers read only up to the row limit and cancel the rest. The schema tree loads on demand through its own metadata session, and table sizes come from statistics instead of COUNT(*).',
+  },
+  {
+    title: 'Guard rails for production',
+    text: 'Give a connection a color, for example red for production, and it marks the sidebar, tabs and toolbar. On request, Colwerk asks before any statement that may change data or structures.',
+  },
+  {
+    title: 'CSV & Parquet export',
+    text: 'Export the rows you see or the full result without limit. Colwerk writes the file to disk itself, so large exports never pass through the UI.',
+  },
+  {
+    title: 'Built-in MCP server',
+    text: 'Your AI assistant can browse schemas, run read-only queries and open SQL in a new tab. You decide what actually runs.',
+  },
+  {
+    title: 'Local by design',
+    text: 'Bound to 127.0.0.1 on a random port with a per-start token. Passwords are encrypted with AES-256-GCM, and the key lives in your OS keychain.',
+  },
+]
+
+// text is HTML (<kbd>)
+const daily = [
+  {
+    title: 'A result grid that keeps up',
+    text: 'Sort, filter, pin, hide and resize columns. Search the result, open long values, or copy a row as JSON or CSV.',
+  },
+  {
+    title: 'Keys in the schema tree',
+    text: 'Primary keys, foreign keys with their target and indexes show right in the tree. Double-click a table to query all its columns.',
+  },
+  {
+    title: 'Keyboard first',
+    text: 'Format SQL with <kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>F</kbd>, run with <kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd> and open the execution plan with <kbd>⌘/Ctrl</kbd> <kbd>E</kbd>. Multiple cursors and block selection included. Press <kbd>?</kbd> for all shortcuts.',
+  },
+  {
+    title: 'Sensible defaults',
+    text: 'New tabs start with a limit of 200 rows and a 60-second timeout. Enough to see your data, too little to strain the server. Both can be changed per tab.',
+  },
+  {
+    title: 'SQL from the schema',
+    text: 'Generate SELECT, INSERT, UPDATE and DELETE templates with the right parameter style for each engine. UPDATE and DELETE match on the primary key.',
+  },
+  {
+    title: 'Autocomplete and history',
+    text: 'Autocompletion knows your tables and columns. The last 50 queries are searchable and open in a new tab with one click.',
+  },
+  {
+    title: 'Opens your files',
+    text: 'Double-click a .sql file to open it in a new tab, or a .duckdb, .sqlite or .sqlite3 file to open it as a connection. If Colwerk is already running, its window comes to the front.',
+  },
+  {
+    title: 'Tabs in their own window',
+    text: 'Move a tab to a new window and back to the main window when you are done. Each window has its own menu.',
+  },
+]
+---
+
+<section id="features" class="cw-section not-content">
+  <h2>Built for people who live in SQL.</h2>
+
+  <div class="group">
+    <p class="cw-eyebrow">Under the hood</p>
+    <dl class="specs">
+      {
+        general.map((f) => (
+          <div>
+            <dt>{f.title}</dt>
+            <dd>{f.text}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </div>
+
+  <div class="group">
+    <p class="cw-eyebrow">Every day</p>
+    <div class="daily">
+      {
+        daily.map((f) => (
+          <article>
+            <h3>{f.title}</h3>
+            <p set:html={f.text} />
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .group {
+    margin-top: 2.5rem;
+  }
+  .specs {
+    margin: 0;
+    counter-reset: spec;
+  }
+  .specs div {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.5rem 2.5rem;
+    padding-block: 1.4rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .specs div:last-child {
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  .specs dt {
+    color: var(--sl-color-white);
+    font-size: 1.15rem;
+    font-weight: 650;
+  }
+  .specs dt::before {
+    counter-increment: spec;
+    content: counter(spec, decimal-leading-zero);
+    margin-right: 0.9rem;
+    color: var(--cw-brand);
+    font-family: var(--sl-font-mono);
+    font-size: 0.85rem;
+  }
+  .specs dd {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+  }
+  .daily {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 2.5rem 2rem;
+    margin-top: 1rem;
+  }
+  .daily article {
+    padding-left: 1rem;
+    border-left: 2px solid var(--cw-brand-dim);
+  }
+  .daily p {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+  }
+  .daily :global(kbd) {
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-bottom-width: 2px;
+    border-radius: 0.3rem;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+</style>
