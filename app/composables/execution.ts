@@ -1,4 +1,5 @@
 import type { ExportFormat, QueryResult, TransactionState } from '#core'
+import type { PlanWarning } from '~/utils/pre-execution'
 import type { PinnedResult, QueryTab } from './tabs'
 
 // Running statements in a tab's server-side session.
@@ -116,16 +117,43 @@ export function useExecution() {
     tab.viewPin = undefined
     tab.compare = false
     try {
-      const { plan, durationMs } = await api<{ plan: string; durationMs: number }>(`/api/tabs/${tab.id}/explain`, {
-        method: 'POST',
-        body: { connectionId: tab.connectionId, database: tab.database, sql, analyze, timeout: tab.timeout },
-      })
-      tab.plan = { text: plan, durationMs, executedAt: Date.now() }
+      const { plan, durationMs, format } = await api<{ plan: string; durationMs: number; format?: 'showplan' }>(
+        `/api/tabs/${tab.id}/explain`,
+        {
+          method: 'POST',
+          body: { connectionId: tab.connectionId, database: tab.database, sql, analyze, timeout: tab.timeout },
+        },
+      )
+      tab.plan = { text: plan, durationMs, executedAt: Date.now(), format }
     } catch (e) {
       tab.error = errorMessage(e)
     } finally {
       tab.running = false
     }
+  }
+
+  /** Runs one DML statement in a transaction of its own that is always rolled back; resolves with the affected rows (null: not reported). */
+  async function dryRun(tab: QueryTab, sql: string): Promise<number | null> {
+    tab.running = true
+    tab.error = undefined
+    try {
+      const { affectedRows } = await api<{ affectedRows: number | null }>(`/api/tabs/${tab.id}/dry-run`, {
+        method: 'POST',
+        body: { connectionId: tab.connectionId, database: tab.database, sql, timeout: tab.timeout },
+      })
+      return affectedRows
+    } finally {
+      tab.running = false
+    }
+  }
+
+  /** Plan check before running; never fails: no warnings when the check is not possible. */
+  async function planWarnings(tab: QueryTab, sql: string): Promise<PlanWarning[]> {
+    const { warnings } = await api<{ warnings: PlanWarning[] }>(`/api/tabs/${tab.id}/plan-check`, {
+      method: 'POST',
+      body: { connectionId: tab.connectionId, database: tab.database, sql },
+    }).catch(() => ({ warnings: [] }))
+    return warnings
   }
 
   /** Saves grid edits (see Workbench.applyEdits); resolves with the affected rows. */
@@ -191,5 +219,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, applyEdits, withVariables, cancel, exportResult }
+  return { run, explain, dryRun, planWarnings, applyEdits, withVariables, cancel, exportResult }
 }

@@ -3,11 +3,15 @@ export { addFileSources, drivers, driverStatus, installDriver, loadDriver } from
 export { type ConnectionInput, ConnectionStore, type ConnectionSummary } from './store.ts'
 export { defaultDataDir } from './data-dir.ts'
 export { addToHistory, type HistoryEntry } from './history.ts'
+export * from './audit.ts'
 export { Workbench } from './workbench.ts'
+export { mcpConfig, ownMcpSessions } from './mcp-session.ts'
 export { withoutLogin } from './login.ts'
 export { isReadOnlyStatement, isSelectStatement, type SplitDialect } from './sql-split.ts'
 export { createExporter, type Exporter, type ExportFormat, exportFormats, type ExportOptions } from './export.ts'
 export { fileDialog } from './dialog.ts'
+export { type CliRunner, createSecrets, parseSecretRef, runCli, secrets } from './secrets.ts'
+export { decodeText } from './text-file.ts'
 export {
   findImportFile,
   type ImportCandidate,

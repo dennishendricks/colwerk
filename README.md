@@ -49,13 +49,16 @@ are listed there, along with a software bill of materials of the npm packages an
   batches inside transactions.
 - **Production guard rails** – color-coded connections, read-only connections (enforced by the database where it can),
   optional confirmation before statements that change data or structure, and a stop for UPDATE/DELETE without WHERE.
+- **Session monitor** – running queries and blocking chains (PostgreSQL, MySQL/MariaDB, SQL Server, ClickHouse); cancel
+  a query or terminate a session after confirmation.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV; edit, add, clone and delete rows of a single table with a key, reviewed as SQL and saved in one transaction.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
 - **Schema and data compare** – compare two schemas, or one table across two connections of the same engine; deploy
   and sync scripts can be copied or opened in a tab, nothing runs automatically.
 - **Editor comforts** – autocomplete for tables, columns, aliases (also of CTEs and subqueries) and the engine's
   functions, JOINs along foreign keys with their `ON` clause, optional checks for unknown or ambiguous names and for
-  `UPDATE`/`DELETE` without `WHERE`, SQL formatting, execution plans, SQL templates, multiple cursors, searchable
+  `UPDATE`/`DELETE` without `WHERE`, SQL formatting, execution plans (graphical for SQL Server, estimated and
+  actual), SQL templates, multiple cursors, searchable
   history.
 - **ER diagrams** – read-only, from the foreign keys of a schema or of a table and its neighbors; export as Mermaid or
   DBML.
@@ -64,10 +67,12 @@ are listed there, along with a software bill of materials of the npm packages an
   the visible rows or the full, unlimited result, written straight to disk.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
   cursors and a searchable query history.
+- **Pre-flight checks** – a dry run reports how many rows an INSERT, UPDATE, DELETE or MERGE would change and rolls it
+  back; on protected connections an EXPLAIN warns before full scans of large tables.
 - **Connection import** – from DBeaver, Beekeeper Studio, Azure Data Studio, `.pgpass` and dbt `profiles.yml`, with
   preview and duplicate check.
-- **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
-  `.sqlite3`) to open it as a connection.
+- **Opens your files** – double-click a `.sql` file to open it in a tab, a SQL Server execution plan (`.sqlplan`) to
+  show it as a plan, a DuckDB or SQLite file (`.duckdb`, `.sqlite`, `.sqlite3`) to open it as a connection.
 - **Query files** – drop CSV, TSV, Parquet, JSON/NDJSON or Excel (`.xlsx`) files onto the window, or query `s3://`,
   `gs://` and `https://` URLs: each becomes a view of an in-memory DuckDB scratch connection, ready to query and join.
 - **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).
@@ -114,7 +119,7 @@ reachable. Unity Catalog and OneLake need cloud accounts and have no automated t
 ### Architecture
 
 ```
-core/       runtime-agnostic TypeScript on node: APIs: drivers, sessions, export, store, keychain (no Nuxt dependencies)
+core/       runtime-agnostic TypeScript on node: APIs: drivers, sessions, export, store, keychain, secret references (no Nuxt dependencies)
 server/     thin Nitro layer: security middleware, /api/* routes, MCP tools; no database logic
 app/        Nuxt UI frontend, talks to /api/* only; native menus and dialogs through Tauri (app/utils/desktop.ts)
 launcher/   entry point of the server binary (colwerk-server), MCP stdio bridge
@@ -144,8 +149,11 @@ Core decisions:
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
   and opener APIs as a remote page on `127.0.0.1` (`src-tauri/capabilities`).
-- **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas`, `supportsNetwork`, `supportsDatabases` and
-  `locksDatabase`; the UI adapts to them.
+- **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas`, `supportsNetwork`, `supportsDatabases`,
+  `locksDatabase` and `sessionActions` (what the session monitor may do; empty for embedded databases); the UI adapts to
+  them.
+- **Session monitor.** The monitor uses its own session per connection, because the metadata session might wait on the
+  locks being investigated.
 - **ClickHouse over HTTP.** No client library: each statement is one request to the HTTP interface, a `session_id`
   keeps temporary tables and `SET` options per tab.
 - **Lakehouses on DuckDB.** Each lakehouse connection is an in-memory DuckDB database with the format's extensions
@@ -163,15 +171,45 @@ Core decisions:
 
 ### Connections and credentials
 
-Connections, open tabs and query history are stored as JSON in the data directory
+Connections, open tabs, query history and the MCP audit log are stored in the data directory
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
-`COLWERK_DATA_DIR`). Passwords, keys and tokens are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
-(mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
+`COLWERK_DATA_DIR`). Passwords, keys and tokens (including MCP passwords) are encrypted with AES-256-GCM; the key
+lives in the OS keychain, or in `secret.key` (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
+
+Instead of being stored, every secret field (password, client secret, token, SSH password or passphrase) can reference a
+password manager: 1Password (`op://vault/item/field`, read with `op`), Bitwarden (item ID and field, `bw`), Bitwarden
+Secrets Manager (secret ID, `bws`) or KeePassXC (database file, entry path, attribute and optional key file,
+`keepassxc-cli`). Colwerk stores only the reference and reads the secret on every connect, so a rotated password is
+picked up; the value stays in memory and is never written to disk. The CLIs run without a shell with the reference as
+the only argument, the secret is read from stdout. Master passwords of KeePassXC and Bitwarden and the Secrets Manager
+token are asked for in the app and kept in memory until Colwerk quits (Bitwarden: only the `bw` session key); an
+inherited `BW_SESSION` or `BWS_ACCESS_TOKEN` works too, 1Password uses its app integration or
+`OP_SERVICE_ACCOUNT_TOKEN`. The CLIs are looked up on the PATH and in `/opt/homebrew/bin`, `/usr/local/bin`,
+`/Applications/KeePassXC.app/Contents/MacOS` and `%ProgramFiles%\KeePassXC`; on Windows only `.exe` files work (not
+npm's `bw.cmd`). `bw` reads its local copy: run `bw sync` to pick up changes (Colwerk syncs once after unlocking).
 
 The connection import only reads the other tools' files, at their default locations or a file you choose. DBeaver and
 Beekeeper Studio passwords are decrypted with those apps' built-in keys. Azure Data Studio keeps passwords in the OS
 credential store, so the preview asks for them. dbt `env_var()` values are marked, not filled in. Imported passwords
 are stored encrypted like all others.
+
+### MCP server
+
+`colwerk-server mcp` is a stdio bridge to `/mcp` and authenticates with the MCP token (`core/mcp-token.ts`). Queries
+pass three guard layers: `isSelectStatement`, a transaction that is never committed (`GUARD` in `server/utils/mcp.ts`),
+then the statement timeout and the row limit.
+
+- **MCP login:** optional and per connection, for password, Windows and token logins. It never falls back to the main
+  login, and MCP then gets sessions of its own (`mcp:<id>`). Entra and OAuth logins have none.
+- **DuckDB:** MCP opens the database read-only in its own instance with `enable_external_access = false`, so no files,
+  URLs or extensions. The instance closes after every request. This fails while Colwerk has the file open for writing.
+  The opt-in "Let AI assistants (MCP) read files and URLs" restores the shared instance. Lakehouse and files
+  connections need file and network access and are queried as in the editor.
+- **Prompt injection:** query results can contain instructions, and read-only access does not stop a model from acting
+  on them with its other tools. The MCP settings show this notice.
+- **Audit log:** every tool call goes to `mcp-audit.jsonl` with time, client (from the bridge), tool, connection, SQL,
+  duration, row count, status and error. Result rows and credentials are never logged. Retention is 7 to 365 days
+  (default 30, at most 10,000 entries). The log can be viewed, filtered and cleared in the app.
 
 ### Drivers and native libraries
 
@@ -185,6 +223,8 @@ are installed by DuckDB on first use.
 
 ### Known limitations
 
+- The session monitor: SQL Server can only terminate sessions, ClickHouse can only cancel queries. Without
+  `pg_read_all_stats`, `PROCESS` or `VIEW SERVER STATE` only your own sessions are visible (MySQL: no lock relations).
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
 - INSERT exports write arrays, structs and maps as JSON text; columns of such types may need a cast. XLSX holds at most
   1,048,576 rows.

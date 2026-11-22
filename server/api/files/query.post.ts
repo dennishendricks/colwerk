@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path'
-import { addFileSources, AppError } from '#core'
+import { addFileSources, AppError, secrets } from '#core'
 import { isRemote } from '~~/core/file-formats.ts'
 
 // Adds data files and URLs to a files connection (the one given, otherwise the first; none yet: one is created) as
@@ -34,7 +34,10 @@ export default defineEventHandler(async (event) => {
     }
   }
   const config = await store.get(id)
-  const { added, failed } = await dbCall(() => addFileSources(config, sources as string[]))
+  // The S3/GCS secret may come from a password manager (core/secrets.ts).
+  const { added, failed } = await dbCall(async () =>
+    addFileSources(await secrets.resolveConfig(config), sources as string[]),
+  )
   const known = new Set(config.sources)
   const fresh = added.map((a) => a.source).filter((s) => !known.has(s))
   if (fresh.length) {

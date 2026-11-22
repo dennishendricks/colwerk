@@ -324,6 +324,7 @@ test('previewImport marks duplicates and never includes secrets', async () => {
       user: 'ALICE',
       hasPassword: false,
       hasSshSecret: false,
+      hasMcpPassword: false,
     },
   ] satisfies ConnectionSummary[]
   const preview = previewImport(result, existing, '/p')

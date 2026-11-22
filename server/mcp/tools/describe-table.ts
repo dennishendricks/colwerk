@@ -15,29 +15,32 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, schema, table }) {
-    const info = await tableOf(connectionId, schema, table)
-    const [columns, indexes] = await Promise.all([
-      dbCall(() => workbench.introspect(connectionId, { kind: 'columns', schema, table })),
-      dbCall(() => workbench.introspect(connectionId, { kind: 'indexes', schema, table })),
-    ])
-    return {
-      schema,
-      table,
-      type: info.kind,
-      rowEstimate: info.rowEstimate,
-      comment: info.comment,
-      partitioning: info.partitioning,
-      clustering: info.clustering,
-      columns: columns.map((c) => ({
-        name: c.name,
-        type: c.type,
-        nullable: c.nullable,
-        primaryKey: c.primaryKey,
-        references: c.references ?? null,
-        indexes: c.indexes,
-        comment: c.comment,
-      })),
-      indexes,
-    }
+    return audited('describe-table', connectionId, async () => {
+      const connection = await connectionOf(connectionId)
+      const info = await tableOf(connectionId, schema, table)
+      const [columns, indexes] = await Promise.all([
+        dbCall(() => workbench.introspect(sessionId(connection), { kind: 'columns', schema, table })),
+        dbCall(() => workbench.introspect(sessionId(connection), { kind: 'indexes', schema, table })),
+      ])
+      return {
+        schema,
+        table,
+        type: info.kind,
+        rowEstimate: info.rowEstimate,
+        comment: info.comment,
+        partitioning: info.partitioning,
+        clustering: info.clustering,
+        columns: columns.map((c) => ({
+          name: c.name,
+          type: c.type,
+          nullable: c.nullable,
+          primaryKey: c.primaryKey,
+          references: c.references ?? null,
+          indexes: c.indexes,
+          comment: c.comment,
+        })),
+        indexes,
+      }
+    })
   },
 })

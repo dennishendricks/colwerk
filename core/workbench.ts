@@ -1,7 +1,20 @@
 import { drivers, loadDriver } from './registry.ts'
+import { secrets } from './secrets.ts'
 import { writingStatement } from './sql-guard.ts'
 import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
-import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
+import { isReadOnlyStatement, isSelectStatement, splitStatements } from './sql-split.ts'
+import { dmlKind, dryRunDialects } from './sql-dml.ts'
+import { referencedTables } from './sql-tables.ts'
+import {
+  clickhouseScans,
+  DEFAULT_SCAN_ROWS,
+  mssqlScans,
+  mysqlScans,
+  type PlanWarning,
+  planCheckDialects,
+  postgresScans,
+  type Scan,
+} from './plan-check.ts'
 import {
   AppError,
   type CellValue,
@@ -12,7 +25,9 @@ import {
   type IntrospectResult,
   type QueryResult,
   type RowSink,
+  type ServerSession,
   type Session,
+  type SessionAction,
   sqlDialect,
 } from './types.ts'
 import { editDialects } from './table-edit.ts'
@@ -31,6 +46,20 @@ const CONNECTION_LOST = new Set([
 ])
 
 const PLAN_ROW_LIMIT = 10_000
+const SHOWPLAN_COLUMN = 'Microsoft SQL Server 2005 XML Showplan'
+const MONITOR_TIMEOUT = 15
+const monitorTab = (connectionId: string) => `monitor:${connectionId}`
+
+// Statement that opens the dry run's transaction.
+const DRY_RUN_BEGIN: Partial<Record<Dialect, string>> = {
+  postgres: 'begin',
+  mysql: 'start transaction',
+  mssql: 'begin transaction',
+  duckdb: 'begin transaction',
+  sqlite: 'begin',
+}
+const PLAN_CHECK_TIMEOUT = 10
+const PLAN_CHECK_STATEMENTS = 10
 
 interface TabSession {
   connectionId: string
@@ -110,9 +139,9 @@ export class Workbench {
   }
 
   /**
-   * The execution plan of exactly one statement as text, in the tab's session (same session state as `execute`).
-   * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server, SQLite
-   * or ClickHouse.
+   * The execution plan of exactly one statement as text (on SQL Server as Showplan XML, `format: 'showplan'`), in
+   * the tab's session (same session state as `execute`). `analyze` runs the statement, so it is only accepted for
+   * read-only statements and not on SQLite or ClickHouse.
    */
   async explain(
     tabId: string,
@@ -121,19 +150,13 @@ export class Workbench {
     analyze: boolean,
     timeoutSeconds: number,
     database?: string,
-  ): Promise<{ plan: string; durationMs: number }> {
+  ): Promise<{ plan: string; durationMs: number; format?: 'showplan' }> {
     const dialect = sqlDialect((await this.resolveConfig(connectionId)).dialect)
     // Checked here, not only in the UI: Postgres and DuckDB would run a second statement as such.
     const ranges = splitStatements(sql, dialect)
     if (ranges.length !== 1) throw new AppError('explainSingle', 'Only a single statement can be explained.')
     const statement = sql.slice(ranges[0]!.from, ranges[0]!.to)
-    if (
-      analyze &&
-      (dialect === 'mssql' ||
-        dialect === 'sqlite' ||
-        dialect === 'clickhouse' ||
-        !isReadOnlyStatement(statement, dialect))
-    ) {
+    if (analyze && (dialect === 'sqlite' || dialect === 'clickhouse' || !isReadOnlyStatement(statement, dialect))) {
       throw new AppError(
         'analyzeReadOnly',
         'ANALYZE executes the statement and is only available for read-only statements.',
@@ -142,26 +165,37 @@ export class Workbench {
     return this.runTab(tabId, connectionId, database, async (s) => {
       const started = performance.now()
       const run = (text: string) => withTimeout(s, timeoutSeconds, () => s.execute(text, { rowLimit: PLAN_ROW_LIMIT }))
-      let result: QueryResult
       if (dialect === 'mssql') {
-        // SHOWPLAN must be alone in its batch. While it is on, statements return plans instead of running,
-        // so a session that cannot switch it off again is dropped.
+        // SHOWPLAN_XML must be alone in its batch; while it is on, statements return plans instead of running, so a
+        // session that cannot switch it off again is dropped. STATISTICS XML runs the statement and sends the actual
+        // plan as a result set after its rows: as one batch of several statements the driver reads past the row
+        // limit instead of cancelling, which would lose the plan.
+        const option = analyze ? 'statistics xml' : 'showplan_xml'
+        let result: QueryResult
         try {
-          await run('set showplan_text on')
-          result = await run(statement)
+          if (analyze) {
+            result = await withTimeout(s, timeoutSeconds, () =>
+              s.execute(`set statistics xml on;\n${statement}\n;\nset statistics xml off`, { rowLimit: 1 }),
+            )
+          } else {
+            await run('set showplan_xml on')
+            result = await run(statement)
+          }
         } finally {
-          await s.execute('set showplan_text off', { rowLimit: 1 }).catch(() => this.closeTab(tabId))
+          await s.execute(`set ${option} off`, { rowLimit: 1 }).catch(() => this.closeTab(tabId))
         }
-      } else {
-        const prefix = {
-          postgres: analyze ? 'explain (analyze, buffers, format text)' : 'explain (format text)',
-          duckdb: analyze ? 'explain analyze' : 'explain',
-          mysql: analyze ? 'analyze format=json' : 'explain format=json',
-          sqlite: 'explain query plan',
-          clickhouse: 'explain indexes = 1',
-        }[dialect]
-        result = await run(`${prefix} ${statement}`)
+        const xml = result.resultSets.find((set) => set.columns[0]?.name === SHOWPLAN_COLUMN)?.rows[0]?.[0]
+        if (typeof xml !== 'string') throw new AppError('planMissing', 'SQL Server returned no execution plan.')
+        return { plan: xml, durationMs: performance.now() - started, format: 'showplan' }
       }
+      const prefix = {
+        postgres: analyze ? 'explain (analyze, buffers, format text)' : 'explain (format text)',
+        duckdb: analyze ? 'explain analyze' : 'explain',
+        mysql: analyze ? 'analyze format=json' : 'explain format=json',
+        sqlite: 'explain query plan',
+        clickhouse: 'explain indexes = 1',
+      }[dialect]
+      const result = await run(`${prefix} ${statement}`)
       // The plan is in the last column (Postgres and ClickHouse: one row per line, DuckDB: explain_value, MySQL: one
       // JSON document, SQLite: one row per step, indented below its parent step).
       const depth = new Map<unknown, number>()
@@ -176,6 +210,116 @@ export class Workbench {
         durationMs: performance.now() - started,
       }
     })
+  }
+
+  /**
+   * Runs exactly one INSERT, UPDATE, DELETE or MERGE as `begin; <statement>; rollback` and reports the affected rows
+   * (null: not reported). It gets a session of its own, so the tab's transaction is untouched (MySQL's `start
+   * transaction` would commit it); the tab's temporary tables and `SET` options are not visible to it.
+   */
+  async dryRun(
+    tabId: string,
+    connectionId: string,
+    sql: string,
+    timeoutSeconds: number,
+    database?: string,
+  ): Promise<{ affectedRows: number | null; durationMs: number }> {
+    const config = await this.resolveConfig(connectionId)
+    if (config.readOnly) throw new AppError('dryRunReadOnly', 'The connection is read-only.')
+    if (!dryRunDialects.includes(config.dialect)) {
+      throw new AppError('dryRunUnsupported', 'A dry run is not available for this database.')
+    }
+    const statement = sql.trim()
+    if (!dmlKind(statement, sqlDialect(config.dialect))) {
+      throw new AppError(
+        'dryRunStatement',
+        'A dry run is only available for a single INSERT, UPDATE, DELETE or MERGE statement.',
+      )
+    }
+    const id = `dry:${tabId}`
+    try {
+      return await this.runTab(id, connectionId, database, async (s) => {
+        if (config.dialect === 'mysql') await checkTransactional(s, statement)
+        await s.execute(DRY_RUN_BEGIN[config.dialect]!, { rowLimit: 1 })
+        try {
+          const r = await withTimeout(s, timeoutSeconds, () => s.execute(statement, { rowLimit: 1 }))
+          return { affectedRows: r.affectedRows ?? (r.resultSets.length ? null : 0), durationMs: r.durationMs }
+        } finally {
+          // Closing the session below also rolls back if this fails.
+          await s.execute('rollback', { rowLimit: 1 })
+        }
+      })
+    } finally {
+      await this.closeTab(id)
+    }
+  }
+
+  /**
+   * Tables that the plans (EXPLAIN, never ANALYZE) of the first statements of `sql` read completely, with at least the
+   * connection's `scanRowThreshold` rows. Runs in the tab's session (same temp tables and search path as `execute`);
+   * a statement whose EXPLAIN fails is skipped.
+   */
+  async planWarnings(tabId: string, connectionId: string, sql: string, database?: string): Promise<PlanWarning[]> {
+    const config = await this.resolveConfig(connectionId)
+    const d = sqlDialect(config.dialect)
+    if (!planCheckDialects.includes(d)) return []
+    const candidates = splitStatements(sql, d)
+      .slice(0, PLAN_CHECK_STATEMENTS)
+      .map((r) => sql.slice(r.from, r.to))
+      .filter((text) => isSelectStatement(text, d) || (d !== 'clickhouse' && dmlKind(text, d)))
+    const scans: { statement: string; scan: Scan }[] = []
+    await this.runTab(tabId, connectionId, database, async (s) => {
+      const run = (text: string) =>
+        withTimeout(s, PLAN_CHECK_TIMEOUT, () => s.execute(text, { rowLimit: PLAN_ROW_LIMIT }))
+      const plan = async (text: string): Promise<Scan[]> => {
+        if (d === 'mssql') {
+          // SHOWPLAN must be alone in its batch; see `explain`.
+          try {
+            await run('set showplan_all on')
+            return (await run(text)).resultSets.flatMap(mssqlScans)
+          } finally {
+            await s.execute('set showplan_all off', { rowLimit: 1 }).catch(() => this.closeTab(tabId))
+          }
+        }
+        const prefix = {
+          postgres: 'explain (format json, verbose)',
+          mysql: 'explain format=json',
+          clickhouse: 'explain estimate',
+        }[d as 'postgres' | 'mysql' | 'clickhouse']
+        const set = (await run(`${prefix} ${text}`)).resultSets[0]
+        if (!set) return []
+        if (d === 'clickhouse') return clickhouseScans(set)
+        return (d === 'postgres' ? postgresScans : mysqlScans)(set.rows[0]![0]!)
+      }
+      for (const statement of candidates) {
+        try {
+          for (const scan of await plan(statement)) scans.push({ statement, scan })
+        } catch (e) {
+          if (!(e instanceof DbError) || CONNECTION_LOST.has(e.code ?? '')) throw e
+        }
+      }
+    })
+    const threshold = config.scanRowThreshold ?? DEFAULT_SCAN_ROWS
+    const warnings = new Map<string, PlanWarning>()
+    for (const { statement, scan } of scans) {
+      let rows = scan.rows
+      if (rows === undefined && scan.schema) {
+        const tables = await this.introspect(
+          connectionId,
+          { kind: 'tables', schema: scan.schema },
+          false,
+          database,
+        ).catch(() => [])
+        const table =
+          tables.find((t) => t.name === scan.table) ??
+          tables.find((t) => t.name.toLowerCase() === scan.table.toLowerCase())
+        rows = table?.rowEstimate ?? undefined
+      }
+      if (rows === undefined || rows < threshold) continue
+      const table = scan.schema ? `${scan.schema}.${scan.table}` : scan.table
+      if (rows > (warnings.get(table)?.rows ?? 0)) warnings.set(table, { statement, table, rows })
+    }
+    return [...warnings.values()]
   }
 
   /** Streams the full result through the tab's session (same session state as `execute`). */
@@ -258,8 +402,38 @@ export class Workbench {
   }
 
   async cancel(tabId: string): Promise<void> {
-    const tab = this.tabs.get(tabId)
-    if (tab?.busy) await (await tab.session).cancel()
+    // The tab's own session and its dry run (see `dryRun`).
+    for (const id of [tabId, `dry:${tabId}`]) {
+      const tab = this.tabs.get(id)
+      if (tab?.busy) await (await tab.session).cancel()
+    }
+  }
+
+  /**
+   * The server's sessions, in a session of its own per connection: the metadata session may be waiting on the very
+   * locks the monitor is there to look into.
+   */
+  sessions(connectionId: string): Promise<ServerSession[]> {
+    return this.runTab(monitorTab(connectionId), connectionId, undefined, (s) =>
+      withTimeout(s, MONITOR_TIMEOUT, async () => {
+        if (!s.sessions) throw new AppError('sessionsUnsupported', 'The database has no session monitor.')
+        return s.sessions()
+      }),
+    )
+  }
+
+  /** Cancels the running statement of a server session, or terminates it (monitor session, see `sessions`). */
+  stopSession(connectionId: string, id: string, action: SessionAction): Promise<void> {
+    return this.runTab(monitorTab(connectionId), connectionId, undefined, (s) =>
+      withTimeout(s, MONITOR_TIMEOUT, async () => {
+        if (!s.stopSession) throw new AppError('sessionsUnsupported', 'The database has no session monitor.')
+        return s.stopSession(id, action)
+      }),
+    )
+  }
+
+  closeMonitor(connectionId: string): Promise<void> {
+    return this.closeTab(monitorTab(connectionId))
   }
 
   async closeTab(tabId: string): Promise<void> {
@@ -378,6 +552,8 @@ export class Workbench {
 
   /** Opens the session, through the connection's SSH tunnel if it has one. */
   private async connectSession(config: ConnectionConfig, tunnelKey: string, saveHostKey: boolean): Promise<Session> {
+    // Secrets from password managers are read on every connect and only kept in this copy (core/secrets.ts).
+    config = await secrets.resolveConfig(config)
     const driver = await loadDriver(config.dialect)
     if (!config.ssh) return driver.connect(config)
     const { tunnel, release } = await this.acquireTunnel(tunnelKey, config, saveHostKey)
@@ -501,7 +677,32 @@ function releasing(session: Session, release: () => void): Session {
     cancel: () => session.cancel(),
     transactionState: () => session.transactionState(),
     introspect: (request) => session.introspect(request),
+    sessions: session.sessions && (() => session.sessions!()),
+    stopSession: session.stopSession && ((id, action) => session.stopSession!(id, action)),
     close: () => session.close().finally(release),
+  }
+}
+
+/** MySQL: refuses tables whose engine cannot roll back (a NULL engine is a view). */
+async function checkTransactional(s: Session, statement: string) {
+  const lit = (v: string) => `'${v.replace(/[\\']/g, '\\$&')}'`
+  for (const { schema, name } of referencedTables(statement, 'mysql')) {
+    const result = await s.execute(
+      `select engine from information_schema.tables where table_schema = ${schema ? lit(schema) : 'database()'} and table_name = ${lit(name)}`,
+      { rowLimit: 1 },
+    )
+    const row = result.resultSets[0]?.rows[0]
+    if (!row) continue
+    const engine = String(row[0] ?? 'VIEW')
+    if (engine.toLowerCase() !== 'innodb') {
+      throw new AppError(
+        'dryRunNonTransactional',
+        `${name} uses the ${engine} engine, which cannot roll back changes.`,
+        {
+          params: { table: name, engine },
+        },
+      )
+    }
   }
 }
 

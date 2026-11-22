@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
+import type { PlanWarning } from '~/utils/pre-execution'
 import type { CellValue, ExportFormat, ResultColumn } from '#core'
 import { insertSql, maxInsertRows } from '~~/core/sql-literals.ts'
 import { markdownTable, uniqueNames } from '~~/core/values.ts'
@@ -13,7 +14,7 @@ const emit = defineEmits<{ newConnection: []; importConnections: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, applyEdits, withVariables, cancel, exportResult } = useExecution()
+const { run, explain, dryRun, planWarnings, applyEdits, withVariables, cancel, exportResult } = useExecution()
 const {
   loadSchemas,
   loadTables,
@@ -95,13 +96,15 @@ const pendingUnfiltered = ref<{
 // Variables first, so the write check sees the SQL that will run.
 async function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting) return
+  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting || checking.value) {
+    return
+  }
   const substituted = await withVariables(props.tab, runnable.sql)
   if (!substituted) return
   const next = { ...substituted, from: runnable.from }
   const c = connection.value
   // The server refuses writes on read-only connections; there is nothing to confirm.
-  if (!c || c.readOnly) return run(props.tab, next.sql, next.from, next.offset)
+  if (!c || c.readOnly) return proceed(next)
   const dialect = sqlDialect(c.dialect)
   if (c.requireWhere ?? !!c.confirmWrites) {
     const unfiltered = unfilteredWrites(next.sql, dialect)
@@ -111,7 +114,41 @@ async function execute() {
     }
   }
   if (c.confirmWrites && mayWrite(next.sql, dialect)) pending.value = next
-  else run(props.tab, next.sql, next.from, next.offset)
+  else proceed(next)
+}
+
+const checking = ref(false)
+// A query whose plan reads large tables completely, waiting for confirmation.
+const planWarning = ref<{
+  sql: string
+  from: number
+  offset: (position: number) => number
+  warnings: PlanWarning[]
+}>()
+const checksPlan = computed(() => {
+  const c = connection.value
+  return !!c && planCheckDialects.includes(sqlDialect(c.dialect)) && (c.checkPlan ?? !!c.confirmWrites)
+})
+
+async function proceed(next: { sql: string; from: number; offset: (position: number) => number }) {
+  if (checksPlan.value) {
+    checking.value = true
+    const warnings = await planWarnings(props.tab, next.sql).finally(() => (checking.value = false))
+    if (warnings.length) return void (planWarning.value = { ...next, warnings })
+  }
+  run(props.tab, next.sql, next.from, next.offset)
+}
+
+function runWarned() {
+  const w = planWarning.value
+  planWarning.value = undefined
+  if (w) run(props.tab, w.sql, w.from, w.offset)
+}
+
+function showWarnedPlan() {
+  const w = planWarning.value
+  planWarning.value = undefined
+  if (w) explain(props.tab, w.warnings[0]!.statement)
 }
 
 function confirmVariables() {
@@ -125,8 +162,9 @@ function cancelVariables() {
 }
 
 function confirmRun() {
-  if (pending.value) run(props.tab, pending.value.sql, pending.value.from, pending.value.offset)
+  const next = pending.value
   pending.value = undefined
+  if (next) proceed(next)
 }
 
 function confirmUnfiltered() {
@@ -145,15 +183,60 @@ function showPlan(analyze = false) {
   explain(props.tab, editor.value?.runnableSql().sql ?? '', analyze)
 }
 
-// SQL Server, SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
+const canDryRun = computed(
+  () => !!connection.value && !connection.value.readOnly && dryRunDialects.includes(connection.value.dialect),
+)
+const isDml = (sql: string) => !!connection.value && !!dmlKind(sql.trim(), sqlDialect(connection.value.dialect))
+
+const dryRunTitle = (n: number | null) =>
+  n === null ? t('query.dryRunUnknown') : t('query.dryRunResult', { n: n.toLocaleString(locale.value) }, n)
+
+async function dryRunEditor() {
+  const substituted = await withVariables(props.tab, editor.value?.runnableSql().sql ?? '')
+  if (!substituted) return
+  if (!isDml(substituted.sql)) {
+    toast.add({ title: t('errors.dryRunStatement'), color: 'error', icon: 'i-lucide-circle-alert' })
+    return
+  }
+  try {
+    const n = await dryRun(props.tab, substituted.sql)
+    toast.add({
+      title: dryRunTitle(n),
+      description: t('query.dryRunHint'),
+      color: 'success',
+      icon: 'i-lucide-flask-conical',
+    })
+  } catch (e) {
+    toast.add({
+      title: t('query.dryRunFailed'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
+  }
+}
+
+// Result of the dry run in the confirmation dialog.
+const pendingDryRun = ref<{ rows?: number | null; error?: string }>()
+watch(pending, () => (pendingDryRun.value = undefined))
+
+async function dryRunPending() {
+  if (!pending.value) return
+  try {
+    pendingDryRun.value = { rows: await dryRun(props.tab, pending.value.sql) }
+  } catch (e) {
+    pendingDryRun.value = { error: errorMessage(e) }
+  }
+}
+
+// SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
   [
     { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-    ...(driver.value?.dialect === 'mssql' ||
-    driver.value?.dialect === 'sqlite' ||
-    driver.value?.dialect === 'clickhouse'
+    ...(driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
       ? []
       : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
+    ...(canDryRun.value ? [{ label: t('query.dryRun'), icon: 'i-lucide-flask-conical', onSelect: dryRunEditor }] : []),
   ],
   [
     {
@@ -485,6 +568,7 @@ async function confirmConnection() {
 
 const status = computed(() => {
   const { plan } = props.tab
+  if (plan?.file) return `${t('query.plan')} · ${plan.file}`
   if (plan) return `${t('query.plan')} · ${formatDuration(plan.durationMs)} · ${formatClock(plan.executedAt)}`
   const pin = viewedPin.value
   const r = props.tab.result
@@ -536,7 +620,7 @@ const status = computed(() => {
           :label="t('common.run')"
           :title="t('common.run')"
           :ui="{ label: '@max-4xl:hidden' }"
-          :loading="tab.running"
+          :loading="tab.running || checking"
           :disabled="!tab.connectionId || !!tab.exporting"
           @click="execute"
         />
@@ -769,6 +853,7 @@ const status = computed(() => {
             :description="tab.error"
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
+          <LazyPlanView v-else-if="tab.plan?.format === 'showplan'" :xml="tab.plan.text" />
           <pre v-else-if="tab.plan" class="h-full overflow-auto p-3 font-mono text-xs">{{ tab.plan.text }}</pre>
           <!-- Both grids share the quick filter; the row count in the status is the current result's. -->
           <SplitterGroup v-else-if="tab.compare && pinView" direction="horizontal" class="h-full">
@@ -922,11 +1007,50 @@ const status = computed(() => {
     >
       <template #body>
         <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending?.sql }}</pre>
+        <p v-if="pendingDryRun" class="mt-2 text-sm" :class="pendingDryRun.error ? 'text-error' : ''">
+          <template v-if="pendingDryRun.error">{{ pendingDryRun.error }}</template>
+          <template v-else>
+            {{ dryRunTitle(pendingDryRun.rows ?? null) }}
+            <span class="text-muted">{{ t('query.dryRunHint') }}</span>
+          </template>
+        </p>
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-2">
           <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
-          <UButton :label="t('common.run')" color="error" @click="confirmRun" />
+          <UButton
+            v-if="canDryRun && pending && isDml(pending.sql)"
+            :label="t('query.dryRun')"
+            icon="i-lucide-flask-conical"
+            color="neutral"
+            variant="outline"
+            :loading="tab.running"
+            @click="dryRunPending"
+          />
+          <UButton :label="t('common.run')" color="error" :disabled="tab.running" @click="confirmRun" />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="planWarning !== undefined"
+      :title="t('query.planWarningTitle')"
+      :description="t('query.planWarningDescription', { connection: connection?.name })"
+      :close="false"
+      @update:open="(v) => !v && (planWarning = undefined)"
+    >
+      <template #body>
+        <ul class="text-sm">
+          <li v-for="w in planWarning?.warnings" :key="w.table">
+            {{ t('query.planWarningScan', { table: w.table, rows: w.rows.toLocaleString(locale) }) }}
+          </li>
+        </ul>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="planWarning = undefined" />
+          <UButton :label="t('query.showPlan')" color="neutral" variant="outline" @click="showWarnedPlan" />
+          <UButton :label="t('query.planWarningRun')" color="warning" @click="runWarned" />
         </div>
       </template>
     </UModal>

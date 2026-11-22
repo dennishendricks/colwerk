@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const open = defineModel<boolean>('open', { default: false })
+const emit = defineEmits<{ audit: [] }>()
 
 const bridge = ref<{ command: string; args: string[] }>()
 watch(
@@ -28,6 +29,13 @@ const toml = computed(
   <UModal v-model:open="open" :title="$t('mcp.title')" :description="$t('mcp.description')">
     <template #body>
       <div v-if="bridge" class="space-y-4 text-sm">
+        <UAlert
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-shield-alert"
+          :title="$t('mcp.injectionTitle')"
+          :description="$t('mcp.injectionNotice')"
+        />
         <section class="space-y-1">
           <h3 class="font-medium">Claude Desktop</h3>
           <i18n-t keypath="mcp.claudeDesktop" tag="p" class="text-muted">
@@ -50,6 +58,18 @@ codex mcp add colwerk -- {{ cli }}</pre>
           <pre class="overflow-x-auto rounded bg-elevated p-2 text-xs select-all">{{ toml }}</pre>
         </section>
         <p class="text-muted">{{ $t('mcp.others') }}</p>
+        <p class="text-muted">{{ $t('mcp.hardening') }}</p>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end">
+        <UButton
+          :label="$t('mcp.openAudit')"
+          icon="i-lucide-scroll-text"
+          color="neutral"
+          variant="ghost"
+          @click="emit('audit')"
+        />
       </div>
     </template>
   </UModal>

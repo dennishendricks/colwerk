@@ -73,7 +73,7 @@ export function useDataFiles() {
     const data: string[] = []
     const unsupported: string[] = []
     for (const path of paths) {
-      if (/\.sql$/i.test(path)) await openFile(activeConnectionId.value, activeDatabase.value, path)
+      if (/\.(sql|sqlplan)$/i.test(path)) await openFile(activeConnectionId.value, activeDatabase.value, path)
       else if (/\.(duckdb|sqlite3?)$/i.test(path)) {
         try {
           await openDatabaseFile(path, /\.duckdb$/i.test(path) ? 'duckdb' : 'sqlite')

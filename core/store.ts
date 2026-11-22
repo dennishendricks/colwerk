@@ -6,21 +6,23 @@ import { type Keychain, keychain, KeychainUnavailable } from './keychain.ts'
 import type { ConnectionConfig } from './types.ts'
 
 /** Connection as returned to the UI: never contains the password. */
-export type ConnectionSummary = Omit<ConnectionConfig, 'password' | 'sshSecret'> & {
+export type ConnectionSummary = Omit<ConnectionConfig, 'password' | 'sshSecret' | 'mcpPassword'> & {
   hasPassword: boolean
   hasSshSecret: boolean
+  hasMcpPassword: boolean
   /** Disconnected by the user (set by the API from the workbench, not stored). */
   disconnected?: boolean
 }
 
 /**
- * `password: undefined` keeps the stored password, `''` removes it, any other string replaces it; the same for `sshSecret`.
+ * `password: undefined` keeps the stored password, `''` removes it, any other string replaces it; the same for `sshSecret` and `mcpPassword`.
  */
 export type ConnectionInput = ConnectionConfig
 
-type StoredConnection = Omit<ConnectionConfig, 'password' | 'sshSecret'> & {
+type StoredConnection = Omit<ConnectionConfig, 'password' | 'sshSecret' | 'mcpPassword'> & {
   passwordEnc?: string
   sshSecretEnc?: string
+  mcpPasswordEnc?: string
 }
 
 // Storage in `defaultDataDir()` (overridable with COLWERK_DATA_DIR):
@@ -51,32 +53,36 @@ export class ConnectionStore {
   ) {}
 
   async list(): Promise<ConnectionSummary[]> {
-    return (await this.read()).map(({ passwordEnc, sshSecretEnc, ...c }) => ({
+    return (await this.read()).map(({ passwordEnc, sshSecretEnc, mcpPasswordEnc, ...c }) => ({
       ...c,
       hasPassword: !!passwordEnc,
       hasSshSecret: !!sshSecretEnc,
+      hasMcpPassword: !!mcpPasswordEnc,
     }))
   }
 
   async get(id: string): Promise<ConnectionConfig> {
     const stored = (await this.read()).find((c) => c.id === id)
     if (!stored) throw new Error(`Unknown connection: ${id}`)
-    const { passwordEnc, sshSecretEnc, ...config } = stored
+    const { passwordEnc, sshSecretEnc, mcpPasswordEnc, ...config } = stored
     return {
       ...config,
       password: passwordEnc ? await this.decrypt(passwordEnc) : undefined,
       sshSecret: sshSecretEnc ? await this.decrypt(sshSecretEnc) : undefined,
+      mcpPassword: mcpPasswordEnc ? await this.decrypt(mcpPasswordEnc) : undefined,
     }
   }
 
-  /** Resolves an input without password or SSH secret against the stored ones (`undefined` = keep). */
+  /** Resolves an input without password, SSH secret or MCP password against the stored ones (`undefined` = keep). */
   async resolve(input: ConnectionInput): Promise<ConnectionConfig> {
-    if (input.password !== undefined && input.sshSecret !== undefined) return input
+    if (input.password !== undefined && input.sshSecret !== undefined && input.mcpPassword !== undefined) return input
     const existing = (await this.read()).find((c) => c.id === input.id)
     return {
       ...input,
       password: input.password ?? (existing?.passwordEnc ? await this.decrypt(existing.passwordEnc) : undefined),
       sshSecret: input.sshSecret ?? (existing?.sshSecretEnc ? await this.decrypt(existing.sshSecretEnc) : undefined),
+      mcpPassword:
+        input.mcpPassword ?? (existing?.mcpPasswordEnc ? await this.decrypt(existing.mcpPasswordEnc) : undefined),
     }
   }
 
@@ -89,7 +95,7 @@ export class ConnectionStore {
 
   save(input: ConnectionInput): Promise<void> {
     return this.mutate(async (all) => {
-      const { password, sshSecret, ...config } = input
+      const { password, sshSecret, mcpPassword, ...config } = input
       const existing = all.find((c) => c.id === input.id)
       const seal = async (plain: string | undefined, kept: string | undefined) =>
         plain === undefined ? kept : plain === '' ? undefined : await this.encrypt(plain)
@@ -97,6 +103,7 @@ export class ConnectionStore {
         ...config,
         passwordEnc: await seal(password, existing?.passwordEnc),
         sshSecretEnc: await seal(sshSecret, existing?.sshSecretEnc),
+        mcpPasswordEnc: await seal(mcpPassword, existing?.mcpPasswordEnc),
       }
       return existing ? all.map((c) => (c.id === input.id ? next : c)) : [...all, next]
     })
