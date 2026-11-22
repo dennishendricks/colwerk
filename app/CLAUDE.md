@@ -12,9 +12,14 @@
 - `components/CompareSchema.vue`
 - `components/CompareScript.vue`
 - `components/CompareSide.vue`
+- `components/ConnectionAdvancedFields.vue`
+- `components/ConnectionColorPicker.vue`
+- `components/ConnectionFileFields.vue`
 - `components/ConnectionImportModal.vue`
-- `components/ConnectionModal.vue`: **39 KB: grep, then read in parts**
+- `components/ConnectionMcpLogin.vue`
+- `components/ConnectionModal.vue`
 - `components/ConnectionPicker.vue`
+- `components/ConnectionSshFields.vue`
 - `components/DataImportLoad.vue`
 - `components/DataImportModal.vue`
 - `components/DataImportSource.vue`
@@ -41,8 +46,10 @@
 - `components/SessionMonitorModal.vue`
 - `components/ShortcutsModal.vue`
 - `components/SqlEditor.vue`
+- `components/StoredPasswordField.vue`
 - `components/TabBarActions.vue`
 - `components/UnlockModal.vue`
+- `composables/connection-form.ts`: State of the connection dialog: the form, which fields the dialect and login show, and the payload to save
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
 - `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
 - `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
@@ -64,6 +71,7 @@
 - `utils/blocking.ts`: exports BlockingNode, blockers, blockingChains
 - `utils/compare.ts`: Constants of the compare from core, re-exported for the app's auto-imports
 - `utils/connection-color.ts`: exports connectionColorClasses
+- `utils/connection-form.ts`: Initial values of the connection dialog, from a saved connection or the defaults of a new one
 - `utils/data-import.ts`: Pure helpers of the data import wizard: table names from a source and matching of source to target columns
 - `utils/desktop.ts`: Native parts of the desktop app (src-tauri) through Tauri's JS API: menus and file dialogs
 - `utils/diagnostics.ts`: exports exportDiagnostics
