@@ -492,6 +492,24 @@
     "switchConnectionDescription": "Die offene Transaktion dieses Tabs wird dabei zurückgerollt.",
     "switchConnection": "Wechseln"
   },
+  "plan": {
+    "operator": "Operator",
+    "object": "Objekt",
+    "cost": "Kosten",
+    "estimatedRows": "Geschätzte Zeilen",
+    "actualRows": "Tatsächliche Zeilen",
+    "subtreeCost": "Kosten Teilbaum",
+    "statementCost": "Geschätzte Kosten {cost}",
+    "actual": "Tatsächlicher Plan",
+    "estimated": "Geschätzter Plan",
+    "warnings": "Warnungen",
+    "missingIndex": "Fehlender Index (Wirkung {impact} %)",
+    "indexCopied": "Index-Anweisung kopiert",
+    "noOperators": "Der Plan enthält keine Operatoren.",
+    "invalid": "Der Ausführungsplan konnte nicht gelesen werden.",
+    "expand": "Aufklappen",
+    "collapse": "Zuklappen"
+  },
   "grid": {
     "toggleColumns": "Spalten ein-/ausblenden",
     "resize": "Breite ziehen, Doppelklick setzt zurück",
@@ -637,6 +655,7 @@
     "sessionNotStopped": "Die Sitzung konnte nicht gestoppt werden; sie ist möglicherweise bereits beendet.",
     "explainSingle": "Ein Ausführungsplan ist nur für eine einzelne Anweisung möglich.",
     "analyzeReadOnly": "ANALYZE führt die Anweisung aus und ist nur für lesende Anweisungen verfügbar.",
+    "planMissing": "SQL Server hat keinen Ausführungsplan geliefert.",
     "noResultSet": "Die Anweisung hat keine Ergebnismenge geliefert.",
     "exportCancelled": "Der Export wurde abgebrochen.",
     "xlsxLimit": "Das Ergebnis überschreitet die Grenzen eines Excel-Tabellenblatts (1.048.576 Zeilen, 16.384 Spalten, 4 GB). Bitte stattdessen als CSV oder Parquet exportieren.",

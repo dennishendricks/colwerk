@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-16"?>
+<!-- Hand-written test plan -->
+<ShowPlanXML xmlns="http://schemas.microsoft.com/sqlserver/2004/07/showplan" Version="1.5" Build="16.0.1000.6">
+  <BatchSequence>
+    <Batch>
+      <Statements>
+        <StmtSimple StatementText="select o.id from dbo.orders o join dbo.customers c on c.id = o.customer_id where c.country = N&#39;DE&#39; -- &quot;note&quot;" StatementType="SELECT" StatementSubTreeCost="1">
+          <QueryPlan CachedPlanSize="32">
+            <MissingIndexes>
+              <MissingIndexGroup Impact="87.5">
+                <MissingIndex Database="[shop]" Schema="[dbo]" Table="[customers]">
+                  <ColumnGroup Usage="EQUALITY">
+                    <Column Name="[country]" ColumnId="3" />
+                  </ColumnGroup>
+                  <ColumnGroup Usage="INCLUDE">
+                    <Column Name="[id]" ColumnId="1" />
+                  </ColumnGroup>
+                </MissingIndex>
+              </MissingIndexGroup>
+            </MissingIndexes>
+            <Warnings>
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT_IMPLICIT(nvarchar(2),[c].[country],0)" />
+            </Warnings>
+            <RelOp NodeId="0" PhysicalOp="Hash Match" LogicalOp="Inner Join" EstimateRows="100" EstimatedTotalSubtreeCost="1">
+              <OutputList />
+              <Warnings>
+                <SpillToTempDb SpillLevel="1" />
+              </Warnings>
+              <RunTimeInformation>
+                <RunTimeCountersPerThread Thread="0" ActualRows="40" ActualExecutions="1" />
+                <RunTimeCountersPerThread Thread="1" ActualRows="60" ActualExecutions="1" />
+              </RunTimeInformation>
+              <Hash>
+                <RelOp NodeId="1" PhysicalOp="Clustered Index Scan" LogicalOp="Clustered Index Scan" EstimateRows="50" EstimatedTotalSubtreeCost="0.25">
+                  <IndexScan>
+                    <Object Database="[shop]" Schema="[dbo]" Table="[customers]" Index="[pk_customers]" IndexKind="Clustered" />
+                  </IndexScan>
+                  <RunTimeInformation>
+                    <RunTimeCountersPerThread Thread="0" ActualRows="5" ActualExecutions="1" />
+                  </RunTimeInformation>
+                </RelOp>
+                <RelOp NodeId="2" PhysicalOp="Table Scan" LogicalOp="Table Scan" EstimateRows="1000" EstimatedTotalSubtreeCost="0.5">
+                  <TableScan>
+                    <Object Database="[shop]" Schema="[dbo]" Table="[orders]" IndexKind="Heap" />
+                  </TableScan>
+                  <RunTimeInformation>
+                    <RunTimeCountersPerThread Thread="0" ActualRows="1000" ActualExecutions="1" />
+                  </RunTimeInformation>
+                </RelOp>
+              </Hash>
+            </RelOp>
+          </QueryPlan>
+        </StmtSimple>
+      </Statements>
+    </Batch>
+  </BatchSequence>
+</ShowPlanXML>

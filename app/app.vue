@@ -97,8 +97,8 @@ function onServerEvent(type: string, data: string) {
 }
 
 // Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
-// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection, data files
-// are queried (composables/data-files.ts).
+// and takes them (src-tauri/src/main.rs). Query and plan files (.sql, .sqlplan) open in a tab, database files as a
+// connection, data files are queried (composables/data-files.ts).
 async function openSystemFiles() {
   await openPaths(await invoke<string[]>('take_opened_files'))
 }

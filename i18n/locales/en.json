@@ -492,6 +492,24 @@
     "switchConnectionDescription": "The open transaction of this tab is rolled back.",
     "switchConnection": "Switch"
   },
+  "plan": {
+    "operator": "Operator",
+    "object": "Object",
+    "cost": "Cost",
+    "estimatedRows": "Estimated rows",
+    "actualRows": "Actual rows",
+    "subtreeCost": "Subtree cost",
+    "statementCost": "Estimated cost {cost}",
+    "actual": "Actual plan",
+    "estimated": "Estimated plan",
+    "warnings": "Warnings",
+    "missingIndex": "Missing index (impact {impact} %)",
+    "indexCopied": "Index statement copied",
+    "noOperators": "The plan contains no operators.",
+    "invalid": "The execution plan could not be read.",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
   "grid": {
     "toggleColumns": "Show/hide columns",
     "resize": "Drag to resize, double-click resets",
@@ -637,6 +655,7 @@
     "sessionNotStopped": "The session could not be stopped; it may have ended already.",
     "explainSingle": "An execution plan is only available for a single statement.",
     "analyzeReadOnly": "ANALYZE executes the statement and is only available for read-only statements.",
+    "planMissing": "SQL Server returned no execution plan.",
     "noResultSet": "The statement returned no result set.",
     "exportCancelled": "The export was cancelled.",
     "xlsxLimit": "The result exceeds the limits of an Excel sheet (1,048,576 rows, 16,384 columns, 4 GB). Export it as CSV or Parquet instead.",

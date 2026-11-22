@@ -57,7 +57,8 @@ are listed there, along with a software bill of materials of the npm packages an
   and sync scripts can be copied or opened in a tab, nothing runs automatically.
 - **Editor comforts** – autocomplete for tables, columns, aliases (also of CTEs and subqueries) and the engine's
   functions, JOINs along foreign keys with their `ON` clause, optional checks for unknown or ambiguous names and for
-  `UPDATE`/`DELETE` without `WHERE`, SQL formatting, execution plans, SQL templates, multiple cursors, searchable
+  `UPDATE`/`DELETE` without `WHERE`, SQL formatting, execution plans (graphical for SQL Server, estimated and
+  actual), SQL templates, multiple cursors, searchable
   history.
 - **ER diagrams** – read-only, from the foreign keys of a schema or of a table and its neighbors; export as Mermaid or
   DBML.
@@ -68,8 +69,8 @@ are listed there, along with a software bill of materials of the npm packages an
   cursors and a searchable query history.
 - **Connection import** – from DBeaver, Beekeeper Studio, Azure Data Studio, `.pgpass` and dbt `profiles.yml`, with
   preview and duplicate check.
-- **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
-  `.sqlite3`) to open it as a connection.
+- **Opens your files** – double-click a `.sql` file to open it in a tab, a SQL Server execution plan (`.sqlplan`) to
+  show it as a plan, a DuckDB or SQLite file (`.duckdb`, `.sqlite`, `.sqlite3`) to open it as a connection.
 - **Query files** – drop CSV, TSV, Parquet, JSON/NDJSON or Excel (`.xlsx`) files onto the window, or query `s3://`,
   `gs://` and `https://` URLs: each becomes a view of an in-memory DuckDB scratch connection, ready to query and join.
 - **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).

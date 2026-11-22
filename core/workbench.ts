@@ -31,6 +31,7 @@ const CONNECTION_LOST = new Set([
 ])
 
 const PLAN_ROW_LIMIT = 10_000
+const SHOWPLAN_COLUMN = 'Microsoft SQL Server 2005 XML Showplan'
 const MONITOR_TIMEOUT = 15
 const monitorTab = (connectionId: string) => `monitor:${connectionId}`
 
@@ -112,9 +113,9 @@ export class Workbench {
   }
 
   /**
-   * The execution plan of exactly one statement as text, in the tab's session (same session state as `execute`).
-   * `analyze` runs the statement, so it is only accepted for read-only statements and not on SQL Server, SQLite
-   * or ClickHouse.
+   * The execution plan of exactly one statement as text (on SQL Server as Showplan XML, `format: 'showplan'`), in
+   * the tab's session (same session state as `execute`). `analyze` runs the statement, so it is only accepted for
+   * read-only statements and not on SQLite or ClickHouse.
    */
   async explain(
     tabId: string,
@@ -123,19 +124,13 @@ export class Workbench {
     analyze: boolean,
     timeoutSeconds: number,
     database?: string,
-  ): Promise<{ plan: string; durationMs: number }> {
+  ): Promise<{ plan: string; durationMs: number; format?: 'showplan' }> {
     const dialect = sqlDialect((await this.resolveConfig(connectionId)).dialect)
     // Checked here, not only in the UI: Postgres and DuckDB would run a second statement as such.
     const ranges = splitStatements(sql, dialect)
     if (ranges.length !== 1) throw new AppError('explainSingle', 'Only a single statement can be explained.')
     const statement = sql.slice(ranges[0]!.from, ranges[0]!.to)
-    if (
-      analyze &&
-      (dialect === 'mssql' ||
-        dialect === 'sqlite' ||
-        dialect === 'clickhouse' ||
-        !isReadOnlyStatement(statement, dialect))
-    ) {
+    if (analyze && (dialect === 'sqlite' || dialect === 'clickhouse' || !isReadOnlyStatement(statement, dialect))) {
       throw new AppError(
         'analyzeReadOnly',
         'ANALYZE executes the statement and is only available for read-only statements.',
@@ -144,26 +139,37 @@ export class Workbench {
     return this.runTab(tabId, connectionId, database, async (s) => {
       const started = performance.now()
       const run = (text: string) => withTimeout(s, timeoutSeconds, () => s.execute(text, { rowLimit: PLAN_ROW_LIMIT }))
-      let result: QueryResult
       if (dialect === 'mssql') {
-        // SHOWPLAN must be alone in its batch. While it is on, statements return plans instead of running,
-        // so a session that cannot switch it off again is dropped.
+        // SHOWPLAN_XML must be alone in its batch; while it is on, statements return plans instead of running, so a
+        // session that cannot switch it off again is dropped. STATISTICS XML runs the statement and sends the actual
+        // plan as a result set after its rows: as one batch of several statements the driver reads past the row
+        // limit instead of cancelling, which would lose the plan.
+        const option = analyze ? 'statistics xml' : 'showplan_xml'
+        let result: QueryResult
         try {
-          await run('set showplan_text on')
-          result = await run(statement)
+          if (analyze) {
+            result = await withTimeout(s, timeoutSeconds, () =>
+              s.execute(`set statistics xml on;\n${statement}\n;\nset statistics xml off`, { rowLimit: 1 }),
+            )
+          } else {
+            await run('set showplan_xml on')
+            result = await run(statement)
+          }
         } finally {
-          await s.execute('set showplan_text off', { rowLimit: 1 }).catch(() => this.closeTab(tabId))
+          await s.execute(`set ${option} off`, { rowLimit: 1 }).catch(() => this.closeTab(tabId))
         }
-      } else {
-        const prefix = {
-          postgres: analyze ? 'explain (analyze, buffers, format text)' : 'explain (format text)',
-          duckdb: analyze ? 'explain analyze' : 'explain',
-          mysql: analyze ? 'analyze format=json' : 'explain format=json',
-          sqlite: 'explain query plan',
-          clickhouse: 'explain indexes = 1',
-        }[dialect]
-        result = await run(`${prefix} ${statement}`)
+        const xml = result.resultSets.find((set) => set.columns[0]?.name === SHOWPLAN_COLUMN)?.rows[0]?.[0]
+        if (typeof xml !== 'string') throw new AppError('planMissing', 'SQL Server returned no execution plan.')
+        return { plan: xml, durationMs: performance.now() - started, format: 'showplan' }
       }
+      const prefix = {
+        postgres: analyze ? 'explain (analyze, buffers, format text)' : 'explain (format text)',
+        duckdb: analyze ? 'explain analyze' : 'explain',
+        mysql: analyze ? 'analyze format=json' : 'explain format=json',
+        sqlite: 'explain query plan',
+        clickhouse: 'explain indexes = 1',
+      }[dialect]
+      const result = await run(`${prefix} ${statement}`)
       // The plan is in the last column (Postgres and ClickHouse: one row per line, DuckDB: explain_value, MySQL: one
       // JSON document, SQLite: one row per step, indented below its parent step).
       const depth = new Map<unknown, number>()
