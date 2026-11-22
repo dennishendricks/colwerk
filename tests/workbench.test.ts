@@ -3,7 +3,7 @@ import { test } from 'bun:test'
 import { rm } from 'node:fs/promises'
 import { assert, assertEquals, assertMatch, assertRejects } from './assert.ts'
 import { join } from 'node:path'
-import { type ConnectionConfig, DbError } from '../core/types.ts'
+import { AppError, type ConnectionConfig, DbError } from '../core/types.ts'
 import { Workbench } from '../core/workbench.ts'
 import { reachable, tempDir, testConnections } from './helpers.ts'
 
@@ -19,6 +19,13 @@ test('timeout cancels the statement', async () => {
   await assertRejects(() => wb.execute('tab', 'wb-timeout', SLOW, 1, 1), Error, 'did not finish within 1 s')
   assert(performance.now() - started < 5_000, 'timeout took too long')
   assertEquals((await wb.execute('tab', 'wb-timeout', 'select 1 as x', 10, 1)).resultSets[0]!.rows, [[1]])
+  await wb.closeAll()
+})
+
+test('embedded databases have no session monitor', async () => {
+  const wb = workbench({ id: 'wb-sessions', name: 'duck', dialect: 'duckdb', file: ':memory:' })
+  const err = await assertRejects(() => wb.sessions('wb-sessions'), AppError)
+  assertEquals(err.key, 'sessionsUnsupported')
   await wb.closeAll()
 })
 
