@@ -358,7 +358,12 @@
     "variablesHint": "Wird unverändert eingesetzt, ohne Anführungszeichen. Für Text '{'${name}'}' in die Abfrage schreiben.",
     "switchConnectionTitle": "Verbindung wechseln?",
     "switchConnectionDescription": "Die offene Transaktion dieses Tabs wird dabei zurückgerollt.",
-    "switchConnection": "Wechseln"
+    "switchConnection": "Wechseln",
+    "dryRun": "Probelauf",
+    "dryRunResult": "Würde {n} Zeile ändern | Würde {n} Zeilen ändern",
+    "dryRunUnknown": "Probelauf beendet; die Datenbank hat die Zeilenzahl nicht gemeldet.",
+    "dryRunHint": "Zurückgerollt. Trigger und Sequenzen können dennoch Nebenwirkungen gehabt haben; Sperren wurden bis zum Rollback gehalten.",
+    "dryRunFailed": "Probelauf fehlgeschlagen"
   },
   "grid": {
     "toggleColumns": "Spalten ein-/ausblenden",
@@ -445,6 +450,10 @@
     "sshNoAgent": "Kein SSH-Agent gefunden: SSH_AUTH_SOCK ist nicht gesetzt.",
     "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
     "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
-    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren."
+    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren.",
+    "dryRunUnsupported": "Für diese Datenbank gibt es keinen Probelauf: Ein Rollback ist nicht garantiert.",
+    "dryRunStatement": "Ein Probelauf ist nur für eine einzelne INSERT-, UPDATE-, DELETE- oder MERGE-Anweisung möglich.",
+    "dryRunNonTransactional": "{table} verwendet die Engine {engine}, die Änderungen nicht zurückrollen kann.",
+    "dryRunReadOnly": "Die Verbindung ist schreibgeschützt."
   }
 }

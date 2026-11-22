@@ -1,11 +1,14 @@
 import { drivers, loadDriver } from './registry.ts'
 import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
+import { dmlKind, dryRunDialects } from './sql-dml.ts'
+import { referencedTables } from './sql-tables.ts'
 import {
   AppError,
   type CellValue,
   type ConnectionConfig,
   DbError,
+  type Dialect,
   type IntrospectRequest,
   type IntrospectResult,
   type QueryResult,
@@ -28,6 +31,15 @@ const CONNECTION_LOST = new Set([
 ])
 
 const PLAN_ROW_LIMIT = 10_000
+
+// Statement that opens the dry run's transaction.
+const DRY_RUN_BEGIN: Partial<Record<Dialect, string>> = {
+  postgres: 'begin',
+  mysql: 'start transaction',
+  mssql: 'begin transaction',
+  duckdb: 'begin transaction',
+  sqlite: 'begin',
+}
 
 interface TabSession {
   connectionId: string
@@ -161,6 +173,48 @@ export class Workbench {
     })
   }
 
+  /**
+   * Runs exactly one INSERT, UPDATE, DELETE or MERGE as `begin; <statement>; rollback` and reports the affected rows
+   * (null: not reported). It gets a session of its own, so the tab's transaction is untouched (MySQL's `start
+   * transaction` would commit it); the tab's temporary tables and `SET` options are not visible to it.
+   */
+  async dryRun(
+    tabId: string,
+    connectionId: string,
+    sql: string,
+    timeoutSeconds: number,
+    database?: string,
+  ): Promise<{ affectedRows: number | null; durationMs: number }> {
+    const config = await this.resolveConfig(connectionId)
+    if (config.readOnly) throw new AppError('dryRunReadOnly', 'The connection is read-only.')
+    if (!dryRunDialects.includes(config.dialect)) {
+      throw new AppError('dryRunUnsupported', 'A dry run is not available for this database.')
+    }
+    const statement = sql.trim()
+    if (!dmlKind(statement, sqlDialect(config.dialect))) {
+      throw new AppError(
+        'dryRunStatement',
+        'A dry run is only available for a single INSERT, UPDATE, DELETE or MERGE statement.',
+      )
+    }
+    const id = `dry:${tabId}`
+    try {
+      return await this.runTab(id, connectionId, database, async (s) => {
+        if (config.dialect === 'mysql') await checkTransactional(s, statement)
+        await s.execute(DRY_RUN_BEGIN[config.dialect]!, { rowLimit: 1 })
+        try {
+          const r = await withTimeout(s, timeoutSeconds, () => s.execute(statement, { rowLimit: 1 }))
+          return { affectedRows: r.affectedRows ?? (r.resultSets.length ? null : 0), durationMs: r.durationMs }
+        } finally {
+          // Closing the session below also rolls back if this fails.
+          await s.execute('rollback', { rowLimit: 1 })
+        }
+      })
+    } finally {
+      await this.closeTab(id)
+    }
+  }
+
   /** Streams the full result through the tab's session (same session state as `execute`). */
   stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
     return this.runTab(tabId, connectionId, database, (s) => s.stream(sql, sink))
@@ -195,8 +249,11 @@ export class Workbench {
   }
 
   async cancel(tabId: string): Promise<void> {
-    const tab = this.tabs.get(tabId)
-    if (tab?.busy) await (await tab.session).cancel()
+    // The tab's own session and its dry run (see `dryRun`).
+    for (const id of [tabId, `dry:${tabId}`]) {
+      const tab = this.tabs.get(id)
+      if (tab?.busy) await (await tab.session).cancel()
+    }
   }
 
   async closeTab(tabId: string): Promise<void> {
@@ -433,5 +490,28 @@ function releasing(session: Session, release: () => void): Session {
     transactionState: () => session.transactionState(),
     introspect: (request) => session.introspect(request),
     close: () => session.close().finally(release),
+  }
+}
+
+/** MySQL: refuses tables whose engine cannot roll back (a NULL engine is a view). */
+async function checkTransactional(s: Session, statement: string) {
+  const lit = (v: string) => `'${v.replace(/[\\']/g, '\\$&')}'`
+  for (const { schema, name } of referencedTables(statement, 'mysql')) {
+    const result = await s.execute(
+      `select engine from information_schema.tables where table_schema = ${schema ? lit(schema) : 'database()'} and table_name = ${lit(name)}`,
+      { rowLimit: 1 },
+    )
+    const row = result.resultSets[0]?.rows[0]
+    if (!row) continue
+    const engine = String(row[0] ?? 'VIEW')
+    if (engine.toLowerCase() !== 'innodb') {
+      throw new AppError(
+        'dryRunNonTransactional',
+        `${name} uses the ${engine} engine, which cannot roll back changes.`,
+        {
+          params: { table: name, engine },
+        },
+      )
+    }
   }
 }

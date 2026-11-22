@@ -9,7 +9,7 @@ const emit = defineEmits<{ newConnection: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, withVariables, cancel, exportResult } = useExecution()
+const { run, explain, dryRun, withVariables, cancel, exportResult } = useExecution()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 
@@ -102,12 +102,59 @@ function showPlan(analyze = false) {
   explain(props.tab, editor.value?.runnableSql().sql ?? '', analyze)
 }
 
+const canDryRun = computed(
+  () => !!connection.value && !connection.value.readOnly && dryRunDialects.includes(connection.value.dialect),
+)
+const isDml = (sql: string) => !!connection.value && !!dmlKind(sql.trim(), sqlDialect(connection.value.dialect))
+
+const dryRunTitle = (n: number | null) =>
+  n === null ? t('query.dryRunUnknown') : t('query.dryRunResult', { n: n.toLocaleString(locale.value) }, n)
+
+async function dryRunEditor() {
+  const substituted = await withVariables(props.tab, editor.value?.runnableSql().sql ?? '')
+  if (!substituted) return
+  if (!isDml(substituted.sql)) {
+    toast.add({ title: t('errors.dryRunStatement'), color: 'error', icon: 'i-lucide-circle-alert' })
+    return
+  }
+  try {
+    const n = await dryRun(props.tab, substituted.sql)
+    toast.add({
+      title: dryRunTitle(n),
+      description: t('query.dryRunHint'),
+      color: 'success',
+      icon: 'i-lucide-flask-conical',
+    })
+  } catch (e) {
+    toast.add({
+      title: t('query.dryRunFailed'),
+      description: errorMessage(e),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
+  }
+}
+
+// Result of the dry run in the confirmation dialog.
+const pendingDryRun = ref<{ rows?: number | null; error?: string }>()
+watch(pending, () => (pendingDryRun.value = undefined))
+
+async function dryRunPending() {
+  if (!pending.value) return
+  try {
+    pendingDryRun.value = { rows: await dryRun(props.tab, pending.value.sql) }
+  } catch (e) {
+    pendingDryRun.value = { error: errorMessage(e) }
+  }
+}
+
 // SQL Server, SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
   { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
   ...(driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
     ? []
     : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
+  ...(canDryRun.value ? [{ label: t('query.dryRun'), icon: 'i-lucide-flask-conical', onSelect: dryRunEditor }] : []),
 ])
 
 async function copyPlan() {
@@ -656,11 +703,27 @@ const status = computed(() => {
     >
       <template #body>
         <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{ pending?.sql }}</pre>
+        <p v-if="pendingDryRun" class="mt-2 text-sm" :class="pendingDryRun.error ? 'text-error' : ''">
+          <template v-if="pendingDryRun.error">{{ pendingDryRun.error }}</template>
+          <template v-else>
+            {{ dryRunTitle(pendingDryRun.rows ?? null) }}
+            <span class="text-muted">{{ t('query.dryRunHint') }}</span>
+          </template>
+        </p>
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-2">
           <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
-          <UButton :label="t('common.run')" color="error" @click="confirmRun" />
+          <UButton
+            v-if="canDryRun && pending && isDml(pending.sql)"
+            :label="t('query.dryRun')"
+            icon="i-lucide-flask-conical"
+            color="neutral"
+            variant="outline"
+            :loading="tab.running"
+            @click="dryRunPending"
+          />
+          <UButton :label="t('common.run')" color="error" :disabled="tab.running" @click="confirmRun" />
         </div>
       </template>
     </UModal>

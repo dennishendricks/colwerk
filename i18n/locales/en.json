@@ -358,7 +358,12 @@
     "variablesHint": "Inserted as typed, without quotes. Write '{'${name}'}' in the query for a text value.",
     "switchConnectionTitle": "Switch connection?",
     "switchConnectionDescription": "The open transaction of this tab is rolled back.",
-    "switchConnection": "Switch"
+    "switchConnection": "Switch",
+    "dryRun": "Dry run",
+    "dryRunResult": "Would affect {n} row | Would affect {n} rows",
+    "dryRunUnknown": "Dry run done; the database did not report the number of rows.",
+    "dryRunHint": "Rolled back. Triggers and sequences may still have had side effects; locks were held until the rollback.",
+    "dryRunFailed": "Dry run failed"
   },
   "grid": {
     "toggleColumns": "Show/hide columns",
@@ -445,6 +450,10 @@
     "sshNoAgent": "No SSH agent found: SSH_AUTH_SOCK is not set.",
     "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
     "sshKeyRequired": "Please enter the path of the private key file.",
-    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance."
+    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance.",
+    "dryRunUnsupported": "A dry run is not available for this database: a rollback is not guaranteed.",
+    "dryRunStatement": "A dry run is only available for a single INSERT, UPDATE, DELETE or MERGE statement.",
+    "dryRunNonTransactional": "{table} uses the {engine} engine, which cannot roll back changes.",
+    "dryRunReadOnly": "The connection is read-only."
   }
 }

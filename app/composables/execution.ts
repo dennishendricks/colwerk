@@ -117,6 +117,21 @@ export function useExecution() {
     }
   }
 
+  /** Runs one DML statement in a transaction of its own that is always rolled back; resolves with the affected rows (null: not reported). */
+  async function dryRun(tab: QueryTab, sql: string): Promise<number | null> {
+    tab.running = true
+    tab.error = undefined
+    try {
+      const { affectedRows } = await api<{ affectedRows: number | null }>(`/api/tabs/${tab.id}/dry-run`, {
+        method: 'POST',
+        body: { connectionId: tab.connectionId, database: tab.database, sql, timeout: tab.timeout },
+      })
+      return affectedRows
+    } finally {
+      tab.running = false
+    }
+  }
+
   async function cancel(tab: QueryTab) {
     if (tab.exporting) tab.exporting = 'cancelled'
     await api(`/api/tabs/${tab.id}/cancel`, { method: 'POST' }).catch((e) => {
@@ -165,5 +180,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, withVariables, cancel, exportResult }
+  return { run, explain, dryRun, withVariables, cancel, exportResult }
 }
