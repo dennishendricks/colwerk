@@ -1,0 +1,60 @@
+{
+  "folders": { "Prod": {}, "Prod/EU": {} },
+  "connections": {
+    "pg-1": {
+      "provider": "postgresql",
+      "driver": "postgres-jdbc",
+      "name": "Postgres via SSH",
+      "folder": "Prod/EU",
+      "configuration": {
+        "host": "db.internal",
+        "port": "5432",
+        "database": "sales",
+        "type": "prod",
+        "handlers": {
+          "ssh_tunnel": {
+            "type": "tunnel",
+            "enabled": true,
+            "save-password": true,
+            "properties": {
+              "host": "bastion.example.com",
+              "port": "2222",
+              "authType": "PASSWORD",
+              "jumpServer.enabled": "true"
+            }
+          }
+        }
+      }
+    },
+    "maria-1": {
+      "provider": "mysql",
+      "driver": "mariaDB",
+      "name": "Maria",
+      "configuration": {
+        "host": "maria.example.com",
+        "port": "3307",
+        "database": "shop",
+        "user": "plain-user",
+        "password": "plain-pw"
+      }
+    },
+    "ms-1": {
+      "provider": "sqlserver",
+      "driver": "microsoft",
+      "name": "SQL Server NTLM",
+      "configuration": { "host": "sql.example.com", "port": "1433", "auth-model": "sqlserver_ntlm" }
+    },
+    "sqlite-1": {
+      "provider": "generic",
+      "driver": "sqlite_jdbc",
+      "name": "Local SQLite",
+      "configuration": { "url": "jdbc:sqlite:/data/app.sqlite" }
+    },
+    "ora-1": {
+      "provider": "oracle",
+      "driver": "oracle_thin",
+      "name": "Oracle",
+      "configuration": { "host": "ora" }
+    }
+  }
+}

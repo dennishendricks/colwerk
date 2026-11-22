@@ -121,6 +121,10 @@ test.skipIf(ignore)('clickhouse: stream and cancel', async () => {
   assertEquals(rows(await s.execute('select 1 as x', { rowLimit: 1 })), [[1]])
 })
 
+test.skipIf(ignore)('clickhouse: no foreign keys', async () => {
+  assertEquals(await (await session()).introspect({ kind: 'foreignKeys', schema: 'default' }), [])
+})
+
 test.skipIf(ignore)('clickhouse: introspection', async () => {
   const s = await session()
   assert((await s.introspect({ kind: 'databases' })).some((d) => d.name === 'dbm'))

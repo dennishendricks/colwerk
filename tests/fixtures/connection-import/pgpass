@@ -1,0 +1,8 @@
+# comment
+db.example.com:5432:sales:alice:p@ss\:word\\x
+*:5432:sales:alice:wildcard-host
+db.example.com:*:*:alice:any-db
+reports.example.com:5433:reports:*:any-user
+/var/run/postgresql:*:app:bob:socket-pw
+db.example.com:5432:sales:alice:p@ss\:word\\x
+too:few
