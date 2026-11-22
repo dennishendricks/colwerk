@@ -2,7 +2,7 @@ import { test } from 'bun:test'
 import { readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tempDir } from './helpers.ts'
-import { assertEquals, assertRejects } from './assert.ts'
+import { assertEquals, assertRejects, assertStringIncludes } from './assert.ts'
 import { type Keychain, KeychainUnavailable } from '../core/keychain.ts'
 import { ConnectionStore } from '../core/store.ts'
 import type { ConnectionConfig } from '../core/types.ts'
@@ -119,4 +119,16 @@ test('store: color and write confirmation reach the summary', () =>
     await store.save({ ...conn, color: 'red', confirmWrites: true })
     const [summary] = await store.list()
     assertEquals([summary!.color, summary!.confirmWrites], ['red', true])
+  }))
+
+test('store: a secret reference is plain config and replaces the stored password', () =>
+  withDir(async (dir) => {
+    const store = new ConnectionStore(dir, new FakeKeychain())
+    const passwordRef = { provider: '1password', reference: 'op://v/i/p' } as const
+    await store.save({ ...conn, password: '', passwordRef })
+    const file = await readFile(`${dir}/connections.json`, 'utf8')
+    assertStringIncludes(file, 'op://v/i/p')
+    assertEquals(file.includes('passwordEnc'), false)
+    const [saved] = await store.list()
+    assertEquals([saved!.passwordRef, saved!.hasPassword], [passwordRef, false])
   }))

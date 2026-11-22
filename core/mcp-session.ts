@@ -13,7 +13,8 @@ export const ownMcpSessions = (c: McpSettings) => usesMcpLogin(c) || sandboxed(c
 export function mcpConfig(c: ConnectionConfig): ConnectionConfig {
   return {
     ...c,
-    ...(usesMcpLogin(c) && { user: c.mcpUser, password: c.mcpPassword }),
+    // Without the reference, the workbench would resolve the main login's secret into `password` (core/secrets.ts).
+    ...(usesMcpLogin(c) && { user: c.mcpUser, password: c.mcpPassword, passwordRef: undefined }),
     ...(sandboxed(c) && { mcpSandbox: true }),
   }
 }

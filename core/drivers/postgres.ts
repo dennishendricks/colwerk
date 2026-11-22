@@ -15,7 +15,9 @@ import {
   type ResultColumn,
   type ResultSet,
   type RowSink,
+  type ServerSession,
   type Session,
+  type SessionAction,
   type TableInfo,
   type TransactionState,
 } from '../types.ts'
@@ -195,6 +197,16 @@ const sqlFor = (v: number) => ({
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = $1 and p.proname = $2 and ${isRoutine(v)}
     order by p.oid`,
+  // Without `pg_read_all_stats` the other users' rows show no state and query; their sessions are still listed.
+  sessions: `
+    select a.pid::text as id, a.usename as "user", a.datname as database,
+      coalesce(host(a.client_addr), case when a.client_port = -1 then 'local' end) as client,
+      nullif(a.application_name, '') as application, a.state, coalesce(a.state <> 'idle', false) as active,
+      extract(epoch from clock_timestamp() - case when a.state = 'active' then a.query_start else a.state_change end)::float8 as seconds,
+      nullif(a.query, '') as query, a.wait_event_type || ': ' || a.wait_event as wait, pg_blocking_pids(a.pid)::text[] as "blockedBy"
+    from pg_stat_activity a
+    where a.pid <> pg_backend_pid() ${v >= 100000 ? `and a.backend_type = 'client backend'` : ''}
+    order by a.pid`,
   // Postgres has no built-in table DDL: columns, then constraints, then the indexes not backing a constraint.
   tableDdl: `
     select format(E'create table %I.%I (\\n    %s\\n);', n.nspname, c.relname, (
@@ -338,6 +350,29 @@ class PostgresSession implements Session {
       throw wrap(e)
     } finally {
       await killer.end().catch(() => {})
+    }
+  }
+
+  async sessions(): Promise<ServerSession[]> {
+    try {
+      return (await this.client.query<ServerSession>(this.SQL.sessions)).rows
+    } catch (e) {
+      throw wrap(e)
+    }
+  }
+
+  async stopSession(id: string, action: SessionAction): Promise<void> {
+    if (!/^\d+$/.test(id)) throw new AppError('sessionNotFound', `Session ${id} not found`)
+    try {
+      const { rows } = await this.client.query<{ ok: boolean }>(
+        `select ${action === 'cancel' ? 'pg_cancel_backend' : 'pg_terminate_backend'}($1::int) as ok`,
+        [id],
+      )
+      if (!rows[0]!.ok) {
+        throw new AppError('sessionNotStopped', 'The session could not be stopped; it may have ended already.')
+      }
+    } catch (e) {
+      throw wrap(e)
     }
   }
 

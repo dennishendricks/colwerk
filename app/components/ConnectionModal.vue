@@ -36,6 +36,8 @@ watch(
       database: c?.database ?? '',
       user: c?.user ?? '',
       password: '',
+      // Copied, so edits do not change the connection list.
+      passwordRef: c?.passwordRef && { ...c.passwordRef },
       auth: c?.auth,
       domain: c?.domain ?? '',
       tenantId: c?.tenantId ?? '',
@@ -66,6 +68,7 @@ watch(
       sshAuth: c?.sshAuth ?? 'password',
       sshKeyFile: c?.sshKeyFile ?? '',
       sshSecret: '',
+      sshSecretRef: c?.sshSecretRef && { ...c.sshSecretRef },
       sshHostKey: c?.sshHostKey,
       color: c?.color,
       confirmWrites: c?.confirmWrites ?? false,
@@ -205,12 +208,17 @@ const folders = computed(() =>
 )
 
 // An empty password field keeps the stored password (sent as `undefined`), `''` removes it (also when the login needs none).
+// A reference to a password manager replaces a stored secret, which is then removed.
 function payload(): Partial<ConnectionInput> {
+  const passwordRef = showPassword.value ? form.passwordRef : undefined
   const password =
-    clearPassword.value || !showPassword.value ? '' : form.password || (props.connection?.hasPassword ? undefined : '')
+    passwordRef || clearPassword.value || !showPassword.value
+      ? ''
+      : form.password || (props.connection?.hasPassword ? undefined : '')
   // Like the password: empty keeps the stored SSH secret, `''` removes it.
+  const sshSecretRef = form.ssh && form.sshAuth !== 'agent' ? form.sshSecretRef : undefined
   const sshSecret =
-    clearSshSecret.value || !form.ssh || form.sshAuth === 'agent'
+    sshSecretRef || clearSshSecret.value || !form.ssh || form.sshAuth === 'agent'
       ? ''
       : form.sshSecret || (props.connection?.hasSshSecret ? undefined : '')
   // Like the password: empty keeps the stored MCP password, `''` removes it.
@@ -220,7 +228,16 @@ function payload(): Partial<ConnectionInput> {
       : form.mcpPassword || (props.connection?.hasMcpPassword ? undefined : '')
   // The fields that exclude a tunnel are hidden with it on.
   const sources = form.dialect === 'files' ? sourcesText.value.split('\n') : undefined
-  return { ...form, password, sshSecret, mcpPassword, sources, ...(form.ssh && { socket: '', instanceName: '' }) }
+  return {
+    ...form,
+    password,
+    passwordRef,
+    sshSecret,
+    sshSecretRef,
+    mcpPassword,
+    sources,
+    ...(form.ssh && { socket: '', instanceName: '' }),
+  }
 }
 
 // Native dialog: the page itself cannot learn the path of a picked file.
@@ -382,7 +399,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                   : t('connection.entraUserHelp')
                 : undefined
             "
-            :class="showPassword ? undefined : 'col-span-2'"
+            class="col-span-2"
           >
             <UInput
               v-model="form.user"
@@ -393,25 +410,15 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               :spellcheck="false"
             />
           </UFormField>
-          <UFormField v-if="showPassword" :label="passwordLabel" :class="showUser ? undefined : 'col-span-2'">
-            <UInput
-              v-model="form.password"
-              type="password"
-              class="w-full"
-              autocomplete="new-password"
-              :disabled="clearPassword"
-              :placeholder="
-                clearPassword
-                  ? t('connection.passwordRemoved')
-                  : connection?.hasPassword
-                    ? t('connection.passwordUnchanged')
-                    : ''
-              "
-            />
-          </UFormField>
-          <UFormField v-if="showPassword && connection?.hasPassword" class="col-span-2">
-            <USwitch v-model="clearPassword" :label="t('connection.clearPassword')" />
-          </UFormField>
+          <SecretInput
+            v-if="showPassword"
+            v-model:value="form.password"
+            v-model:reference="form.passwordRef"
+            v-model:clear="clearPassword"
+            :label="passwordLabel"
+            :stored="!!connection?.hasPassword"
+            :clear-label="t('connection.clearPassword')"
+          />
           <UFormField v-if="isEntra" class="col-span-2">
             <p class="text-sm text-(--ui-text-muted)">
               {{ t(`connection.entraHelp.${form.auth}`) }}
@@ -621,29 +628,15 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                         :spellcheck="false"
                       />
                     </UFormField>
-                    <UFormField
+                    <SecretInput
                       v-if="form.sshAuth !== 'agent'"
+                      v-model:value="form.sshSecret"
+                      v-model:reference="form.sshSecretRef"
+                      v-model:clear="clearSshSecret"
                       :label="form.sshAuth === 'key' ? t('connection.sshPassphrase') : t('connection.password')"
-                      class="col-span-2"
-                    >
-                      <UInput
-                        v-model="form.sshSecret"
-                        type="password"
-                        class="w-full"
-                        autocomplete="new-password"
-                        :disabled="clearSshSecret"
-                        :placeholder="
-                          clearSshSecret
-                            ? t('connection.passwordRemoved')
-                            : connection?.hasSshSecret
-                              ? t('connection.passwordUnchanged')
-                              : ''
-                        "
-                      />
-                    </UFormField>
-                    <UFormField v-if="form.sshAuth !== 'agent' && connection?.hasSshSecret" class="col-span-2">
-                      <USwitch v-model="clearSshSecret" :label="t('connection.clearSshSecret')" />
-                    </UFormField>
+                      :stored="!!connection?.hasSshSecret"
+                      :clear-label="t('connection.clearSshSecret')"
+                    />
                     <p v-if="form.sshAuth === 'agent'" class="col-span-2 text-sm text-(--ui-text-muted)">
                       {{ t('connection.sshAgentHelp') }}
                     </p>

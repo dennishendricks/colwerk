@@ -116,11 +116,14 @@ export function useExecution() {
     tab.viewPin = undefined
     tab.compare = false
     try {
-      const { plan, durationMs } = await api<{ plan: string; durationMs: number }>(`/api/tabs/${tab.id}/explain`, {
-        method: 'POST',
-        body: { connectionId: tab.connectionId, database: tab.database, sql, analyze, timeout: tab.timeout },
-      })
-      tab.plan = { text: plan, durationMs, executedAt: Date.now() }
+      const { plan, durationMs, format } = await api<{ plan: string; durationMs: number; format?: 'showplan' }>(
+        `/api/tabs/${tab.id}/explain`,
+        {
+          method: 'POST',
+          body: { connectionId: tab.connectionId, database: tab.database, sql, analyze, timeout: tab.timeout },
+        },
+      )
+      tab.plan = { text: plan, durationMs, executedAt: Date.now(), format }
     } catch (e) {
       tab.error = errorMessage(e)
     } finally {

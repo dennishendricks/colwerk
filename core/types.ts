@@ -58,6 +58,23 @@ export type DateFormat = (typeof dateFormats)[number]
 export const sshAuths = ['password', 'key', 'agent'] as const
 export type SshAuth = (typeof sshAuths)[number]
 
+/** Password managers a secret can be read from at connect time (core/secrets.ts). */
+export const secretProviders = ['1password', 'bitwarden', 'bitwarden-sm', 'keepassxc'] as const
+export type SecretProvider = (typeof secretProviders)[number]
+
+/**
+ * Where a secret is read at connect time instead of being stored by Colwerk (core/secrets.ts):
+ * - `1password`: secret reference `op://vault/item/field`
+ * - `bitwarden`: field of an item (`password` by default, `username`, `notes` or a custom field)
+ * - `bitwarden-sm`: secret of Bitwarden Secrets Manager
+ * - `keepassxc`: attribute (`Password` by default) of an entry, given by its path in the database
+ */
+export type SecretRef =
+  | { provider: '1password'; reference: string }
+  | { provider: 'bitwarden'; item: string; field?: string }
+  | { provider: 'bitwarden-sm'; secretId: string }
+  | { provider: 'keepassxc'; database: string; entry: string; attribute?: string; keyFile?: string }
+
 export interface ConnectionConfig {
   id: string
   name: string
@@ -72,6 +89,8 @@ export interface ConnectionConfig {
   database?: string
   user?: string
   password?: string
+  /** Instead of `password`: read from a password manager on every connect, never stored. */
+  passwordRef?: SecretRef
   /** Network databases: how the login is authenticated (see ConnectionAuth); undefined = `password`. */
   auth?: ConnectionAuth
   /** SQL Server Windows login: domain of the account. */
@@ -130,6 +149,8 @@ export interface ConnectionConfig {
   sshKeyFile?: string
   /** Password (auth `password`) or passphrase of the key (auth `key`); stored like `password`. */
   sshSecret?: string
+  /** Instead of `sshSecret`: read from a password manager on every connect, never stored. */
+  sshSecretRef?: SecretRef
   /** SHA256 fingerprint of the SSH server's host key, recorded on the first connect (trust on first use). */
   sshHostKey?: string
   /** Marks the connection in the UI (connection list, tabs, query toolbar). */
@@ -149,6 +170,8 @@ export interface ConnectionConfig {
   requireWhere?: boolean
 }
 
+export type SessionAction = 'cancel' | 'terminate'
+
 export interface DriverCapabilities {
   /** A running statement can be aborted from another call. */
   supportsCancel: boolean
@@ -160,6 +183,8 @@ export interface DriverCapabilities {
   supportsDatabases: boolean
   /** An open session locks the database for other processes (embedded databases such as DuckDB); the UI offers to disconnect. */
   locksDatabase: boolean
+  /** Session monitor: what can be done with other sessions of the server (empty: no monitor, e.g. embedded databases). */
+  sessionActions: SessionAction[]
 }
 
 export interface DriverInfo {
@@ -310,6 +335,28 @@ export type IntrospectResult<R extends IntrospectRequest> = R extends { kind: 'd
               ? ForeignKeyInfo[]
               : string
 
+/** A session (ClickHouse: a running query) of the database server, as shown by the session monitor. */
+export interface ServerSession {
+  /** Postgres pid, MySQL processlist id, SQL Server session_id, ClickHouse query_id. */
+  id: string
+  user: string | null
+  database: string | null
+  /** Client address. */
+  client: string | null
+  application: string | null
+  /** The engine's state, e.g. `active`, `idle in transaction`, `Query: Sending data`, `suspended`. */
+  state: string | null
+  /** Runs a statement or holds an open transaction; idle sessions are hidden by default. */
+  active: boolean
+  /** Seconds in the current state (the statement's runtime while active); null if unknown. */
+  seconds: number | null
+  query: string | null
+  /** What the session waits for, e.g. `Lock: transactionid` or `LCK_M_X`. */
+  wait: string | null
+  /** Sessions holding the locks this one waits for. */
+  blockedBy: string[]
+}
+
 /** Receives a streamed result. `rows` is awaited (backpressure); if it rejects, the statement is aborted. */
 export interface RowSink {
   columns(columns: ResultColumn[]): void
@@ -326,6 +373,10 @@ export interface Session {
   /** Whether the session is inside a transaction; undefined if the driver cannot tell. Called between statements only. */
   transactionState(): Promise<TransactionState | undefined>
   introspect<R extends IntrospectRequest>(request: R): Promise<IntrospectResult<R>>
+  /** Sessions of the server other than this one (drivers with `sessionActions`). */
+  sessions?(): Promise<ServerSession[]>
+  /** Cancels the running statement of a server session, or terminates it. */
+  stopSession?(id: string, action: SessionAction): Promise<void>
   close(): Promise<void>
 }
 
