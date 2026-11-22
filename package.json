@@ -13,6 +13,7 @@
     "compile": "bun scripts/package.ts compile",
     "release": "bun scripts/release.ts",
     "hooks": "git config core.hooksPath .githooks",
+    "agent-docs": "bun scripts/agent-docs.ts",
     "lint": "bun --bun nuxt prepare && bun --bun eslint .",
     "lint:fix": "bun --bun nuxt prepare && bun --bun eslint --fix .",
     "typecheck": "bun --bun nuxt typecheck",

@@ -1,4 +1,6 @@
 #!/bin/sh
-# Formats staged files with `bun fmt` and stages the result. Enable with `bun run hooks`.
+# Updates the agents' file indexes (scripts/agent-docs.ts), then formats staged files with `bun fmt` and stages the
+# result. Enable with `bun run hooks`.
 # Staged files with further unstaged changes are only checked: staging them again would add those changes.
+bun scripts/agent-docs.ts && git add core/CLAUDE.md server/CLAUDE.md app/CLAUDE.md || exit 1
 exec bun fmt --staged
