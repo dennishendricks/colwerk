@@ -22,8 +22,11 @@
 // Windows: besides `main`, the page opens windows `window-<n>` for tabs moved out of a window (`open_window`). All
 // show the same server; closing `main` ends the app.
 //
-// Opening files: Colwerk is registered for query files (.sql) and DuckDB and SQLite databases (bundle.fileAssociations
-// in tauri.conf.json). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
+// Opening files: Colwerk is registered for query files (.sql), DuckDB and SQLite databases and data files (CSV, TSV,
+// Parquet, JSON, NDJSON, Excel), which the page queries in a DuckDB scratch connection (bundle.fileAssociations in
+// tauri.conf.json). On Windows (tauri.windows.conf.json) only query and database files are associated: the installer
+// would make Colwerk the default app for the data files. Files dropped onto a window are handled by the page
+// (webview drag-drop event). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
 // through the single-instance plugin) or with `RunEvent::Opened` (macOS). They wait in `Opened` until the page takes
 // them with `take_opened_files`: once it has loaded, and on the `open-files` event while it runs.
 //
@@ -68,7 +71,10 @@ struct Shown(Mutex<HashSet<String>>);
 struct SavedStates(serde_json::Value);
 
 /// Extensions of the file associations in tauri.conf.json; other arguments are no files to open.
-const OPENED_EXTENSIONS: [&str; 4] = ["sql", "duckdb", "sqlite", "sqlite3"];
+const OPENED_EXTENSIONS: [&str; 11] = [
+    "sql", "duckdb", "sqlite", "sqlite3", "csv", "tsv", "parquet", "json", "ndjson", "jsonl",
+    "xlsx",
+];
 
 /// Smallest window size in logical pixels; a window that is smaller (or a stored size) gets the default size.
 const MIN_SIZE: f64 = 100.0;

@@ -13,6 +13,8 @@ const busy = ref<'test' | 'save' | 'delete' | 'install'>()
 const clearPassword = ref(false)
 const clearSshSecret = ref(false)
 const showAdvanced = ref(false)
+// Files: the sources, one per line.
+const sourcesText = ref('')
 
 watch(
   open,
@@ -21,6 +23,7 @@ watch(
     const c = props.connection
     clearPassword.value = false
     clearSshSecret.value = false
+    sourcesText.value = c?.sources?.join('\n') ?? ''
     Object.assign(form, {
       id: c?.id,
       name: c?.name ?? '',
@@ -140,16 +143,20 @@ const showUser = computed(
   () => !lakehouse.value && (!isEntra.value || form.dialect !== 'mssql' || form.auth === 'entra-interactive'),
 )
 const showPassword = computed(() =>
-  (['password', 'windows', 'entra-service-principal', 'token', 'oauth-client'] as (string | undefined)[]).includes(
-    form.auth,
-  ),
+  (
+    ['password', 'windows', 'entra-service-principal', 'token', 'oauth-client', 's3', 'gcs'] as (string | undefined)[]
+  ).includes(form.auth),
 )
 const passwordLabel = computed(() =>
   form.auth === 'entra-service-principal' || form.auth === 'oauth-client'
     ? t('connection.clientSecret')
-    : form.auth === 'token'
-      ? t('connection.token')
-      : t('connection.password'),
+    : form.auth === 's3'
+      ? t('connection.secretAccessKey')
+      : form.auth === 'gcs'
+        ? t('connection.hmacSecret')
+        : form.auth === 'token'
+          ? t('connection.token')
+          : t('connection.password'),
 )
 // Lakehouses have further options only for some logins.
 const hasAdvanced = computed(
@@ -195,7 +202,8 @@ function payload(): Partial<ConnectionInput> {
       ? ''
       : form.sshSecret || (props.connection?.hasSshSecret ? undefined : '')
   // The fields that exclude a tunnel are hidden with it on.
-  return { ...form, password, sshSecret, ...(form.ssh && { socket: '', instanceName: '' }) }
+  const sources = form.dialect === 'files' ? sourcesText.value.split('\n') : undefined
+  return { ...form, password, sshSecret, sources, ...(form.ssh && { socket: '', instanceName: '' }) }
 }
 
 // Native dialog: the page itself cannot learn the path of a picked file.
@@ -681,8 +689,75 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
         </template>
 
         <template v-else>
+          <template v-if="form.dialect === 'files'">
+            <UFormField :label="t('connection.sources')" :help="t('connection.sourcesHelp')" class="col-span-2">
+              <UTextarea
+                v-model="sourcesText"
+                :rows="4"
+                class="w-full font-mono"
+                autocorrect="off"
+                autocapitalize="off"
+                :spellcheck="false"
+              />
+            </UFormField>
+            <UFormField :label="t('connection.auth')" class="col-span-2">
+              <USelect v-model="form.auth" :items="authItems" class="w-full" />
+            </UFormField>
+            <UFormField
+              v-if="form.auth === 's3' || form.auth === 'gcs'"
+              :label="t(form.auth === 's3' ? 'connection.accessKeyId' : 'connection.hmacKeyId')"
+            >
+              <UInput
+                v-model="form.user"
+                class="w-full"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                :spellcheck="false"
+              />
+            </UFormField>
+            <UFormField
+              v-if="showPassword"
+              :label="passwordLabel"
+              :help="form.auth === 'token' ? t('connection.bearerTokenHelp') : undefined"
+              :class="form.auth === 'token' ? 'col-span-2' : undefined"
+            >
+              <UInput
+                v-model="form.password"
+                type="password"
+                class="w-full"
+                autocomplete="new-password"
+                :disabled="clearPassword"
+                :placeholder="
+                  clearPassword
+                    ? t('connection.passwordRemoved')
+                    : connection?.hasPassword
+                      ? t('connection.passwordUnchanged')
+                      : ''
+                "
+              />
+            </UFormField>
+            <UFormField v-if="showPassword && connection?.hasPassword" class="col-span-2">
+              <USwitch v-model="clearPassword" :label="t('connection.clearPassword')" />
+            </UFormField>
+            <template v-if="form.auth === 's3'">
+              <UFormField :label="t('connection.region')">
+                <UInput
+                  v-model="form.region"
+                  class="w-full"
+                  placeholder="us-east-1"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  :spellcheck="false"
+                />
+              </UFormField>
+              <UFormField :label="t('connection.endpoint')" :help="t('connection.endpointHelp')">
+                <UInput v-model="form.host" class="w-full" autocorrect="off" autocapitalize="off" :spellcheck="false" />
+              </UFormField>
+            </template>
+          </template>
           <UFormField
-            v-if="form.dialect === 'delta'"
+            v-else-if="form.dialect === 'delta'"
             :label="t('connection.deltaFolder')"
             :help="t('connection.deltaFolderHelp')"
             required
