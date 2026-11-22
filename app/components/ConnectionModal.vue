@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ConnectionAuth, ConnectionInput, ConnectionSummary, DateFormat } from '#core'
+import type { ConnectionAuth, ConnectionInput, ConnectionSummary, DateFormat, SplitDialect } from '#core'
 
 const props = defineProps<{ connection?: ConnectionSummary }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -72,6 +72,8 @@ watch(
       sshHostKey: c?.sshHostKey,
       color: c?.color,
       confirmWrites: c?.confirmWrites ?? false,
+      checkPlan: c?.checkPlan,
+      scanRowThreshold: c?.scanRowThreshold,
       mcpLogin: c?.mcpLogin ?? false,
       mcpUser: c?.mcpUser ?? '',
       mcpPassword: '',
@@ -895,6 +897,22 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             @update:model-value="(v) => (form.requireWhere = v)"
           />
         </UFormField>
+        <template v-if="planCheckDialects.includes(form.dialect as SplitDialect)">
+          <UFormField class="col-span-2" :help="t('connection.checkPlanHelp')">
+            <USwitch
+              :model-value="form.checkPlan ?? !!form.confirmWrites"
+              :label="t('connection.checkPlan')"
+              @update:model-value="(v) => (form.checkPlan = v)"
+            />
+          </UFormField>
+          <UFormField
+            v-if="form.checkPlan ?? form.confirmWrites"
+            :label="t('connection.scanRowThreshold')"
+            :help="t('connection.scanRowThresholdHelp')"
+          >
+            <UInput v-model.number="form.scanRowThreshold" type="number" min="1" placeholder="1000000" class="w-full" />
+          </UFormField>
+        </template>
 
         <button type="submit" class="hidden" />
       </form>

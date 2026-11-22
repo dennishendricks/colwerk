@@ -161,6 +161,13 @@ export function parseConnection(body: unknown): ConnectionInput {
   if (ssh && sshPort !== undefined && !(Number.isInteger(sshPort) && sshPort > 0 && sshPort < 65536)) {
     throw createError({ statusCode: 400, message: 'Invalid port', data: { key: 'invalidPort' } })
   }
+  const scanRowThreshold =
+    b.scanRowThreshold === undefined || b.scanRowThreshold === null || b.scanRowThreshold === ''
+      ? undefined
+      : Number(b.scanRowThreshold)
+  if (scanRowThreshold !== undefined && !(Number.isInteger(scanRowThreshold) && scanRowThreshold >= 1)) {
+    throw createError({ statusCode: 400, message: 'Invalid row threshold', data: { key: 'invalidThreshold' } })
+  }
   const entra = auth?.startsWith('entra-') ?? false
   const mcpLogin = b.mcpLogin === true && driver.auths.length > 0 && mcpLoginAuths.includes(auth!)
   const secretRef = (value: unknown) => {
@@ -221,6 +228,8 @@ export function parseConnection(body: unknown): ConnectionInput {
     sshHostKey: ssh ? str('sshHostKey') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,
+    checkPlan: typeof b.checkPlan === 'boolean' ? b.checkPlan : undefined,
+    scanRowThreshold,
     mcpLogin: mcpLogin || undefined,
     mcpUser: mcpLogin && auth !== 'token' ? str('mcpUser') : undefined,
     // undefined = keep stored MCP password, '' = remove it

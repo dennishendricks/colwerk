@@ -1,4 +1,5 @@
 import type { ExportFormat, QueryResult, TransactionState } from '#core'
+import type { PlanWarning } from '~/utils/pre-execution'
 import type { PinnedResult, QueryTab } from './tabs'
 
 // Running statements in a tab's server-side session.
@@ -131,6 +132,30 @@ export function useExecution() {
     }
   }
 
+  /** Runs one DML statement in a transaction of its own that is always rolled back; resolves with the affected rows (null: not reported). */
+  async function dryRun(tab: QueryTab, sql: string): Promise<number | null> {
+    tab.running = true
+    tab.error = undefined
+    try {
+      const { affectedRows } = await api<{ affectedRows: number | null }>(`/api/tabs/${tab.id}/dry-run`, {
+        method: 'POST',
+        body: { connectionId: tab.connectionId, database: tab.database, sql, timeout: tab.timeout },
+      })
+      return affectedRows
+    } finally {
+      tab.running = false
+    }
+  }
+
+  /** Plan check before running; never fails: no warnings when the check is not possible. */
+  async function planWarnings(tab: QueryTab, sql: string): Promise<PlanWarning[]> {
+    const { warnings } = await api<{ warnings: PlanWarning[] }>(`/api/tabs/${tab.id}/plan-check`, {
+      method: 'POST',
+      body: { connectionId: tab.connectionId, database: tab.database, sql },
+    }).catch(() => ({ warnings: [] }))
+    return warnings
+  }
+
   async function cancel(tab: QueryTab) {
     if (tab.exporting) tab.exporting = 'cancelled'
     await api(`/api/tabs/${tab.id}/cancel`, { method: 'POST' }).catch((e) => {
@@ -180,5 +205,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, withVariables, cancel, exportResult }
+  return { run, explain, dryRun, planWarnings, withVariables, cancel, exportResult }
 }
