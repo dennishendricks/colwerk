@@ -1,6 +1,9 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
+import type { CellValue, ExportFormat, ResultColumn } from '#core'
+import { insertSql, maxInsertRows } from '~~/core/sql-literals.ts'
+import { markdownTable, uniqueNames } from '~~/core/values.ts'
 import type { SplitDialect } from '~/utils/sql-split'
 import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
@@ -199,12 +202,39 @@ const resultItems = computed(
 )
 
 const toast = useToast()
-const exportFormat = ref<'csv' | 'parquet'>('csv')
+const exportFormat = ref<ExportFormat>('csv')
 const exportScope = ref<'shown' | 'full'>('shown')
 const formatItems = [
   { label: 'CSV', value: 'csv' },
   { label: 'Parquet', value: 'parquet' },
+  { label: 'Excel (XLSX)', value: 'xlsx' },
+  { label: 'JSON', value: 'json' },
+  { label: 'NDJSON', value: 'ndjson' },
+  { label: 'Markdown', value: 'markdown' },
+  { label: 'SQL INSERT', value: 'insert' },
 ]
+// Target of INSERT statements (export, copy): the only table of the shown statement, else a placeholder.
+const insertTable = ref('')
+const insertBatch = ref(100)
+const shownSource = computed(() => viewedPin.value?.source ?? props.tab.source)
+const insertDialect = computed(() => sqlDialect(driverOf(shownSource.value?.connectionId)?.dialect ?? 'postgres'))
+const defaultInsertTable = computed(() => {
+  const source = shownSource.value
+  const statement = shown.value?.statement
+  if (!source || !statement) return 'export_table'
+  const refs = referencedTables(source.sql.slice(statement.from, statement.to), insertDialect.value)
+  return refs.length === 1 ? [refs[0]!.schema, refs[0]!.name].filter(Boolean).join('.') : 'export_table'
+})
+watch(shown, () => (insertTable.value = defaultInsertTable.value), { immediate: true })
+const tableParts = (text: string) =>
+  text
+    .split('.')
+    .map((p) => p.trim().replace(/^(["`[])(.*)["`\]]$/, '$2'))
+    .filter(Boolean)
+const insertTarget = computed(() => ({
+  dialect: insertDialect.value,
+  table: tableParts(insertTable.value || defaultInsertTable.value),
+}))
 // The full result runs the statement of the shown result set again, which must not repeat side effects.
 const canExportFull = computed(() => {
   const source = viewedPin.value?.source ?? props.tab.source
@@ -230,12 +260,18 @@ watch(canExportFull, (ok) => {
 
 // Without truncation the shown rows are the full result, so there is no need to run the statement again.
 async function download() {
+  const table = tableParts(insertTable.value)
+  if (exportFormat.value === 'insert' && !table.length) {
+    toast.add({ title: t('errors.insertTableRequired'), color: 'error', icon: 'i-lucide-circle-alert' })
+    return
+  }
   try {
     const path = await exportResult(
       props.tab,
       exportFormat.value,
       exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated,
       viewedPin.value,
+      { table, batchSize: insertBatch.value },
     )
     if (path) toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
     else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
@@ -299,7 +335,42 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
-const grid = useTemplateRef<{ filteredCount?: number }>('grid')
+const grid = useTemplateRef<{ filteredCount?: number; view(): { columns: ResultColumn[]; rows: CellValue[][] } }>(
+  'grid',
+)
+
+// The rows as the grid shows them (sorted, filtered, visible columns).
+async function copyAs(kind: 'markdown' | 'json' | 'insert') {
+  const view = grid.value?.view()
+  if (!view) return
+  const names = view.columns.map((c) => c.name)
+  const keys = uniqueNames(names)
+  const { rows } = view
+  let text: string
+  if (kind === 'markdown') text = markdownTable(names, rows)
+  else if (kind === 'json') {
+    text = JSON.stringify(
+      rows.map((row) => Object.fromEntries(keys.map((k, i) => [k, row[i] ?? null]))),
+      null,
+      2,
+    )
+  } else {
+    const { dialect, table } = insertTarget.value
+    const columns = view.columns.map((c, i) => ({ name: keys[i]!, type: c.type }))
+    const size = Math.min(insertBatch.value, maxInsertRows(dialect))
+    const statements = []
+    for (let i = 0; i < rows.length; i += size)
+      statements.push(insertSql(dialect, table, columns, rows.slice(i, i + size)))
+    text = statements.map((s) => `${s};`).join('\n\n')
+  }
+  await navigator.clipboard.writeText(text)
+  toast.add({ title: t('query.copied', { n: rows.length }, rows.length), color: 'success', icon: 'i-lucide-check' })
+}
+const copyItems = [
+  { label: 'Markdown', onSelect: () => copyAs('markdown') },
+  { label: 'JSON', onSelect: () => copyAs('json') },
+  { label: 'SQL INSERT', onSelect: () => copyAs('insert') },
+]
 const filterInput = useTemplateRef<{ inputRef?: HTMLInputElement }>('filterInput')
 const filter = ref('')
 
@@ -613,7 +684,12 @@ const status = computed(() => {
           <!-- Both grids share the quick filter; the row count in the status is the current result's. -->
           <SplitterGroup v-else-if="tab.compare && pinView" direction="horizontal" class="h-full">
             <SplitterPanel :min-size="10" class="overflow-hidden">
-              <LazyResultGrid :key="pinView.id" v-model:filter="filter" :result="pinView.set" />
+              <LazyResultGrid
+                :key="pinView.id"
+                v-model:filter="filter"
+                :result="pinView.set"
+                :insert-target="insertTarget"
+              />
             </SplitterPanel>
             <SplitterResizeHandle
               class="w-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary"
@@ -625,6 +701,7 @@ const status = computed(() => {
                 :key="tab.resultIndex"
                 v-model:filter="filter"
                 :result="currentSet"
+                :insert-target="insertTarget"
               />
             </SplitterPanel>
           </SplitterGroup>
@@ -634,6 +711,7 @@ const status = computed(() => {
             :key="viewedPin?.id ?? tab.resultIndex"
             v-model:filter="filter"
             :result="shown"
+            :insert-target="insertTarget"
           />
           <EmptyState
             v-else-if="!busy && !tab.sql.trim()"
@@ -658,7 +736,7 @@ const status = computed(() => {
             :items="formatItems"
             :aria-label="t('query.exportFormat')"
             size="xs"
-            class="w-28"
+            class="w-36"
           />
           <USelect
             v-if="shown.truncated"
@@ -668,6 +746,24 @@ const status = computed(() => {
             size="xs"
             class="w-72"
           />
+          <template v-if="exportFormat === 'insert'">
+            <UInput
+              v-model="insertTable"
+              :aria-label="t('query.insertTable')"
+              :placeholder="t('query.insertTable')"
+              size="xs"
+              class="w-44"
+            />
+            <UInputNumber
+              v-model="insertBatch"
+              :min="1"
+              :max="10000"
+              :aria-label="t('query.batchSize')"
+              :title="t('query.batchSize')"
+              size="xs"
+              class="w-28"
+            />
+          </template>
           <UButton
             icon="i-lucide-download"
             size="xs"
@@ -677,6 +773,15 @@ const status = computed(() => {
             :disabled="tab.running"
             @click="download"
           />
+          <UDropdownMenu :items="copyItems">
+            <UButton
+              icon="i-lucide-clipboard-copy"
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :label="t('query.copyAs')"
+            />
+          </UDropdownMenu>
         </div>
       </SplitterPanel>
     </SplitterGroup>

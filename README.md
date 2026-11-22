@@ -23,7 +23,7 @@
 
 Colwerk connects to **PostgreSQL, MySQL/MariaDB, Microsoft SQL Server, ClickHouse, DuckDB and SQLite**, and reads
 lakehouses through DuckDB: **Apache Iceberg** (REST catalog), **Delta Lake** (local folder), **Databricks Unity Catalog**
-and **Microsoft Fabric OneLake**. It is open source, free, runs entirely on your machine and has no telemetry, no
+and **Microsoft Fabric OneLake**. It also queries CSV, Parquet, JSON and Excel files. It is open source, free, runs entirely on your machine and has no telemetry, no
 analytics and no account.
 
 ## Download
@@ -54,8 +54,15 @@ are listed there, along with a software bill of materials of the npm packages an
   history.
 - **ER diagrams** – read-only, from the foreign keys of a schema or of a table and its neighbors; export as Mermaid or
   DBML.
+- **Result grid** – sort, filter, pin, hide and resize columns; copy rows or the whole result as JSON, CSV, Markdown or INSERT statements.
+- **Export** – CSV, Parquet, Excel (XLSX), JSON/NDJSON, Markdown and SQL INSERT statements in the connection's dialect;
+  the visible rows or the full, unlimited result, written straight to disk.
+- **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
+  cursors and a searchable query history.
 - **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
   `.sqlite3`) to open it as a connection.
+- **Query files** – drop CSV, TSV, Parquet, JSON/NDJSON or Excel (`.xlsx`) files onto the window, or query `s3://`,
+  `gs://` and `https://` URLs: each becomes a view of an in-memory DuckDB scratch connection, ready to query and join.
 - **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).
 - **Local by design** – the server only listens on `127.0.0.1`, passwords are encrypted, the key lives in the OS
   keychain.
@@ -118,7 +125,7 @@ Core decisions:
   JSON.
 - **Bounded results.** Drivers read at most `rowLimit + 1` rows and cancel the rest; each tab has a timeout (default 60
   s).
-- **Server-side export.** CSV/Parquet files are written by the server to the path chosen in a native save dialog,
+- **Server-side export.** Export files are written by the server to the path chosen in a native save dialog,
   because the desktop webview does not handle downloads.
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
@@ -130,7 +137,9 @@ Core decisions:
 - **Lakehouses on DuckDB.** Each lakehouse connection is an in-memory DuckDB database with the format's extensions
   (installed from DuckDB's extension repository on first use). Iceberg REST catalogs and Unity catalogs are attached
   (Unity: the database picker switches the catalog); the Delta tables of a folder or of a OneLake lakehouse become
-  views (OneLake: the database picker switches the lakehouse). Queries are DuckDB SQL.
+  views (OneLake: the database picker switches the lakehouse). Queries are DuckDB SQL. Files connections (`files`) work
+  the same way: each data file or URL becomes a view (`read_csv`, `read_parquet`, `read_json`, `read_xlsx`); S3/GCS
+  keys and bearer tokens become DuckDB secrets.
 
 ### Security
 
@@ -142,7 +151,7 @@ Core decisions:
 
 Connections, open tabs and query history are stored as JSON in the data directory
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
-`COLWERK_DATA_DIR`). Passwords are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
+`COLWERK_DATA_DIR`). Passwords, keys and tokens are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
 (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
 
 ### Drivers and native libraries
@@ -152,14 +161,19 @@ test in `tests/drivers.test.ts`. `connect()` must open exactly one connection (n
 concurrently with `execute()`.
 
 Native addons (currently DuckDB, `@duckdb/node-bindings`) are not embedded in the packages but downloaded from npm on
-first use, verified by hash and stored in the data directory.
+first use, verified by hash and stored in the data directory. DuckDB extensions (`excel`, `httpfs`, lakehouse formats)
+are installed by DuckDB on first use.
 
 ### Known limitations
 
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
+- INSERT exports write arrays, structs and maps as JSON text; columns of such types may need a cast. XLSX holds at most
+  1,048,576 rows.
 - SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and
   drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the
   background; outside a transaction its changes are committed.
+- Tables created in a files connection live in memory and are gone when Colwerk quits or the connection's settings
+  change; its views over files and URLs are created again. Excel `.xls` files cannot be read (only `.xlsx`).
 - SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
 - Geometries of SQL Server (`geometry`, `geography`) and SpatiaLite use their own binary formats and are shown as hex;
   DuckDB, PostGIS and MySQL/MariaDB geometries are shown as WKT.
