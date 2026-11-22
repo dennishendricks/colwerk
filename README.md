@@ -49,6 +49,8 @@ are listed there, along with a software bill of materials of the npm packages an
   batches inside transactions.
 - **Production guard rails** – color-coded connections, read-only connections (enforced by the database where it can),
   optional confirmation before statements that change data or structure, and a stop for UPDATE/DELETE without WHERE.
+- **Session monitor** – running queries and blocking chains (PostgreSQL, MySQL/MariaDB, SQL Server, ClickHouse); cancel
+  a query or terminate a session after confirmation.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
 - **Schema and data compare** – compare two schemas, or one table across two connections of the same engine; deploy
@@ -144,8 +146,11 @@ Core decisions:
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
   and opener APIs as a remote page on `127.0.0.1` (`src-tauri/capabilities`).
-- **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas`, `supportsNetwork`, `supportsDatabases` and
-  `locksDatabase`; the UI adapts to them.
+- **Capabilities.** Drivers report `supportsCancel`, `supportsSchemas`, `supportsNetwork`, `supportsDatabases`,
+  `locksDatabase` and `sessionActions` (what the session monitor may do; empty for embedded databases); the UI adapts to
+  them.
+- **Session monitor.** The monitor uses its own session per connection, because the metadata session might wait on the
+  locks being investigated.
 - **ClickHouse over HTTP.** No client library: each statement is one request to the HTTP interface, a `session_id`
   keeps temporary tables and `SET` options per tab.
 - **Lakehouses on DuckDB.** Each lakehouse connection is an in-memory DuckDB database with the format's extensions
@@ -185,6 +190,8 @@ are installed by DuckDB on first use.
 
 ### Known limitations
 
+- The session monitor: SQL Server can only terminate sessions, ClickHouse can only cancel queries. Without
+  `pg_read_all_stats`, `PROCESS` or `VIEW SERVER STATE` only your own sessions are visible (MySQL: no lock relations).
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
 - INSERT exports write arrays, structs and maps as JSON text; columns of such types may need a cast. XLSX holds at most
   1,048,576 rows.
