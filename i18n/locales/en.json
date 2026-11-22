@@ -360,6 +360,24 @@
     "switchConnectionDescription": "The open transaction of this tab is rolled back.",
     "switchConnection": "Switch"
   },
+  "plan": {
+    "operator": "Operator",
+    "object": "Object",
+    "cost": "Cost",
+    "estimatedRows": "Estimated rows",
+    "actualRows": "Actual rows",
+    "subtreeCost": "Subtree cost",
+    "statementCost": "Estimated cost {cost}",
+    "actual": "Actual plan",
+    "estimated": "Estimated plan",
+    "warnings": "Warnings",
+    "missingIndex": "Missing index (impact {impact} %)",
+    "indexCopied": "Index statement copied",
+    "noOperators": "The plan contains no operators.",
+    "invalid": "The execution plan could not be read.",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
   "grid": {
     "toggleColumns": "Show/hide columns",
     "resize": "Drag to resize, double-click resets",
