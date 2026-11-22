@@ -93,6 +93,7 @@
 - `utils/motion.ts`: exports PointerMark, modalOrigin
 - `utils/open-url.ts`: exports websiteUrl, privacyUrl, openUrl
 - `utils/pre-execution.ts`: Dry run and plan check helpers from core, re-exported for the app's auto-imports
+- `utils/shortcuts.ts`: The shortcut overview (ShortcutsModal.vue), also the source of the shortcut reference in the documentation (scripts/docs-data.ts)
 - `utils/showplan.ts`: exports PlanOperator, MissingIndex, PlanStatement, isShowplan, parseShowplan
 - `utils/sql-assist.ts`: exports assistCompletion, assistLinter
 - `utils/sql-format.ts`: exports formatSql

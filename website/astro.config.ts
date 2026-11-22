@@ -2,7 +2,8 @@
 // release (.github/workflows/website.yml), so the docs never describe unreleased changes.
 import { defineConfig, envField } from 'astro/config'
 import starlight from '@astrojs/starlight'
-import { repo } from './src/config'
+import starlightLinksValidator from 'starlight-links-validator'
+import { docsSidebar, repo } from './src/config'
 
 const site = 'https://colwerk.app'
 
@@ -14,6 +15,8 @@ export default defineConfig({
   build: {
     assets: '_assets',
   },
+
+  image: { dangerouslyProcessSVG: true },
 
   // Without a fixed tsconfig, Vite looks for one upwards from each file that website/tsconfig.json does not cover and
   // reaches the app's tsconfig.json, whose references into .nuxt/ do not exist in CI. Loading this config has the same
@@ -37,9 +40,12 @@ export default defineConfig({
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: repo }],
       customCss: ['./src/styles/theme.css'],
-      components: { Footer: './src/components/Footer.astro', Hero: './src/components/Hero.astro' },
+      components: {
+        Footer: './src/components/Footer.astro',
+        Head: './src/components/Head.astro',
+        Hero: './src/components/Hero.astro',
+      },
       head: [
-        { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.svg' } },
         { tag: 'meta', attrs: { property: 'og:image', content: `${site}/og-image.jpg` } },
         { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
         { tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
@@ -51,10 +57,9 @@ export default defineConfig({
           },
         },
       ],
-      sidebar: [
-        // Documentation pages go to src/content/docs/docs/; add `{ label: 'Documentation', autogenerate: { directory: 'docs' } }` here.
-        { label: 'Changelog', link: '/changelog/' },
-      ],
+      // Fails the build on dead links between the Markdown pages; the pages in src/pages/ are not checked.
+      plugins: [starlightLinksValidator({ exclude: ['/', '/changelog/', '/changelog/**'] })],
+      sidebar: [...docsSidebar, { label: 'Changelog', link: '/changelog/' }],
     }),
   ],
 })

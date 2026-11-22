@@ -1,7 +1,7 @@
 // Static site on Cloudflare Workers: serves the build output, no Worker code.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "colwerk-website",
+  "name": "colwerk",
   "compatibility_date": "2026-11-10",
   "assets": {
     "directory": "./dist",

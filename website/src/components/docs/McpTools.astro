@@ -1,0 +1,48 @@
+---
+// The tools of Colwerk's MCP server, generated from server/mcp/tools/ (src/data/reference.json, scripts/docs-data.ts).
+import reference from '../../data/reference.json'
+
+// The descriptions are written for the model; the first paragraph says what a tool does.
+const summary = (description: string) => description.split(/\n\s*\n/)[0]!.replace(/\s+/g, ' ')
+---
+
+{
+  reference.mcpTools.map((t) => (
+    <section>
+      <h2 id={t.name}>
+        <code>{t.name}</code>
+      </h2>
+      <p>
+        {summary(t.description)} {t.readOnly && 'Read-only.'}
+      </p>
+      {t.parameters.length ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {t.parameters.map((p) => (
+              <tr>
+                <td>
+                  <code>{p.name}</code>
+                  {!p.required && ' (optional)'}
+                </td>
+                <td>{p.type}</td>
+                <td>
+                  {p.description}
+                  {p.default !== null && ` Default: ${p.default}.`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>No parameters.</p>
+      )}
+    </section>
+  ))
+}

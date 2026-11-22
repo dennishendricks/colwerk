@@ -1,6 +1,6 @@
 // Fetches the published Colwerk releases from the GitHub API at build time (changelog, version, download section).
 import { GITHUB_TOKEN } from 'astro:env/server'
-import { repo } from './config'
+import { docsSidebar, repo } from './config'
 
 export interface Release {
   tag_name: string
@@ -10,6 +10,7 @@ export interface Release {
   prerelease: boolean
   draft: boolean
   body_html?: string
+  assets: { name: string; browser_download_url: string }[]
 }
 
 // Fetched once per build, lazily: Cloudflare's prerender runtime forbids fetch() in global scope.
@@ -36,3 +37,21 @@ export const getReleases = () =>
 
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
+export const versionOf = (r: Release) => r.tag_name.replace(/^v/, '')
+
+// Sidebar of the changelog pages: the docs, then every release, grouped by minor version (0.7.x) like the overview.
+export const changelogSidebar = (releases: Release[]) => [
+  ...docsSidebar,
+  {
+    label: 'Changelog',
+    items: [
+      { label: 'All releases', link: '/changelog/' },
+      ...[...Map.groupBy(releases, (r) => versionOf(r).split('.').slice(0, 2).join('.'))].map(([minor, list], i) => ({
+        label: minor,
+        collapsed: i > 0,
+        items: list.map((r) => ({ label: versionOf(r), link: `/changelog/${versionOf(r)}/` })),
+      })),
+    ],
+  },
+]

@@ -1,0 +1,45 @@
+---
+// The app's shortcut overview, generated from app/utils/shortcuts.ts (src/data/reference.json, scripts/docs-data.ts).
+import reference from '../../data/reference.json'
+
+const names: Record<string, string> = {
+  meta: '⌘/Ctrl',
+  shift: 'Shift',
+  alt: '⌥/Alt',
+  ctrl: 'Ctrl',
+  enter: 'Enter',
+  backspace: 'Backspace',
+}
+---
+
+<table>
+  <thead>
+    <tr>
+      <th>Keys</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      reference.shortcuts.map((s) => (
+        <tr>
+          <td class="keys">
+            {s.keys.map((k) => (
+              <kbd>{names[k] ?? k}</kbd>
+            ))}
+          </td>
+          <td>{s.label}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>
+
+<style>
+  .keys {
+    white-space: nowrap;
+  }
+  .keys kbd + kbd {
+    margin-left: 0.25rem;
+  }
+</style>

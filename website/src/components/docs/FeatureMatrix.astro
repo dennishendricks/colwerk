@@ -1,0 +1,59 @@
+---
+// Which engine supports which feature, generated from the code (src/data/reference.json, scripts/docs-data.ts).
+import reference from '../../data/reference.json'
+
+const { engines } = reference
+type Features = (typeof engines)[number]['features']
+
+const rows: [string, (f: Features) => boolean | string][] = [
+  ['Schemas', (f) => f.schemas],
+  ['Database picker', (f) => f.databases],
+  ['Cancel a running query', (f) => f.cancel],
+  ['Edit rows in the result grid', (f) => f.editRows],
+  ['Dry run', (f) => f.dryRun],
+  ['Plan check before full scans', (f) => f.planCheck],
+  ['Schema compare', (f) => f.schemaCompare],
+  ['Data compare', (f) => f.dataCompare],
+  ['Session monitor', (f) => f.sessionActions.join(', ') || false],
+]
+const cell = (v: boolean | string) => (v === true ? '✓' : v === false ? '–' : v)
+---
+
+<div class="matrix">
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        {engines.map((e) => <th>{e.label}</th>)}
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rows.map(([label, value]) => (
+          <tr>
+            <th>{label}</th>
+            {engines.map((e) => (
+              <td>{cell(value(e.features))}</td>
+            ))}
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .matrix {
+    overflow-x: auto;
+  }
+  .matrix table {
+    display: table;
+    font-size: var(--sl-text-sm);
+  }
+  .matrix td {
+    text-align: center;
+  }
+  .matrix tbody th {
+    white-space: nowrap;
+  }
+</style>

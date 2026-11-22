@@ -6,11 +6,16 @@ import logo from '../assets/favicon.svg'
 
 const { latest, version } = await getReleases()
 
+// Asset name endings as written by scripts/package.ts; without a matching asset the card links to the release page.
 const downloads = [
-  { os: 'macOS', detail: 'Apple Silicon · dmg' },
-  { os: 'Windows', detail: 'x64 · exe' },
-  { os: 'Linux', detail: 'x64 & arm64 · deb' },
-]
+  { os: 'macOS', detail: 'Apple Silicon · dmg', file: 'macos-arm64.dmg' },
+  { os: 'Windows', detail: 'x64 · exe', file: 'windows-x64-setup.exe' },
+  { os: 'Linux', detail: 'x64 · deb', file: 'linux-x64.deb' },
+  { os: 'Linux', detail: 'arm64 · deb', file: 'linux-arm64.deb' },
+].map((d) => ({
+  ...d,
+  href: latest.assets.find((a) => a.name.endsWith(`-${d.file}`))?.browser_download_url ?? latest.html_url,
+}))
 
 const softwareLd = {
   '@context': 'https://schema.org',
@@ -46,7 +51,7 @@ const softwareLd = {
   <div class="platforms">
     {
       downloads.map((d) => (
-        <a class="platform" href={releases}>
+        <a class="platform" href={d.href} download>
           <strong>{d.os}</strong>
           <span>{d.detail}</span>
         </a>

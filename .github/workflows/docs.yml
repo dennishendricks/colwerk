@@ -1,0 +1,36 @@
+name: Docs
+
+# Fails a pull request that changes Colwerk itself but not the documentation in website/src/, unless it has the label
+# `no_docs` (refactoring, tests, internal changes). Runs again when that label is added or removed.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  # Skipped with the label; a skipped job counts as passed.
+  docs:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no_docs') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+              - 'core/**'
+              - 'server/**'
+              - 'launcher/**'
+              - 'src-tauri/src/**'
+              - 'i18n/**'
+            docs:
+              - 'website/src/**'
+      - if: steps.filter.outputs.app == 'true' && steps.filter.outputs.docs == 'false'
+        run: |
+          echo "::error::This pull request changes Colwerk but not its documentation (website/src/content/docs/). Update the docs, or add the label no_docs if nothing user-facing changed."
+          exit 1
