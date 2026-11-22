@@ -44,8 +44,8 @@ are listed there, along with a software bill of materials of the npm packages an
   committed or rolled back.
 - **Gentle on the database** – reads only up to the row limit, loads the schema tree on demand and takes table sizes from
   statistics instead of `COUNT(*)`.
-- **Production guard rails** – color-coded connections and optional confirmation before statements that change data or
-  structure.
+- **Production guard rails** – color-coded connections, read-only connections (enforced by the database where it can),
+  optional confirmation before statements that change data or structure, and a stop for UPDATE/DELETE without WHERE.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
@@ -155,6 +155,9 @@ first use, verified by hash and stored in the data directory.
 - SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and
   drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the
   background; outside a transaction its changes are committed.
+- Read-only connections: PostgreSQL and MySQL restrict the session and ClickHouse sends `readonly = 2`, which a session can
+  switch back; SQL Server and lakehouses rely on Colwerk's check of the SQL text alone. For real protection use a login
+  with read privileges only.
 - SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
 - Geometries of SQL Server (`geometry`, `geography`) and SpatiaLite use their own binary formats and are shown as hex;
   DuckDB, PostGIS and MySQL/MariaDB geometries are shown as WKT.
