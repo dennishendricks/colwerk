@@ -8,3 +8,11 @@ export { withoutLogin } from './login.ts'
 export { isReadOnlyStatement, isSelectStatement, type SplitDialect } from './sql-split.ts'
 export { createExporter, type Exporter, type ExportFormat } from './export.ts'
 export { fileDialog } from './dialog.ts'
+export {
+  previewImport,
+  runImport,
+  type ImportPlan,
+  type ImportProgress,
+  type ImportSource,
+  type ImportSummary,
+} from './import.ts'
