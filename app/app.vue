@@ -532,6 +532,7 @@ useApplicationMenu({
       :connection-id="activeTab?.connectionId ?? activeConnectionId"
       @select="(e) => openInNewTab(e.connectionId, e.sql)"
     />
+    <LazyDataImportModal />
     <UModal
       :open="!!closing.length"
       :title="closing.length > 1 ? t('app.closeTabsTitle', { n: closing.length }) : t('app.closeTabTitle')"

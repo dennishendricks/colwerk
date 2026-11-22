@@ -8,6 +8,7 @@ const { driverOf } = useConnections()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
 const { tabs, activeTabId, addTab } = useTabs()
 const { run } = useExecution()
+const { openImport } = useImport()
 const toast = useToast()
 const { t, locale } = useI18n()
 
@@ -208,6 +209,34 @@ const menuItems = computed((): ContextMenuItem[][] => {
       { label: t('schema.showDdl'), icon: 'i-lucide-file-code', onSelect: () => showDdl(schema, name, kind) },
     ],
     [
+      ...(kind === 'table'
+        ? [
+            {
+              label: t('dataImport.importInto'),
+              icon: 'i-lucide-import',
+              onSelect: () =>
+                openImport({
+                  target: { connectionId: props.connectionId, database: props.database, schema, table: name },
+                }),
+            },
+          ]
+        : []),
+      {
+        label: t('dataImport.copyTo'),
+        icon: 'i-lucide-copy-plus',
+        onSelect: () =>
+          openImport({
+            source: {
+              kind: 'table',
+              connectionId: props.connectionId,
+              database: props.database,
+              schema,
+              table: name,
+            },
+          }),
+      },
+    ],
+    [
       { label: t('schema.copyName'), icon: 'i-lucide-copy', onSelect: () => copy(name) },
       { label: t('schema.copyQualifiedName'), icon: 'i-lucide-copy', onSelect: () => copy(`${schema}.${name}`) },
     ],
@@ -288,16 +317,27 @@ function fkTitle(c: ColumnInfo) {
   <div class="text-sm outline-none" tabindex="-1" @keydown="onKeydown">
     <div class="flex items-center justify-between px-3 py-1">
       <span class="text-xs font-medium uppercase text-muted">{{ t('schema.title') }}</span>
-      <UButton
-        icon="i-lucide-refresh-cw"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        :loading="s.loading.schemas"
-        :title="t('common.reload')"
-        :aria-label="t('common.reload')"
-        @click="refresh"
-      />
+      <span class="flex items-center">
+        <UButton
+          icon="i-lucide-import"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          :title="t('dataImport.title')"
+          :aria-label="t('dataImport.title')"
+          @click="openImport({ target: { connectionId, database } })"
+        />
+        <UButton
+          icon="i-lucide-refresh-cw"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          :loading="s.loading.schemas"
+          :title="t('common.reload')"
+          :aria-label="t('common.reload')"
+          @click="refresh"
+        />
+      </span>
     </div>
     <UInput
       v-if="search !== undefined"
