@@ -9,7 +9,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
 import { dropActive } from '~/composables/data-files'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, load } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, driverOf, load } = useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -97,8 +97,8 @@ function onServerEvent(type: string, data: string) {
 }
 
 // Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
-// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection, data files
-// are queried (composables/data-files.ts).
+// and takes them (src-tauri/src/main.rs). Query and plan files (.sql, .sqlplan) open in a tab, database files as a
+// connection, data files are queried (composables/data-files.ts).
 async function openSystemFiles() {
   await openPaths(await invoke<string[]>('take_opened_files'))
 }
@@ -145,6 +145,8 @@ const importOpen = ref(false)
 const compareOpen = ref(false)
 const aboutOpen = ref(false)
 const quickOpen = ref(false)
+const sessionsOpen = ref(false)
+watch(activeConnectionId, () => (sessionsOpen.value = false))
 const schemaTree = useTemplateRef('schemaTree')
 // Searches the schema tree's connection, so the selected table is queried on the same one.
 const canQuickOpen = computed(() => !!activeConnectionId.value && !activeConnection.value?.disconnected)
@@ -327,6 +329,19 @@ useApplicationMenu({
               :title="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               :aria-label="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               @click="toggleConnection()"
+            />
+            <UButton
+              v-if="
+                activeConnection &&
+                !activeConnection.disconnected &&
+                driverOf(activeConnectionId)?.capabilities.sessionActions.length
+              "
+              icon="i-lucide-activity"
+              color="neutral"
+              variant="outline"
+              :title="t('sessions.open')"
+              :aria-label="t('sessions.open')"
+              @click="sessionsOpen = true"
             />
           </div>
           <DatabasePicker />
@@ -542,6 +557,11 @@ useApplicationMenu({
       :connection-id="activeConnectionId"
       :database="activeDatabase"
       @select="(schema, table) => schemaTree?.selectTable(schema, table)"
+    />
+    <LazySessionMonitorModal
+      v-if="activeConnectionId"
+      v-model:open="sessionsOpen"
+      :connection-id="activeConnectionId"
     />
     <LazyCompareModal v-model:open="compareOpen" />
     <LazyHistoryModal

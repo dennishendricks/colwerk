@@ -15,7 +15,9 @@ import {
   type QueryResult,
   type ResultColumn,
   type RowSink,
+  type ServerSession,
   type Session,
+  type SessionAction,
   type TableInfo,
   type TransactionState,
 } from '../types.ts'
@@ -158,6 +160,24 @@ const SQL = {
     select routine_name as name, lower(routine_type) as kind from information_schema.routines
     where routine_schema = ? order by routine_name`,
   // A function and a procedure may share a name.
+  processlist: `
+    select id, user, db as \`database\`, host as client, command, state, time as seconds, info as query
+    from information_schema.processlist
+    where id <> connection_id() and command <> 'Daemon'
+    order by id`,
+  // MariaDB and MySQL 5.7.
+  lockWaits: `
+    select r.trx_mysql_thread_id as waiting, b.trx_mysql_thread_id as blocking
+    from information_schema.innodb_lock_waits w
+    join information_schema.innodb_trx r on r.trx_id = w.requesting_trx_id
+    join information_schema.innodb_trx b on b.trx_id = w.blocking_trx_id`,
+  // MySQL 8.
+  lockWaitsV8: `
+    select r.trx_mysql_thread_id as waiting, b.trx_mysql_thread_id as blocking
+    from performance_schema.data_lock_waits w
+    join information_schema.innodb_trx r on r.trx_id = w.requesting_engine_transaction_id
+    join information_schema.innodb_trx b on b.trx_id = w.blocking_engine_transaction_id`,
+  transactions: `select trx_mysql_thread_id as id from information_schema.innodb_trx`,
   routineTypes: `
     select routine_type as type from information_schema.routines
     where routine_schema = ? and routine_name = ? order by routine_type`,
@@ -309,6 +329,50 @@ class MysqlSession implements Session {
   }
 
   // MariaDB only; MySQL has no such variable, the query fails and the state stays unknown.
+  async sessions(): Promise<ServerSession[]> {
+    const db = this.conn.promise()
+    // Without the PROCESS privilege only the own sessions are listed, and the lock tables are not readable (no relations).
+    const query = async <T>(sql: string) => (await db.query(sql))[0] as T[]
+    type Wait = { waiting: string | number; blocking: string | number }
+    try {
+      const list = await query<Record<string, string | number | null>>(SQL.processlist)
+      const waits = await query<Wait>(SQL.lockWaits)
+        .catch(() => query<Wait>(SQL.lockWaitsV8))
+        .catch((): Wait[] => [])
+      const transactions = new Set(
+        (await query<{ id: string | number }>(SQL.transactions).catch(() => [])).map((r) => String(r.id)),
+      )
+      return list.map((r): ServerSession => {
+        const id = String(r.id)
+        const blockedBy = waits.filter((b) => String(b.waiting) === id).map((b) => String(b.blocking))
+        return {
+          id,
+          user: r.user as string | null,
+          database: r.database as string | null,
+          client: r.client as string | null,
+          application: null,
+          state: [r.command, r.state].filter(Boolean).join(': ') || null,
+          active: r.command !== 'Sleep' || transactions.has(id),
+          seconds: r.seconds === null ? null : Number(r.seconds),
+          query: r.query as string | null,
+          wait: blockedBy.length ? 'Lock' : null,
+          blockedBy,
+        }
+      })
+    } catch (e) {
+      throw wrap(e)
+    }
+  }
+
+  async stopSession(id: string, action: SessionAction): Promise<void> {
+    if (!/^\d+$/.test(id)) throw new AppError('sessionNotFound', `Session ${id} not found`)
+    try {
+      await this.conn.promise().query(`kill ${action === 'cancel' ? 'query ' : ''}${Number(id)}`)
+    } catch (e) {
+      throw wrap(e)
+    }
+  }
+
   async transactionState(): Promise<TransactionState | undefined> {
     const [rows] = await this.conn.promise().query({ sql: 'select @@in_transaction', rowsAsArray: true })
     return Number((rows as unknown[][])[0]![0]) ? 'open' : 'idle'

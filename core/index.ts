@@ -9,6 +9,7 @@ export { isReadOnlyStatement, isSelectStatement, type SplitDialect } from './sql
 export { createExporter, type Exporter, type ExportFormat, exportFormats, type ExportOptions } from './export.ts'
 export { fileDialog } from './dialog.ts'
 export { type CliRunner, createSecrets, parseSecretRef, runCli, secrets } from './secrets.ts'
+export { decodeText } from './text-file.ts'
 export {
   findImportFile,
   type ImportCandidate,

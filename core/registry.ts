@@ -30,6 +30,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsNetwork: true,
       supportsDatabases: true,
       locksDatabase: false,
+      sessionActions: ['cancel', 'terminate'],
     },
     load: () => import('./drivers/postgres.ts').then((m) => m.postgresDriver),
   },
@@ -44,6 +45,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsNetwork: true,
       supportsDatabases: true,
       locksDatabase: false,
+      sessionActions: ['cancel', 'terminate'],
     },
     load: () => import('./drivers/mysql.ts').then((m) => m.mysqlDriver),
   },
@@ -58,6 +60,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsNetwork: true,
       supportsDatabases: true,
       locksDatabase: false,
+      sessionActions: ['terminate'],
     },
     load: () => import('./drivers/mssql.ts').then((m) => m.mssqlDriver),
   },
@@ -71,6 +74,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsNetwork: false,
       supportsDatabases: false,
       locksDatabase: true,
+      sessionActions: [],
     },
     load: () =>
       prepareDuckdb()
@@ -87,6 +91,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsNetwork: false,
       supportsDatabases: false,
       locksDatabase: false,
+      sessionActions: [],
     },
     load: () => import('./drivers/sqlite.ts').then((m) => m.sqliteDriver),
   },
@@ -101,6 +106,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       supportsNetwork: true,
       supportsDatabases: true,
       locksDatabase: false,
+      sessionActions: ['cancel'],
     },
     load: () => import('./drivers/clickhouse.ts').then((m) => m.clickhouseDriver),
   },
@@ -145,7 +151,7 @@ function lakehouse(
     dialect,
     label,
     auths,
-    capabilities: { ...capabilities, supportsCancel: true, locksDatabase: false },
+    capabilities: { ...capabilities, supportsCancel: true, locksDatabase: false, sessionActions: [] },
     load: () =>
       prepareDuckdb()
         .then(() => import('./drivers/lakehouse.ts'))
