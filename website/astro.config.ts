@@ -16,6 +16,8 @@ export default defineConfig({
     assets: '_assets',
   },
 
+  image: { dangerouslyProcessSVG: true },
+
   // Without a fixed tsconfig, Vite looks for one upwards from each file that website/tsconfig.json does not cover and
   // reaches the app's tsconfig.json, whose references into .nuxt/ do not exist in CI. Loading this config has the same
   // problem with the importer website/index.html, which is why tsconfig.json lists that file.
@@ -38,9 +40,12 @@ export default defineConfig({
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: repo }],
       customCss: ['./src/styles/theme.css'],
-      components: { Footer: './src/components/Footer.astro', Hero: './src/components/Hero.astro' },
+      components: {
+        Footer: './src/components/Footer.astro',
+        Head: './src/components/Head.astro',
+        Hero: './src/components/Hero.astro',
+      },
       head: [
-        { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.svg' } },
         { tag: 'meta', attrs: { property: 'og:image', content: `${site}/og-image.jpg` } },
         { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
         { tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },

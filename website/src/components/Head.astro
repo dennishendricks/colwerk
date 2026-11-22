@@ -1,0 +1,11 @@
+---
+// Starlight's head plus the apple-touch-icon, rendered as PNG from the SVG at build time (iOS ignores SVG icons).
+import Default from '@astrojs/starlight/components/Head.astro'
+import { getImage } from 'astro:assets'
+import appleTouchIconSvg from '../assets/apple-touch-icon.svg'
+
+const appleTouchIcon = await getImage({ src: appleTouchIconSvg, format: 'png', width: 180, height: 180 })
+---
+
+<Default />
+<link rel="apple-touch-icon" href={appleTouchIcon.src} />
