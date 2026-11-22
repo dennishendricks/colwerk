@@ -16,7 +16,8 @@ When the result was cut at the [row limit](/docs/editor/running-queries/#row-lim
 
 - **Shown rows**: the rows already loaded.
 - **Full result (without limit)**: Colwerk runs the statement again in the tab's session, without limit, and streams
-  every row to the file. Only for a single read-only statement.
+  every row to the file. Only for read-only statements. In a script, this works for the statement of the shown
+  result, but not when MySQL or SQL Server ran several statements as one batch.
 
 The export writes the result as the query returned it, with all columns and in their original order. Sorting, filters
 and hidden columns of the grid apply to **Copy as**, not to the file.

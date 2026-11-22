@@ -18,7 +18,9 @@ Get the latest version from [GitHub Releases](https://github.com/dennishendricks
 
 Requirements:
 
-- **Windows** needs WebView2, which is preinstalled on Windows 10 and 11. The installer does not install it.
+- **Windows** needs the WebView2 Runtime. Windows 11 includes it, and most Windows 10 devices already have it. The
+  installer does not install it; if it is missing, download it from
+  [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/consumer/).
 - **Linux** needs WebKitGTK 4.1; the package manager installs it with the `.deb`.
 
 ## Verify the download
