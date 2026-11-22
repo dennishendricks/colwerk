@@ -246,7 +246,13 @@
     "clearSshSecret": "Gespeichertes SSH-Passwort / Passphrase entfernen",
     "sshHostKey": "Host-Key",
     "sshHostKeyHelp": "Wird beim ersten Verbinden gespeichert; ein anderer Key wird abgelehnt.",
-    "forgetHostKey": "Host-Key vergessen"
+    "forgetHostKey": "Host-Key vergessen",
+    "mcpLogin": "Eigene Anmeldung für KI-Assistenten (MCP)",
+    "mcpLoginHelp": "MCP-Clients melden sich mit dieser Anmeldung an statt mit der obigen, nie mit jener. Gib ihr eine Datenbankrolle, die nur lesen darf, was der Assistent braucht.",
+    "mcpUser": "MCP-Benutzer",
+    "mcpPassword": "MCP-Passwort",
+    "mcpToken": "MCP-Token",
+    "clearMcpPassword": "Gespeichertes MCP-Passwort entfernen"
   },
   "colors": {
     "red": "Rot",

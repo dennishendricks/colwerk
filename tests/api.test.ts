@@ -424,6 +424,46 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
       await json(await call(`/api/connections/${entra.id}`, { method: 'DELETE' }))
     })
 
+    test('mcp: a separate MCP login is used for MCP only', async () => {
+      const copy = await json(
+        await call('/api/connections', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...pg,
+            id: undefined,
+            name: 'PG with MCP login',
+            mcpLogin: true,
+            mcpUser: 'colwerk_mcp_nobody',
+            mcpPassword: 'wrong',
+          }),
+        }),
+      )
+      assertEquals([copy.hasMcpPassword, 'mcpPassword' in copy], [true, false])
+      const res = await call(
+        '/mcp',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'tools/call',
+            params: { name: 'run-query', arguments: { connectionId: copy.id, sql: 'select 1' } },
+          }),
+        },
+        { accept: 'application/json, text/event-stream', authorization: `Bearer ${mcpToken}` },
+      )
+      const { result } = await json(res)
+      assertEquals(result.isError, true)
+      assertStringIncludes(result.content[0].text, 'colwerk_mcp_nobody')
+      const exec = await call('/api/tabs/t4/execute', {
+        method: 'POST',
+        body: JSON.stringify({ connectionId: copy.id, sql: 'select 1 as x' }),
+      })
+      assertEquals((await json(exec)).resultSets[0].rows, [[1]])
+      await json(await call('/api/tabs/t4', { method: 'DELETE' }))
+      await json(await call(`/api/connections/${copy.id}`, { method: 'DELETE' }))
+    })
+
     test('cancel aborts a running statement', async () => {
       const running = call('/api/tabs/t3/execute', {
         method: 'POST',

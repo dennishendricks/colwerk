@@ -12,6 +12,7 @@ const form = reactive<Partial<ConnectionInput>>({})
 const busy = ref<'test' | 'save' | 'delete' | 'install'>()
 const clearPassword = ref(false)
 const clearSshSecret = ref(false)
+const clearMcpPassword = ref(false)
 const showAdvanced = ref(false)
 
 watch(
@@ -21,6 +22,7 @@ watch(
     const c = props.connection
     clearPassword.value = false
     clearSshSecret.value = false
+    clearMcpPassword.value = false
     Object.assign(form, {
       id: c?.id,
       name: c?.name ?? '',
@@ -64,6 +66,9 @@ watch(
       sshHostKey: c?.sshHostKey,
       color: c?.color,
       confirmWrites: c?.confirmWrites ?? false,
+      mcpLogin: c?.mcpLogin ?? false,
+      mcpUser: c?.mcpUser ?? '',
+      mcpPassword: '',
     })
     // Opens with the further options shown when the connection uses one of them.
     showAdvanced.value = !!(
@@ -85,7 +90,8 @@ watch(
         c.region ||
         c.oauthServerUri ||
         c.oauthScope ||
-        c.ssh)
+        c.ssh ||
+        c.mcpLogin)
     )
   },
   { immediate: true },
@@ -151,10 +157,14 @@ const passwordLabel = computed(() =>
       ? t('connection.token')
       : t('connection.password'),
 )
+const mcpLoginAvailable = computed(
+  () => !!driver.value?.auths.length && mcpLoginAuths.includes(form.auth as ConnectionAuth),
+)
 // Lakehouses have further options only for some logins.
 const hasAdvanced = computed(
   () =>
     !lakehouse.value ||
+    mcpLoginAvailable.value ||
     form.auth === 'oauth-client' ||
     form.auth === 'entra-default' ||
     form.auth === 'entra-interactive' ||
@@ -194,8 +204,13 @@ function payload(): Partial<ConnectionInput> {
     clearSshSecret.value || !form.ssh || form.sshAuth === 'agent'
       ? ''
       : form.sshSecret || (props.connection?.hasSshSecret ? undefined : '')
+  // Like the password: empty keeps the stored MCP password, `''` removes it.
+  const mcpPassword =
+    clearMcpPassword.value || !form.mcpLogin || !mcpLoginAvailable.value
+      ? ''
+      : form.mcpPassword || (props.connection?.hasMcpPassword ? undefined : '')
   // The fields that exclude a tunnel are hidden with it on.
-  return { ...form, password, sshSecret, ...(form.ssh && { socket: '', instanceName: '' }) }
+  return { ...form, password, sshSecret, mcpPassword, ...(form.ssh && { socket: '', instanceName: '' }) }
 }
 
 // Native dialog: the page itself cannot learn the path of a picked file.
@@ -674,6 +689,45 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
                   <UFormField class="col-span-2" :help="form.sslInsecure ? t('connection.insecureHelp') : undefined">
                     <USwitch v-model="form.sslInsecure" color="warning" :label="t('connection.insecure')" />
                   </UFormField>
+                </template>
+                <template v-if="mcpLoginAvailable">
+                  <UFormField class="col-span-2" :help="t('connection.mcpLoginHelp')">
+                    <USwitch v-model="form.mcpLogin" :label="t('connection.mcpLogin')" />
+                  </UFormField>
+                  <template v-if="form.mcpLogin">
+                    <UFormField v-if="form.auth !== 'token'" :label="t('connection.mcpUser')">
+                      <UInput
+                        v-model="form.mcpUser"
+                        class="w-full"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        :spellcheck="false"
+                      />
+                    </UFormField>
+                    <UFormField
+                      :label="form.auth === 'token' ? t('connection.mcpToken') : t('connection.mcpPassword')"
+                      :class="form.auth === 'token' ? 'col-span-2' : undefined"
+                    >
+                      <UInput
+                        v-model="form.mcpPassword"
+                        type="password"
+                        class="w-full"
+                        autocomplete="new-password"
+                        :disabled="clearMcpPassword"
+                        :placeholder="
+                          clearMcpPassword
+                            ? t('connection.passwordRemoved')
+                            : connection?.hasMcpPassword
+                              ? t('connection.passwordUnchanged')
+                              : ''
+                        "
+                      />
+                    </UFormField>
+                    <UFormField v-if="connection?.hasMcpPassword" class="col-span-2">
+                      <USwitch v-model="clearMcpPassword" :label="t('connection.clearMcpPassword')" />
+                    </UFormField>
+                  </template>
                 </template>
               </div>
             </template>

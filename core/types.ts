@@ -39,6 +39,9 @@ export const connectionAuths = [
 ] as const
 export type ConnectionAuth = (typeof connectionAuths)[number]
 
+/** Logins that can have a separate login for MCP clients (same method, other user and password or token). */
+export const mcpLoginAuths: ConnectionAuth[] = ['password', 'windows', 'token']
+
 /** SQL Server: order of day, month and year when strings are converted to dates. */
 export const dateFormats = ['mdy', 'dmy', 'ymd', 'ydm', 'myd', 'dym'] as const
 export type DateFormat = (typeof dateFormats)[number]
@@ -122,6 +125,11 @@ export interface ConnectionConfig {
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */
   confirmWrites?: boolean
+  /** Network logins `mcpLoginAuths`: MCP clients log in with `mcpUser` and `mcpPassword` instead of `user` and `password`, never with those. */
+  mcpLogin?: boolean
+  mcpUser?: string
+  /** Password or token of the MCP login; stored like `password`. */
+  mcpPassword?: string
 }
 
 export interface DriverCapabilities {

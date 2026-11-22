@@ -17,7 +17,7 @@ For MySQL/MariaDB a schema is a database.`,
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, database }) {
     const connection = await connectionOf(connectionId)
-    let schemas = await dbCall(() => workbench.introspect(connectionId, { kind: 'schemas' }))
+    let schemas = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'schemas' }))
     if (database !== undefined) {
       const databases = databasesOf(connection, schemas)
       if (!databases.includes(database)) {
@@ -33,7 +33,9 @@ For MySQL/MariaDB a schema is a database.`,
     return {
       schemas: await Promise.all(
         schemas.map(async ({ name }) => {
-          const tables = await dbCall(() => workbench.introspect(connectionId, { kind: 'tables', schema: name }))
+          const tables = await dbCall(() =>
+            workbench.introspect(sessionId(connection), { kind: 'tables', schema: name }),
+          )
           return {
             name,
             tables: tables.filter((t) => t.kind === 'table').length,

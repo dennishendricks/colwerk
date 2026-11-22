@@ -246,7 +246,13 @@
     "clearSshSecret": "Remove stored SSH password / passphrase",
     "sshHostKey": "Host key",
     "sshHostKeyHelp": "Recorded on the first connect; a different key is refused.",
-    "forgetHostKey": "Forget host key"
+    "forgetHostKey": "Forget host key",
+    "mcpLogin": "Separate login for AI assistants (MCP)",
+    "mcpLoginHelp": "MCP clients log in with this login instead of the one above, never with that one. Give it a database role that may only read what the assistant needs.",
+    "mcpUser": "MCP user",
+    "mcpPassword": "MCP password",
+    "mcpToken": "MCP token",
+    "clearMcpPassword": "Remove stored MCP password"
   },
   "colors": {
     "red": "Red",

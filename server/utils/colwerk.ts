@@ -11,16 +11,23 @@ import {
   type Dialect,
   drivers,
   isLakehouse,
+  mcpConfig,
+  mcpLoginAuths,
   type SshAuth,
   sshAuths,
   Workbench,
 } from '#core'
 
 export const store = new ConnectionStore()
+// MCP sessions that log in differently have ids `mcp:<connectionId>` (server/utils/mcp.ts).
 export const workbench = new Workbench(
-  (id) => store.get(id),
-  (id, fingerprint) => store.setSshHostKey(id, fingerprint),
+  async (id) => (id.startsWith('mcp:') ? mcpConfig(await store.get(id.slice(4))) : store.get(id)),
+  (id, fingerprint) => store.setSshHostKey(id.replace(/^mcp:/, ''), fingerprint),
 )
+
+/** Closes the sessions of a connection, the editor's and the MCP clients'. */
+export const closeSessions = (id: string) =>
+  Promise.all([workbench.closeConnection(id), workbench.closeConnection(`mcp:${id}`)])
 
 /**
  * Maps database errors to 400 with the driver message; everything else stays a 500. Errors of Colwerk
@@ -127,6 +134,7 @@ export function parseConnection(body: unknown): ConnectionInput {
     throw createError({ statusCode: 400, message: 'Invalid port', data: { key: 'invalidPort' } })
   }
   const entra = auth?.startsWith('entra-') ?? false
+  const mcpLogin = b.mcpLogin === true && driver.auths.length > 0 && mcpLoginAuths.includes(auth!)
   return {
     id: str('id') ?? crypto.randomUUID(),
     name: str('name')!,
@@ -172,5 +180,9 @@ export function parseConnection(body: unknown): ConnectionInput {
     sshHostKey: ssh ? str('sshHostKey') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,
+    mcpLogin: mcpLogin || undefined,
+    mcpUser: mcpLogin && auth !== 'token' ? str('mcpUser') : undefined,
+    // undefined = keep stored MCP password, '' = remove it
+    mcpPassword: !mcpLogin ? '' : typeof b.mcpPassword === 'string' ? b.mcpPassword : undefined,
   }
 }

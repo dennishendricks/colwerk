@@ -1,15 +1,18 @@
-import { drivers, type SchemaInfo } from '#core'
+import { type ConnectionSummary, drivers, type SchemaInfo } from '#core'
 
 const PROBE_TIMEOUT_MS = 5000
 
 // Reuses the metadata session and its cache: a connection counts as reachable once its schemas were read.
-async function probe(connectionId: string): Promise<SchemaInfo[]> {
+async function probe(connection: ConnectionSummary): Promise<SchemaInfo[]> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`No response within ${PROBE_TIMEOUT_MS / 1000} s`)), PROBE_TIMEOUT_MS)
   })
   try {
-    return await Promise.race([workbench.introspect(connectionId, { kind: 'schemas' }), timeout])
+    return await Promise.race([
+      (async () => workbench.introspect(sessionId(connection), { kind: 'schemas' }))(),
+      timeout,
+    ])
   } finally {
     clearTimeout(timer)
   }
@@ -39,7 +42,7 @@ Names are not unique; identify a connection by connectionId.`,
             readOnly: c.readOnly === true,
           }
           try {
-            return { ...base, databases: databasesOf(c, await probe(c.id)), status: 'connected' }
+            return { ...base, databases: databasesOf(c, await probe(c)), status: 'connected' }
           } catch (e) {
             return { ...base, databases: databasesOf(c), status: 'unreachable', error: (e as Error).message }
           }

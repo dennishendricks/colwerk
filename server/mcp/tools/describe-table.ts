@@ -15,10 +15,11 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, schema, table }) {
+    const connection = await connectionOf(connectionId)
     const info = await tableOf(connectionId, schema, table)
     const [columns, indexes] = await Promise.all([
-      dbCall(() => workbench.introspect(connectionId, { kind: 'columns', schema, table })),
-      dbCall(() => workbench.introspect(connectionId, { kind: 'indexes', schema, table })),
+      dbCall(() => workbench.introspect(sessionId(connection), { kind: 'columns', schema, table })),
+      dbCall(() => workbench.introspect(sessionId(connection), { kind: 'indexes', schema, table })),
     ])
     return {
       schema,
