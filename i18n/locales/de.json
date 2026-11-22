@@ -218,6 +218,10 @@
     "noColor": "Keine",
     "confirmWritesHelp": "Fragt vor dem Ausführen nach, wenn eine Anweisung Daten oder Strukturen ändern kann.",
     "confirmWrites": "Schreibende Anweisungen bestätigen",
+    "checkPlan": "Vor vollständigem Lesen großer Tabellen warnen",
+    "checkPlanHelp": "Führt vor jeder Abfrage EXPLAIN aus (nie ANALYZE). Standardmäßig an, wenn schreibende Anweisungen bestätigt werden.",
+    "scanRowThreshold": "Zeilenschwelle",
+    "scanRowThresholdHelp": "Warnen ab so vielen Zeilen, laut Tabellenstatistik. Leer = 1.000.000",
     "delete": "Löschen",
     "deleted": "Gelöscht",
     "installDriver": "Datenbanktreiber laden",
@@ -363,7 +367,12 @@
     "dryRunResult": "Würde {n} Zeile ändern | Würde {n} Zeilen ändern",
     "dryRunUnknown": "Probelauf beendet; die Datenbank hat die Zeilenzahl nicht gemeldet.",
     "dryRunHint": "Zurückgerollt. Trigger und Sequenzen können dennoch Nebenwirkungen gehabt haben; Sperren wurden bis zum Rollback gehalten.",
-    "dryRunFailed": "Probelauf fehlgeschlagen"
+    "dryRunFailed": "Probelauf fehlgeschlagen",
+    "planWarningTitle": "Aufwendige Abfrage?",
+    "planWarningDescription": "Der Ausführungsplan liest große Tabellen in „{connection}“ vollständig.",
+    "planWarningScan": "{table}: etwa {rows} Zeilen",
+    "showPlan": "Plan anzeigen",
+    "planWarningRun": "Trotzdem ausführen"
   },
   "grid": {
     "toggleColumns": "Spalten ein-/ausblenden",
@@ -454,6 +463,7 @@
     "dryRunUnsupported": "Für diese Datenbank gibt es keinen Probelauf: Ein Rollback ist nicht garantiert.",
     "dryRunStatement": "Ein Probelauf ist nur für eine einzelne INSERT-, UPDATE-, DELETE- oder MERGE-Anweisung möglich.",
     "dryRunNonTransactional": "{table} verwendet die Engine {engine}, die Änderungen nicht zurückrollen kann.",
-    "dryRunReadOnly": "Die Verbindung ist schreibgeschützt."
+    "dryRunReadOnly": "Die Verbindung ist schreibgeschützt.",
+    "invalidThreshold": "Ungültige Zeilenschwelle."
   }
 }

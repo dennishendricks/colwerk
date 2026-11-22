@@ -1,8 +1,18 @@
 import { drivers, loadDriver } from './registry.ts'
 import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
-import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
+import { isReadOnlyStatement, isSelectStatement, splitStatements } from './sql-split.ts'
 import { dmlKind, dryRunDialects } from './sql-dml.ts'
 import { referencedTables } from './sql-tables.ts'
+import {
+  clickhouseScans,
+  DEFAULT_SCAN_ROWS,
+  mssqlScans,
+  mysqlScans,
+  type PlanWarning,
+  planCheckDialects,
+  postgresScans,
+  type Scan,
+} from './plan-check.ts'
 import {
   AppError,
   type CellValue,
@@ -40,6 +50,8 @@ const DRY_RUN_BEGIN: Partial<Record<Dialect, string>> = {
   duckdb: 'begin transaction',
   sqlite: 'begin',
 }
+const PLAN_CHECK_TIMEOUT = 10
+const PLAN_CHECK_STATEMENTS = 10
 
 interface TabSession {
   connectionId: string
@@ -213,6 +225,74 @@ export class Workbench {
     } finally {
       await this.closeTab(id)
     }
+  }
+
+  /**
+   * Tables that the plans (EXPLAIN, never ANALYZE) of the first statements of `sql` read completely, with at least the
+   * connection's `scanRowThreshold` rows. Runs in the tab's session (same temp tables and search path as `execute`);
+   * a statement whose EXPLAIN fails is skipped.
+   */
+  async planWarnings(tabId: string, connectionId: string, sql: string, database?: string): Promise<PlanWarning[]> {
+    const config = await this.resolveConfig(connectionId)
+    const d = sqlDialect(config.dialect)
+    if (!planCheckDialects.includes(d)) return []
+    const candidates = splitStatements(sql, d)
+      .slice(0, PLAN_CHECK_STATEMENTS)
+      .map((r) => sql.slice(r.from, r.to))
+      .filter((text) => isSelectStatement(text, d) || (d !== 'clickhouse' && dmlKind(text, d)))
+    const scans: { statement: string; scan: Scan }[] = []
+    await this.runTab(tabId, connectionId, database, async (s) => {
+      const run = (text: string) =>
+        withTimeout(s, PLAN_CHECK_TIMEOUT, () => s.execute(text, { rowLimit: PLAN_ROW_LIMIT }))
+      const plan = async (text: string): Promise<Scan[]> => {
+        if (d === 'mssql') {
+          // SHOWPLAN must be alone in its batch; see `explain`.
+          try {
+            await run('set showplan_all on')
+            return (await run(text)).resultSets.flatMap(mssqlScans)
+          } finally {
+            await s.execute('set showplan_all off', { rowLimit: 1 }).catch(() => this.closeTab(tabId))
+          }
+        }
+        const prefix = {
+          postgres: 'explain (format json, verbose)',
+          mysql: 'explain format=json',
+          clickhouse: 'explain estimate',
+        }[d as 'postgres' | 'mysql' | 'clickhouse']
+        const set = (await run(`${prefix} ${text}`)).resultSets[0]
+        if (!set) return []
+        if (d === 'clickhouse') return clickhouseScans(set)
+        return (d === 'postgres' ? postgresScans : mysqlScans)(set.rows[0]![0]!)
+      }
+      for (const statement of candidates) {
+        try {
+          for (const scan of await plan(statement)) scans.push({ statement, scan })
+        } catch (e) {
+          if (!(e instanceof DbError) || CONNECTION_LOST.has(e.code ?? '')) throw e
+        }
+      }
+    })
+    const threshold = config.scanRowThreshold ?? DEFAULT_SCAN_ROWS
+    const warnings = new Map<string, PlanWarning>()
+    for (const { statement, scan } of scans) {
+      let rows = scan.rows
+      if (rows === undefined && scan.schema) {
+        const tables = await this.introspect(
+          connectionId,
+          { kind: 'tables', schema: scan.schema },
+          false,
+          database,
+        ).catch(() => [])
+        const table =
+          tables.find((t) => t.name === scan.table) ??
+          tables.find((t) => t.name.toLowerCase() === scan.table.toLowerCase())
+        rows = table?.rowEstimate ?? undefined
+      }
+      if (rows === undefined || rows < threshold) continue
+      const table = scan.schema ? `${scan.schema}.${scan.table}` : scan.table
+      if (rows > (warnings.get(table)?.rows ?? 0)) warnings.set(table, { statement, table, rows })
+    }
+    return [...warnings.values()]
   }
 
   /** Streams the full result through the tab's session (same session state as `execute`). */

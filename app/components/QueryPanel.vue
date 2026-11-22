@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
+import type { PlanWarning } from '~/utils/pre-execution'
 import type { SplitDialect } from '~/utils/sql-split'
 import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
@@ -9,7 +10,7 @@ const emit = defineEmits<{ newConnection: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, dryRun, withVariables, cancel, exportResult } = useExecution()
+const { run, explain, dryRun, planWarnings, withVariables, cancel, exportResult } = useExecution()
 const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 
@@ -68,13 +69,49 @@ const pending = ref<{ sql: string; from: number; offset: (position: number) => n
 // Variables first, so the write check sees the SQL that will run.
 async function execute() {
   const runnable = editor.value?.runnableSql() ?? { sql: '', from: 0 }
-  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting) return
+  if (!props.tab.connectionId || !runnable.sql.trim() || props.tab.running || props.tab.exporting || checking.value) {
+    return
+  }
   const substituted = await withVariables(props.tab, runnable.sql)
   if (!substituted) return
   const next = { ...substituted, from: runnable.from }
   if (connection.value?.confirmWrites && mayWrite(next.sql, sqlDialect(connection.value.dialect))) {
     pending.value = next
-  } else run(props.tab, next.sql, next.from, next.offset)
+  } else proceed(next)
+}
+
+const checking = ref(false)
+// A query whose plan reads large tables completely, waiting for confirmation.
+const planWarning = ref<{
+  sql: string
+  from: number
+  offset: (position: number) => number
+  warnings: PlanWarning[]
+}>()
+const checksPlan = computed(() => {
+  const c = connection.value
+  return !!c && planCheckDialects.includes(sqlDialect(c.dialect)) && (c.checkPlan ?? !!c.confirmWrites)
+})
+
+async function proceed(next: { sql: string; from: number; offset: (position: number) => number }) {
+  if (checksPlan.value) {
+    checking.value = true
+    const warnings = await planWarnings(props.tab, next.sql).finally(() => (checking.value = false))
+    if (warnings.length) return void (planWarning.value = { ...next, warnings })
+  }
+  run(props.tab, next.sql, next.from, next.offset)
+}
+
+function runWarned() {
+  const w = planWarning.value
+  planWarning.value = undefined
+  if (w) run(props.tab, w.sql, w.from, w.offset)
+}
+
+function showWarnedPlan() {
+  const w = planWarning.value
+  planWarning.value = undefined
+  if (w) explain(props.tab, w.warnings[0]!.statement)
 }
 
 function confirmVariables() {
@@ -88,8 +125,9 @@ function cancelVariables() {
 }
 
 function confirmRun() {
-  if (pending.value) run(props.tab, pending.value.sql, pending.value.from, pending.value.offset)
+  const next = pending.value
   pending.value = undefined
+  if (next) proceed(next)
 }
 
 // isReadOnlyStatement is false for any script with several statements, so check them one by one:
@@ -401,7 +439,7 @@ const status = computed(() => {
           :label="t('common.run')"
           :title="t('common.run')"
           :ui="{ label: '@max-4xl:hidden' }"
-          :loading="tab.running"
+          :loading="tab.running || checking"
           :disabled="!tab.connectionId || !!tab.exporting"
           @click="execute"
         />
@@ -724,6 +762,29 @@ const status = computed(() => {
             @click="dryRunPending"
           />
           <UButton :label="t('common.run')" color="error" :disabled="tab.running" @click="confirmRun" />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="planWarning !== undefined"
+      :title="t('query.planWarningTitle')"
+      :description="t('query.planWarningDescription', { connection: connection?.name })"
+      :close="false"
+      @update:open="(v) => !v && (planWarning = undefined)"
+    >
+      <template #body>
+        <ul class="text-sm">
+          <li v-for="w in planWarning?.warnings" :key="w.table">
+            {{ t('query.planWarningScan', { table: w.table, rows: w.rows.toLocaleString(locale) }) }}
+          </li>
+        </ul>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="planWarning = undefined" />
+          <UButton :label="t('query.showPlan')" color="neutral" variant="outline" @click="showWarnedPlan" />
+          <UButton :label="t('query.planWarningRun')" color="warning" @click="runWarned" />
         </div>
       </template>
     </UModal>

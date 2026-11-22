@@ -1,6 +1,7 @@
 // Dry run of data-modifying statements and the checks before running a query.
 import { test } from 'bun:test'
-import { AppError, type ConnectionConfig } from '../core/types.ts'
+import { AppError, type CellValue, type ConnectionConfig, type ResultSet } from '../core/types.ts'
+import { clickhouseScans, mssqlScans, mysqlScans, postgresScans } from '../core/plan-check.ts'
 import { dmlKind } from '../core/sql-dml.ts'
 import { Workbench } from '../core/workbench.ts'
 import { assertEquals, assertRejects } from './assert.ts'
@@ -71,3 +72,81 @@ test.skipIf(!(await reachable(testConnections.mysql)))('mysql: dry run needs tra
     await wb.closeAll()
   }
 })
+
+const resultSet = (names: string[], rows: string[][]): ResultSet => ({
+  columns: names.map((name) => ({ name, type: 'text' })),
+  rows,
+  truncated: false,
+})
+
+test('plan parsers find the tables a plan reads completely', () => {
+  const pg: CellValue = [
+    {
+      Plan: {
+        'Node Type': 'Nested Loop',
+        Plans: [
+          { 'Node Type': 'Seq Scan', 'Relation Name': 'orders', Schema: 'public' },
+          { 'Node Type': 'Index Scan' },
+        ],
+      },
+    },
+  ]
+  const orders = [{ schema: 'public', table: 'orders' }]
+  assertEquals(postgresScans(pg), orders)
+  assertEquals(postgresScans(JSON.stringify(pg)), orders)
+
+  const v1 = {
+    query_block: {
+      nested_loop: [
+        { table: { table_name: 'o', access_type: 'ALL', rows_examined_per_scan: 5000 } },
+        { table: { access_type: 'ref' } },
+      ],
+    },
+  }
+  assertEquals(mysqlScans(JSON.stringify(v1)), [{ table: 'o', rows: 5000 }])
+  const maria = { query_block: { table: { table_name: 't', access_type: 'ALL', rows: 12 } } }
+  assertEquals(mysqlScans(JSON.stringify(maria)), [{ table: 't', rows: 12 }])
+
+  const mssql = resultSet(
+    ['PhysicalOp', 'Argument'],
+    [
+      ['Clustered Index Scan', 'OBJECT:([dbm].[dbo].[orders].[PK_orders] AS [o]), WHERE:(x)'],
+      ['Index Seek', 'OBJECT:([dbm].[dbo].[items].[IX_items]), SEEK:(y)'],
+    ],
+  )
+  assertEquals(mssqlScans(mssql), [{ schema: 'dbo', table: 'orders' }])
+
+  const ch = resultSet(['database', 'table', 'parts', 'rows', 'marks'], [['dbm', 'events', '3', '2500000', '310']])
+  assertEquals(clickhouseScans(ch), [{ schema: 'dbm', table: 'events', rows: 2_500_000 }])
+})
+
+test('plan check does nothing on embedded engines', async () => {
+  const wb = workbench(embedded[0]!)
+  assertEquals(await wb.planWarnings('tab', 'dry-duck', 'select * from range(10)'), [])
+  await wb.closeAll()
+})
+
+test.skipIf(!(await reachable(testConnections.postgres)))(
+  'postgres: warns about a full scan until an index exists',
+  async () => {
+    const config = { ...testConnections.postgres, scanRowThreshold: 1000 }
+    const wb = workbench(config)
+    const id = config.id
+    await wb.execute('tab', id, 'create table plan_t as select g as x from generate_series(1, 5000) g', 1, 10)
+    try {
+      await wb.execute('tab', id, 'analyze plan_t', 1, 10)
+      const warnings = await wb.planWarnings('tab', id, 'select * from plan_t where x = 5')
+      assertEquals(
+        warnings.map((w) => w.table),
+        ['public.plan_t'],
+      )
+      assertEquals(Math.round(warnings[0]!.rows / 1000), 5)
+      await wb.execute('tab', id, 'create index on plan_t (x)', 1, 10)
+      await wb.execute('tab', id, 'analyze plan_t', 1, 10)
+      assertEquals(await wb.planWarnings('tab', id, 'select * from plan_t where x = 5'), [])
+    } finally {
+      await wb.execute('tab', id, 'drop table plan_t', 1, 10)
+      await wb.closeAll()
+    }
+  },
+)

@@ -218,6 +218,10 @@
     "noColor": "None",
     "confirmWritesHelp": "Asks before running a statement that may change data or structures.",
     "confirmWrites": "Confirm writing statements",
+    "checkPlan": "Warn before full scans of large tables",
+    "checkPlanHelp": "Runs EXPLAIN (never ANALYZE) before each query. On by default when writing statements are confirmed.",
+    "scanRowThreshold": "Row threshold",
+    "scanRowThresholdHelp": "Warn from this many rows, by table statistics. Empty = 1,000,000",
     "delete": "Delete",
     "deleted": "Deleted",
     "installDriver": "Load database driver",
@@ -363,7 +367,12 @@
     "dryRunResult": "Would affect {n} row | Would affect {n} rows",
     "dryRunUnknown": "Dry run done; the database did not report the number of rows.",
     "dryRunHint": "Rolled back. Triggers and sequences may still have had side effects; locks were held until the rollback.",
-    "dryRunFailed": "Dry run failed"
+    "dryRunFailed": "Dry run failed",
+    "planWarningTitle": "Expensive query?",
+    "planWarningDescription": "The execution plan reads large tables completely in “{connection}”.",
+    "planWarningScan": "{table}: about {rows} rows",
+    "showPlan": "Show plan",
+    "planWarningRun": "Run anyway"
   },
   "grid": {
     "toggleColumns": "Show/hide columns",
@@ -454,6 +463,7 @@
     "dryRunUnsupported": "A dry run is not available for this database: a rollback is not guaranteed.",
     "dryRunStatement": "A dry run is only available for a single INSERT, UPDATE, DELETE or MERGE statement.",
     "dryRunNonTransactional": "{table} uses the {engine} engine, which cannot roll back changes.",
-    "dryRunReadOnly": "The connection is read-only."
+    "dryRunReadOnly": "The connection is read-only.",
+    "invalidThreshold": "Invalid row threshold."
   }
 }

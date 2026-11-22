@@ -122,6 +122,10 @@ export interface ConnectionConfig {
   color?: ConnectionColor
   /** Ask before running statements that may write (UI only; the database itself is not restricted). */
   confirmWrites?: boolean
+  /** Warn before running a query whose execution plan reads a large table completely (UI); undefined = as `confirmWrites`. */
+  checkPlan?: boolean
+  /** Rows from which a full scan is warned about; undefined = 1,000,000. */
+  scanRowThreshold?: number
 }
 
 export interface DriverCapabilities {

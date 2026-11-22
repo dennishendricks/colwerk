@@ -1,4 +1,5 @@
 import type { QueryResult, TransactionState } from '#core'
+import type { PlanWarning } from '~/utils/pre-execution'
 import type { PinnedResult, QueryTab } from './tabs'
 
 // Running statements in a tab's server-side session.
@@ -132,6 +133,15 @@ export function useExecution() {
     }
   }
 
+  /** Plan check before running; never fails: no warnings when the check is not possible. */
+  async function planWarnings(tab: QueryTab, sql: string): Promise<PlanWarning[]> {
+    const { warnings } = await api<{ warnings: PlanWarning[] }>(`/api/tabs/${tab.id}/plan-check`, {
+      method: 'POST',
+      body: { connectionId: tab.connectionId, database: tab.database, sql },
+    }).catch(() => ({ warnings: [] }))
+    return warnings
+  }
+
   async function cancel(tab: QueryTab) {
     if (tab.exporting) tab.exporting = 'cancelled'
     await api(`/api/tabs/${tab.id}/cancel`, { method: 'POST' }).catch((e) => {
@@ -180,5 +190,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, dryRun, withVariables, cancel, exportResult }
+  return { run, explain, dryRun, planWarnings, withVariables, cancel, exportResult }
 }
