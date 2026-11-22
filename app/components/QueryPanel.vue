@@ -1,6 +1,9 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
+import type { CellValue, ExportFormat, ResultColumn } from '#core'
+import { insertSql, maxInsertRows } from '~~/core/sql-literals.ts'
+import { markdownTable, uniqueNames } from '~~/core/values.ts'
 import type { SplitDialect } from '~/utils/sql-split'
 import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
@@ -10,7 +13,18 @@ const emit = defineEmits<{ newConnection: []; importConnections: [] }>()
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
 const { run, explain, withVariables, cancel, exportResult } = useExecution()
-const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
+const {
+  loadSchemas,
+  loadTables,
+  loadColumns,
+  loadForeignKeys,
+  keyOf,
+  defaultSchema,
+  completionSchema,
+  schemaModel,
+  state,
+} = useSchema()
+const { names: lintNames, writes: lintWrites } = useLintSettings()
 const { t, locale } = useI18n()
 
 const editor = useTemplateRef('editor')
@@ -20,6 +34,7 @@ const connection = computed(() => connections.value.find((c) => c.id === props.t
 const schemaTarget = computed(() =>
   props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined,
 )
+const model = computed(() => schemaTarget.value && schemaModel(schemaTarget.value))
 
 // Autocomplete needs at least the tables of the default schema.
 watch(
@@ -59,11 +74,21 @@ async function preloadColumns() {
     const table =
       tables.find((t) => t.name === ref.name) ?? tables.find((t) => t.name.toLowerCase() === ref.name.toLowerCase())
     if (table && !s.columns[keyOf(schema, table.name)]) loadColumns(target, schema, table.name)
+    // JOIN suggestions need the keys of the tables in the query.
+    if (table && !s.foreignKeys[keyOf(schema, table.name)]) loadForeignKeys(target, schema, table.name)
   }
 }
 
 // SQL that waits for confirmation because the connection asks before writes.
 const pending = ref<{ sql: string; from: number; offset: (position: number) => number }>()
+
+// Statements that change every row (#65), waiting for explicit confirmation.
+const pendingUnfiltered = ref<{
+  sql: string
+  from: number
+  offset: (position: number) => number
+  statements: string[]
+}>()
 
 // Variables first, so the write check sees the SQL that will run.
 async function execute() {
@@ -72,9 +97,19 @@ async function execute() {
   const substituted = await withVariables(props.tab, runnable.sql)
   if (!substituted) return
   const next = { ...substituted, from: runnable.from }
-  if (connection.value?.confirmWrites && mayWrite(next.sql, sqlDialect(connection.value.dialect))) {
-    pending.value = next
-  } else run(props.tab, next.sql, next.from, next.offset)
+  const c = connection.value
+  // The server refuses writes on read-only connections; there is nothing to confirm.
+  if (!c || c.readOnly) return run(props.tab, next.sql, next.from, next.offset)
+  const dialect = sqlDialect(c.dialect)
+  if (c.requireWhere ?? !!c.confirmWrites) {
+    const unfiltered = unfilteredWrites(next.sql, dialect)
+    if (unfiltered.length) {
+      pendingUnfiltered.value = { ...next, statements: unfiltered.map((r) => next.sql.slice(r.from, r.to)) }
+      return
+    }
+  }
+  if (c.confirmWrites && mayWrite(next.sql, dialect)) pending.value = next
+  else run(props.tab, next.sql, next.from, next.offset)
 }
 
 function confirmVariables() {
@@ -92,6 +127,12 @@ function confirmRun() {
   pending.value = undefined
 }
 
+function confirmUnfiltered() {
+  const p = pendingUnfiltered.value
+  if (p) run(props.tab, p.sql, p.from, p.offset)
+  pendingUnfiltered.value = undefined
+}
+
 // isReadOnlyStatement is false for any script with several statements, so check them one by one:
 // a script of SELECTs runs without asking, a single write in it asks.
 function mayWrite(sql: string, dialect: SplitDialect) {
@@ -104,10 +145,28 @@ function showPlan(analyze = false) {
 
 // SQL Server, SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
-  { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-  ...(driver.value?.dialect === 'mssql' || driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
-    ? []
-    : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
+  [
+    { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
+    ...(driver.value?.dialect === 'mssql' ||
+    driver.value?.dialect === 'sqlite' ||
+    driver.value?.dialect === 'clickhouse'
+      ? []
+      : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
+  ],
+  [
+    {
+      type: 'checkbox' as const,
+      label: t('lint.checkNames'),
+      checked: lintNames.value,
+      onUpdateChecked: (v: boolean) => (lintNames.value = v),
+    },
+    {
+      type: 'checkbox' as const,
+      label: t('lint.checkWrites'),
+      checked: lintWrites.value,
+      onUpdateChecked: (v: boolean) => (lintWrites.value = v),
+    },
+  ],
 ])
 
 async function copyPlan() {
@@ -167,12 +226,39 @@ const resultItems = computed(
 )
 
 const toast = useToast()
-const exportFormat = ref<'csv' | 'parquet'>('csv')
+const exportFormat = ref<ExportFormat>('csv')
 const exportScope = ref<'shown' | 'full'>('shown')
 const formatItems = [
   { label: 'CSV', value: 'csv' },
   { label: 'Parquet', value: 'parquet' },
+  { label: 'Excel (XLSX)', value: 'xlsx' },
+  { label: 'JSON', value: 'json' },
+  { label: 'NDJSON', value: 'ndjson' },
+  { label: 'Markdown', value: 'markdown' },
+  { label: 'SQL INSERT', value: 'insert' },
 ]
+// Target of INSERT statements (export, copy): the only table of the shown statement, else a placeholder.
+const insertTable = ref('')
+const insertBatch = ref(100)
+const shownSource = computed(() => viewedPin.value?.source ?? props.tab.source)
+const insertDialect = computed(() => sqlDialect(driverOf(shownSource.value?.connectionId)?.dialect ?? 'postgres'))
+const defaultInsertTable = computed(() => {
+  const source = shownSource.value
+  const statement = shown.value?.statement
+  if (!source || !statement) return 'export_table'
+  const refs = referencedTables(source.sql.slice(statement.from, statement.to), insertDialect.value)
+  return refs.length === 1 ? [refs[0]!.schema, refs[0]!.name].filter(Boolean).join('.') : 'export_table'
+})
+watch(shown, () => (insertTable.value = defaultInsertTable.value), { immediate: true })
+const tableParts = (text: string) =>
+  text
+    .split('.')
+    .map((p) => p.trim().replace(/^(["`[])(.*)["`\]]$/, '$2'))
+    .filter(Boolean)
+const insertTarget = computed(() => ({
+  dialect: insertDialect.value,
+  table: tableParts(insertTable.value || defaultInsertTable.value),
+}))
 // The full result runs the statement of the shown result set again, which must not repeat side effects.
 const canExportFull = computed(() => {
   const source = viewedPin.value?.source ?? props.tab.source
@@ -198,12 +284,18 @@ watch(canExportFull, (ok) => {
 
 // Without truncation the shown rows are the full result, so there is no need to run the statement again.
 async function download() {
+  const table = tableParts(insertTable.value)
+  if (exportFormat.value === 'insert' && !table.length) {
+    toast.add({ title: t('errors.insertTableRequired'), color: 'error', icon: 'i-lucide-circle-alert' })
+    return
+  }
   try {
     const path = await exportResult(
       props.tab,
       exportFormat.value,
       exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated,
       viewedPin.value,
+      { table, batchSize: insertBatch.value },
     )
     if (path) toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
     else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
@@ -267,7 +359,42 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
-const grid = useTemplateRef<{ filteredCount?: number }>('grid')
+const grid = useTemplateRef<{ filteredCount?: number; view(): { columns: ResultColumn[]; rows: CellValue[][] } }>(
+  'grid',
+)
+
+// The rows as the grid shows them (sorted, filtered, visible columns).
+async function copyAs(kind: 'markdown' | 'json' | 'insert') {
+  const view = grid.value?.view()
+  if (!view) return
+  const names = view.columns.map((c) => c.name)
+  const keys = uniqueNames(names)
+  const { rows } = view
+  let text: string
+  if (kind === 'markdown') text = markdownTable(names, rows)
+  else if (kind === 'json') {
+    text = JSON.stringify(
+      rows.map((row) => Object.fromEntries(keys.map((k, i) => [k, row[i] ?? null]))),
+      null,
+      2,
+    )
+  } else {
+    const { dialect, table } = insertTarget.value
+    const columns = view.columns.map((c, i) => ({ name: keys[i]!, type: c.type }))
+    const size = Math.min(insertBatch.value, maxInsertRows(dialect))
+    const statements = []
+    for (let i = 0; i < rows.length; i += size)
+      statements.push(insertSql(dialect, table, columns, rows.slice(i, i + size)))
+    text = statements.map((s) => `${s};`).join('\n\n')
+  }
+  await navigator.clipboard.writeText(text)
+  toast.add({ title: t('query.copied', { n: rows.length }, rows.length), color: 'success', icon: 'i-lucide-check' })
+}
+const copyItems = [
+  { label: 'Markdown', onSelect: () => copyAs('markdown') },
+  { label: 'JSON', onSelect: () => copyAs('json') },
+  { label: 'SQL INSERT', onSelect: () => copyAs('insert') },
+]
 const filterInput = useTemplateRef<{ inputRef?: HTMLInputElement }>('filterInput')
 const filter = ref('')
 
@@ -391,6 +518,16 @@ const status = computed(() => {
         :disabled="!tab.sql.trim()"
         @click="format"
       />
+      <UBadge
+        v-if="connection?.readOnly"
+        :label="t('common.readOnly')"
+        :title="t('query.readOnlyHint')"
+        icon="i-lucide-lock"
+        color="neutral"
+        variant="subtle"
+        class="shrink-0"
+        :ui="{ label: '@max-4xl:hidden' }"
+      />
       <template v-if="tab.transaction">
         <UBadge
           :label="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
@@ -456,6 +593,8 @@ const status = computed(() => {
           :dialect="driver?.dialect"
           :schema="schemaTarget ? completionSchema(schemaTarget) : {}"
           :default-schema="schemaTarget ? defaultSchema(schemaTarget) : undefined"
+          :schema-model="model"
+          :lint="{ names: lintNames, writes: lintWrites }"
           :error-at="tab.errorAt"
           @run="execute"
           @explain="showPlan()"
@@ -579,7 +718,12 @@ const status = computed(() => {
           <!-- Both grids share the quick filter; the row count in the status is the current result's. -->
           <SplitterGroup v-else-if="tab.compare && pinView" direction="horizontal" class="h-full">
             <SplitterPanel :min-size="10" class="overflow-hidden">
-              <LazyResultGrid :key="pinView.id" v-model:filter="filter" :result="pinView.set" />
+              <LazyResultGrid
+                :key="pinView.id"
+                v-model:filter="filter"
+                :result="pinView.set"
+                :insert-target="insertTarget"
+              />
             </SplitterPanel>
             <SplitterResizeHandle
               class="w-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary"
@@ -591,6 +735,7 @@ const status = computed(() => {
                 :key="tab.resultIndex"
                 v-model:filter="filter"
                 :result="currentSet"
+                :insert-target="insertTarget"
               />
             </SplitterPanel>
           </SplitterGroup>
@@ -600,6 +745,7 @@ const status = computed(() => {
             :key="viewedPin?.id ?? tab.resultIndex"
             v-model:filter="filter"
             :result="shown"
+            :insert-target="insertTarget"
           />
           <EmptyState
             v-else-if="!busy && !tab.sql.trim()"
@@ -625,7 +771,7 @@ const status = computed(() => {
             :items="formatItems"
             :aria-label="t('query.exportFormat')"
             size="xs"
-            class="w-28"
+            class="w-36"
           />
           <USelect
             v-if="shown.truncated"
@@ -635,6 +781,24 @@ const status = computed(() => {
             size="xs"
             class="w-72"
           />
+          <template v-if="exportFormat === 'insert'">
+            <UInput
+              v-model="insertTable"
+              :aria-label="t('query.insertTable')"
+              :placeholder="t('query.insertTable')"
+              size="xs"
+              class="w-44"
+            />
+            <UInputNumber
+              v-model="insertBatch"
+              :min="1"
+              :max="10000"
+              :aria-label="t('query.batchSize')"
+              :title="t('query.batchSize')"
+              size="xs"
+              class="w-28"
+            />
+          </template>
           <UButton
             icon="i-lucide-download"
             size="xs"
@@ -644,9 +808,38 @@ const status = computed(() => {
             :disabled="tab.running"
             @click="download"
           />
+          <UDropdownMenu :items="copyItems">
+            <UButton
+              icon="i-lucide-clipboard-copy"
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :label="t('query.copyAs')"
+            />
+          </UDropdownMenu>
         </div>
       </SplitterPanel>
     </SplitterGroup>
+
+    <UModal
+      :open="pendingUnfiltered !== undefined"
+      :title="t('query.unfilteredTitle')"
+      :description="t('query.unfilteredDescription', { connection: connection?.name })"
+      :close="false"
+      @update:open="(v) => !v && (pendingUnfiltered = undefined)"
+    >
+      <template #body>
+        <pre class="max-h-64 overflow-auto rounded bg-elevated p-3 font-mono text-xs">{{
+          pendingUnfiltered?.statements.join(';\n\n')
+        }}</pre>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pendingUnfiltered = undefined" />
+          <UButton :label="t('query.unfilteredRun')" color="error" @click="confirmUnfiltered" />
+        </div>
+      </template>
+    </UModal>
 
     <UModal
       :open="pending !== undefined"

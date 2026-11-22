@@ -23,7 +23,7 @@
 
 Colwerk connects to **PostgreSQL, MySQL/MariaDB, Microsoft SQL Server, ClickHouse, DuckDB and SQLite**, and reads
 lakehouses through DuckDB: **Apache Iceberg** (REST catalog), **Delta Lake** (local folder), **Databricks Unity Catalog**
-and **Microsoft Fabric OneLake**. It is open source, free, runs entirely on your machine and has no telemetry, no
+and **Microsoft Fabric OneLake**. It also queries CSV, Parquet, JSON and Excel files. It is open source, free, runs entirely on your machine and has no telemetry, no
 analytics and no account.
 
 ## Download
@@ -44,16 +44,29 @@ are listed there, along with a software bill of materials of the npm packages an
   committed or rolled back.
 - **Gentle on the database** – reads only up to the row limit, loads the schema tree on demand and takes table sizes from
   statistics instead of `COUNT(*)`.
-- **Production guard rails** – color-coded connections and optional confirmation before statements that change data or
-  structure.
+- **Production guard rails** – color-coded connections, read-only connections (enforced by the database where it can),
+  optional confirmation before statements that change data or structure, and a stop for UPDATE/DELETE without WHERE.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
+- **Schema and data compare** – compare two schemas, or one table across two connections of the same engine; deploy
+  and sync scripts can be copied or opened in a tab, nothing runs automatically.
+- **Editor comforts** – autocomplete for tables, columns, aliases (also of CTEs and subqueries) and the engine's
+  functions, JOINs along foreign keys with their `ON` clause, optional checks for unknown or ambiguous names and for
+  `UPDATE`/`DELETE` without `WHERE`, SQL formatting, execution plans, SQL templates, multiple cursors, searchable
+  history.
+- **ER diagrams** – read-only, from the foreign keys of a schema or of a table and its neighbors; export as Mermaid or
+  DBML.
+- **Result grid** – sort, filter, pin, hide and resize columns; copy rows or the whole result as JSON, CSV, Markdown or INSERT statements.
+- **Export** – CSV, Parquet, Excel (XLSX), JSON/NDJSON, Markdown and SQL INSERT statements in the connection's dialect;
+  the visible rows or the full, unlimited result, written straight to disk.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
   cursors and a searchable query history.
 - **Connection import** – from DBeaver, Beekeeper Studio, Azure Data Studio, `.pgpass` and dbt `profiles.yml`, with
   preview and duplicate check.
 - **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
   `.sqlite3`) to open it as a connection.
+- **Query files** – drop CSV, TSV, Parquet, JSON/NDJSON or Excel (`.xlsx`) files onto the window, or query `s3://`,
+  `gs://` and `https://` URLs: each becomes a view of an in-memory DuckDB scratch connection, ready to query and join.
 - **Built-in MCP server** – let your own AI assistant browse schemas and run read-only queries (see below).
 - **Local by design** – the server only listens on `127.0.0.1`, passwords are encrypted, the key lives in the OS
   keychain.
@@ -110,12 +123,17 @@ Core decisions:
 
 - **One session per tab.** Each editor tab holds exactly one database connection, so transactions, temp tables and `SET`
   options persist per tab. Open transactions are detected and shown with Commit/Rollback. Introspection uses a separate
-  metadata session per connection.
+  metadata session per connection. Foreign keys are loaded on demand too, per table for the editor and per schema for ER
+  diagrams.
 - **Unified type model.** `BIGINT`/`DECIMAL` as strings, timestamps as ISO 8601, binary as `0x` hex, everything else as
   JSON.
 - **Bounded results.** Drivers read at most `rowLimit + 1` rows and cancel the rest; each tab has a timeout (default 60
   s).
+- **Compare from catalog queries and merged streams.** Schema snapshots come from catalog queries on the metadata
+  session; data compare streams both tables ordered by key under a binary collation and merges them, holding at most
+  one batch per side.
 - **Server-side export.** CSV/Parquet files are written by the server to the path chosen in a native save dialog,
+- **Server-side export.** Export files are written by the server to the path chosen in a native save dialog,
   because the desktop webview does not handle downloads.
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
@@ -127,7 +145,9 @@ Core decisions:
 - **Lakehouses on DuckDB.** Each lakehouse connection is an in-memory DuckDB database with the format's extensions
   (installed from DuckDB's extension repository on first use). Iceberg REST catalogs and Unity catalogs are attached
   (Unity: the database picker switches the catalog); the Delta tables of a folder or of a OneLake lakehouse become
-  views (OneLake: the database picker switches the lakehouse). Queries are DuckDB SQL.
+  views (OneLake: the database picker switches the lakehouse). Queries are DuckDB SQL. Files connections (`files`) work
+  the same way: each data file or URL becomes a view (`read_csv`, `read_parquet`, `read_json`, `read_xlsx`); S3/GCS
+  keys and bearer tokens become DuckDB secrets.
 
 ### Security
 
@@ -139,7 +159,7 @@ Core decisions:
 
 Connections, open tabs and query history are stored as JSON in the data directory
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
-`COLWERK_DATA_DIR`). Passwords are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
+`COLWERK_DATA_DIR`). Passwords, keys and tokens are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
 (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
 
 The connection import only reads the other tools' files, at their default locations or a file you choose. DBeaver and
@@ -154,15 +174,31 @@ test in `tests/drivers.test.ts`. `connect()` must open exactly one connection (n
 concurrently with `execute()`.
 
 Native addons (currently DuckDB, `@duckdb/node-bindings`) are not embedded in the packages but downloaded from npm on
-first use, verified by hash and stored in the data directory.
+first use, verified by hash and stored in the data directory. DuckDB extensions (`excel`, `httpfs`, lakehouse formats)
+are installed by DuckDB on first use.
 
 ### Known limitations
 
 - Postgres/DuckDB/SQLite scripts commit each statement individually unless they contain their own `BEGIN`.
+- INSERT exports write arrays, structs and maps as JSON text; columns of such types may need a cast. XLSX holds at most
+  1,048,576 rows.
 - SQLite cannot interrupt a statement: cancelling ends the session's worker, which rolls back an open transaction and
   drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the
   background; outside a transaction its changes are committed.
+- Read-only connections: PostgreSQL and MySQL restrict the session and ClickHouse sends `readonly = 2`, which a session can
+  switch back; SQL Server and lakehouses rely on Colwerk's check of the SQL text alone. For real protection use a login
+  with read privileges only.
+- Tables created in a files connection live in memory and are gone when Colwerk quits or the connection's settings
+  change; its views over files and URLs are created again. Excel `.xls` files cannot be read (only `.xlsx`).
 - SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
+- Schema compare covers tables, columns, primary key, unique, check and foreign key constraints, indexes and views of
+  PostgreSQL 12+, MySQL/MariaDB and SQL Server. Not compared: sequences other than serial/identity, routines, triggers,
+  types and enums, comments, grants, partitioning, table options, materialized views and column order. SQLite, DuckDB,
+  ClickHouse and lakehouses have no schema compare. Dropping a PostgreSQL view that other views depend on fails.
+- Data compare covers PostgreSQL, MySQL/MariaDB, SQL Server, SQLite and DuckDB, one table at a time. It rejects
+  array, spatial and nested columns (PostgreSQL arrays and geometries, DuckDB `LIST`/`STRUCT`/`MAP`/`UNION`, MySQL
+  spatial types, SQL Server `geometry`/`geography`/`xml`/`sql_variant`/`hierarchyid`).
+- MySQL sync scripts assume `NO_BACKSLASH_ESCAPES` is off (the default).
 - Geometries of SQL Server (`geometry`, `geography`) and SpatiaLite use their own binary formats and are shown as hex;
   DuckDB, PostGIS and MySQL/MariaDB geometries are shown as WKT.
 
