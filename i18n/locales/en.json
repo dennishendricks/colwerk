@@ -95,7 +95,8 @@
     "shortcuts": "Keyboard Shortcuts",
     "releaseNotes": "Release Notes",
     "privacy": "Privacy Notice",
-    "exportDiagnostics": "Export Diagnostics …"
+    "exportDiagnostics": "Export Diagnostics …",
+    "importConnections": "Import Connections …"
   },
   "diagnostics": {
     "title": "Save diagnostics",
@@ -272,7 +273,8 @@
     "clearSshSecret": "Remove stored SSH password / passphrase",
     "sshHostKey": "Host key",
     "sshHostKeyHelp": "Recorded on the first connect; a different key is refused.",
-    "forgetHostKey": "Forget host key"
+    "forgetHostKey": "Forget host key",
+    "import": "Import"
   },
   "colors": {
     "red": "Red",
@@ -289,7 +291,8 @@
     "openFile": "Open file …",
     "queryFile": "Query data file …",
     "queryUrl": "Query URL …",
-    "recent": "Recent queries"
+    "recent": "Recent queries",
+    "importConnections": "Import connections"
   },
   "files": {
     "scratchName": "Files",
@@ -659,6 +662,46 @@
     "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
     "sshKeyRequired": "Please enter the path of the private key file.",
     "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance.",
+    "importNotFound": "File not found: {path}",
+    "importUnreadable": "The file could not be read: {detail}",
     "readOnly": "The connection is read-only: the statement may change data or structures."
+  },
+  "connectionImport": {
+    "title": "Import connections",
+    "description": "Takes over connections from other database tools. The source files are only read.",
+    "sources": {
+      "dbeaver": "DBeaver",
+      "beekeeper": "Beekeeper Studio",
+      "ads": "Azure Data Studio",
+      "pgpass": ".pgpass",
+      "dbt": "dbt profiles.yml"
+    },
+    "notFound": "Not found at the default location",
+    "scan": "Show connections",
+    "chooseFile": "Choose file …",
+    "back": "Back",
+    "selectAll": "Select all",
+    "duplicate": "Already exists as {name}",
+    "password": "Password",
+    "skipped": "Not imported ({n}) | Not imported ({n})",
+    "nothingFound": "No connections found in this file.",
+    "importN": "Import {n} connection | Import {n} connections",
+    "imported": "{n} connection imported | {n} connections imported",
+    "failed": "Not all connections could be imported:",
+    "notes": {
+      "unsupportedEngine": "{engine} is not supported",
+      "noHost": "No server or file given",
+      "wildcard": "Wildcard for {field} cannot be imported",
+      "envVar": "{field} comes from env_var('{variable}'): enter it after the import",
+      "passwordElsewhere": "The password is kept in the other app's secure storage: enter it here or later",
+      "decryptFailed": "Saved credentials could not be decrypted",
+      "authUnsupported": "Login {auth} is not supported: check the login after the import",
+      "windowsLogin": "Windows login: enter domain, user and password",
+      "sshJumpHost": "SSH jump host not imported",
+      "tlsOptions": "TLS settings not imported: check them after the import",
+      "tlsCertificates": "Client certificate not imported",
+      "relativePath": "Relative path {path}: check the file location",
+      "options": "Not imported: {options}"
+    }
   }
 }

@@ -141,6 +141,7 @@ watch(
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
+const importOpen = ref(false)
 const compareOpen = ref(false)
 const aboutOpen = ref(false)
 const quickOpen = ref(false)
@@ -276,6 +277,7 @@ useApplicationMenu({
   openShortcuts: () => (shortcutsOpen.value = true),
   openAbout: () => (aboutOpen.value = true),
   openConnection: () => openModal(),
+  openImport: () => (importOpen.value = true),
   toggleSidebar,
   openQuickOpen,
 })
@@ -314,7 +316,7 @@ useApplicationMenu({
         <div class="space-y-1 p-2">
           <div class="flex gap-1">
             <div class="min-w-0 flex-1">
-              <ConnectionPicker @edit="openModal" />
+              <ConnectionPicker @edit="openModal" @import="importOpen = true" />
             </div>
             <UButton
               v-if="activeConnection && canToggle"
@@ -512,6 +514,7 @@ useApplicationMenu({
             :aria-labelledby="`tab-${tab.id}`"
             :tab="tab"
             @new-connection="openModal()"
+            @import-connections="importOpen = true"
           />
           <div v-if="!activeTab" class="flex h-full items-center justify-center text-muted">
             <UButton
@@ -526,6 +529,7 @@ useApplicationMenu({
     </SplitterGroup>
 
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
+    <LazyConnectionImportModal v-model:open="importOpen" />
     <FileQueryModals />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />

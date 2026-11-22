@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ConnectionSummary } from '#core'
 
-const emit = defineEmits<{ edit: [connection?: ConnectionSummary] }>()
+const emit = defineEmits<{ edit: [connection?: ConnectionSummary]; import: [] }>()
 
 const { connections, activeConnectionId, driverOf } = useConnections()
 const { t } = useI18n()
@@ -31,6 +31,11 @@ function select(id: string) {
 function edit(connection?: ConnectionSummary) {
   open.value = false
   emit('edit', connection)
+}
+
+function importConnections() {
+  open.value = false
+  emit('import')
 }
 
 function toggle(folder: string) {
@@ -72,14 +77,24 @@ const dialectIcon = (id: string) => (driverOf(id)?.capabilities.supportsNetwork 
       <div class="flex max-h-[70vh] w-80 flex-col text-sm">
         <div class="flex items-center justify-between border-b border-default px-3 py-2">
           <span class="text-xs font-medium uppercase text-muted">{{ t('connection.connections') }}</span>
-          <UButton
-            icon="i-lucide-plus"
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            :label="t('connection.newShort')"
-            @click="edit()"
-          />
+          <div class="flex items-center">
+            <UButton
+              icon="i-lucide-import"
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :label="t('connection.import')"
+              @click="importConnections"
+            />
+            <UButton
+              icon="i-lucide-plus"
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :label="t('connection.newShort')"
+              @click="edit()"
+            />
+          </div>
         </div>
         <div class="min-h-0 overflow-auto p-1">
           <template v-for="g in groups" :key="g.folder ?? ''">

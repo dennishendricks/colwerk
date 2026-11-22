@@ -65,6 +65,8 @@ are listed there, along with a software bill of materials of the npm packages an
   the visible rows or the full, unlimited result, written straight to disk.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
   cursors and a searchable query history.
+- **Connection import** – from DBeaver, Beekeeper Studio, Azure Data Studio, `.pgpass` and dbt `profiles.yml`, with
+  preview and duplicate check.
 - **Opens your files** – double-click a `.sql` file to open it in a tab, a SQL Server execution plan (`.sqlplan`) to
   show it as a plan, a DuckDB or SQLite file (`.duckdb`, `.sqlite`, `.sqlite3`) to open it as a connection.
 - **Query files** – drop CSV, TSV, Parquet, JSON/NDJSON or Excel (`.xlsx`) files onto the window, or query `s3://`,
@@ -166,6 +168,11 @@ Connections, open tabs and query history are stored as JSON in the data director
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
 `COLWERK_DATA_DIR`). Passwords, keys and tokens are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
 (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
+
+The connection import only reads the other tools' files, at their default locations or a file you choose. DBeaver and
+Beekeeper Studio passwords are decrypted with those apps' built-in keys. Azure Data Studio keeps passwords in the OS
+credential store, so the preview asks for them. dbt `env_var()` values are marked, not filled in. Imported passwords
+are stored encrypted like all others.
 
 ### Drivers and native libraries
 

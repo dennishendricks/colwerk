@@ -10,6 +10,21 @@ export { createExporter, type Exporter, type ExportFormat, exportFormats, type E
 export { fileDialog } from './dialog.ts'
 export { decodeText } from './text-file.ts'
 export {
+  findImportFile,
+  type ImportCandidate,
+  type ImportNote,
+  type ImportPreview,
+  type ImportPreviewItem,
+  type ImportResult,
+  type ImportSkipped,
+  type ImportSource as ConnectionImportSource,
+  importPaths,
+  importSources,
+  previewImport as previewConnectionImport,
+  readImport,
+  sameConnection,
+} from './connection-import/index.ts'
+export {
   previewImport,
   runImport,
   type ImportPlan,
