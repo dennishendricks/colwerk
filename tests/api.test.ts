@@ -144,6 +144,51 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     assertEquals(statuses, [400, 400, 400])
   })
 
+  test('imports a file into a new table and reports unknown imports and invalid targets', async () => {
+    const post = (path: string, body: object) => call(path, { method: 'POST', body: JSON.stringify(body) })
+    const csv = `${dataDir}/import.csv`
+    await writeFile(csv, 'id,name\n1,a\n2,b\n')
+    const target = await json(
+      await post('/api/connections', { name: 'import target', dialect: 'sqlite', file: `${dataDir}/import.db` }),
+    )
+    const source = { kind: 'file', path: csv }
+    const preview = await json(await post('/api/imports/preview', { source }))
+    assertEquals(
+      preview.columns.map((c: { name: string }) => c.name),
+      ['id', 'name'],
+    )
+    const start = await json(
+      await post('/api/imports/job1/start', {
+        source,
+        target: {
+          connectionId: target.id,
+          schema: 'main',
+          table: 'imported',
+          create: 'create table "main"."imported" ("id" integer, "name" text)',
+        },
+        columns: [
+          { source: 0, name: 'id', type: 'integer' },
+          { source: 1, name: 'name', type: 'text' },
+        ],
+        strategy: 'append',
+        keys: [],
+        batchSize: 1,
+        onError: 'stop',
+      }),
+    )
+    assertEquals([start.inserted, start.error], [2, undefined])
+    const statuses = await Promise.all(
+      [
+        call('/api/imports/job1'),
+        post('/api/imports/preview', { source: { kind: 'file', path: 'relative.csv' } }),
+        post('/api/imports/job2/start', { source: { kind: 'table', connectionId: 'x', schema: 's', table: 't' } }),
+      ].map((p) => p.then((r) => (r.body?.cancel(), r.status))),
+    )
+    assertEquals(statuses, [404, 400, 400])
+    assertEquals((await json(await post('/api/imports/job1/cancel', {}))).ok, true)
+    await json(await call(`/api/connections/${target.id}`, { method: 'DELETE' }))
+  })
+
   test('compares tables of two connections and checks the engines', async () => {
     const post = (path: string, body: object) => call(path, { method: 'POST', body: JSON.stringify(body) })
     const connect = async (name: string, dialect: string) =>

@@ -29,6 +29,7 @@ export function useApplicationMenu(view: MenuViewActions) {
   const colorMode = useColorMode()
   const { macOS } = useKbd()
   const { zoomIn, zoomOut, resetZoom } = useZoom()
+  const { openImport } = useImport()
   const { pickAndQuery } = useDataFiles()
 
   watchEffect(() => {
@@ -74,6 +75,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         ),
         'separator',
         item(t('menu.exportResult'), 'export', !!tab && !tab.error && !!shown?.columns.length && !busy),
+        item(t('menu.importData'), 'import-data'),
         'separator',
         item(t('menu.closeTab'), 'close-tab', !!tab, 'CmdOrCtrl+W'),
       ]),
@@ -153,6 +155,8 @@ export function useApplicationMenu(view: MenuViewActions) {
     'new-connection': view.openConnection,
     'toggle-connection': () => toggleConnection(),
     'close-tab': () => requestClose(activeTab.value),
+    'import-data': () =>
+      openImport({ target: { connectionId: activeConnectionId.value, database: activeDatabase.value } }),
     history: view.openHistory,
     sidebar: view.toggleSidebar,
     'quick-open': view.openQuickOpen,
