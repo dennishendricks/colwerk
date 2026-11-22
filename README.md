@@ -51,7 +51,7 @@ are listed there, along with a software bill of materials of the npm packages an
   optional confirmation before statements that change data or structure, and a stop for UPDATE/DELETE without WHERE.
 - **Session monitor** – running queries and blocking chains (PostgreSQL, MySQL/MariaDB, SQL Server, ClickHouse); cancel
   a query or terminate a session after confirmation.
-- **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
+- **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV; edit, add, clone and delete rows of a single table with a key, reviewed as SQL and saved in one transaction.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
 - **Schema and data compare** – compare two schemas, or one table across two connections of the same engine; deploy
   and sync scripts can be copied or opened in a tab, nothing runs automatically.
