@@ -55,9 +55,90 @@ body,
   --sql-type: #7dd3fc;
 }
 
-/* Also covers the loading icons inside Nuxt UI components; running states are shown as text as well. */
+/*
+ * Motion: short, purposeful, transform and opacity only. The durations match Nuxt UI's own animations (100 ms for
+ * popovers, menus and tooltips, which already open from their anchor; 200 ms for modals and toasts).
+ */
+:root {
+  --motion-fast: 100ms;
+  --motion-base: 200ms;
+  /* Tailwind's ease-out and ease-in: entering decelerates, leaving accelerates. */
+  --motion-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/*
+ * Modals grow from the point that opened them and shrink back towards it: app/plugins/motion.client.ts sets the
+ * offset of that point from the viewport's center when the modal mounts. Opened by keyboard, they scale in place.
+ */
+.modal-motion {
+  transform-origin: calc(50% + var(--modal-origin-x, 0px)) calc(50% + var(--modal-origin-y, 0px));
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(var(--modal-scale, 0.95));
+  }
+}
+
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: scale(var(--modal-scale, 0.95));
+  }
+}
+
+/* Content that appears in place, e.g. an expanded tree node; collapsing is instant. */
+.motion-expand {
+  animation: slide-in-from-top-and-fade var(--motion-base) var(--motion-ease-enter);
+}
+
+/* Status that appears, e.g. the open transaction. */
+.motion-enter {
+  animation: scale-in var(--motion-fast) var(--motion-ease-enter);
+}
+
+/* `rotate-90` sets the rotate property, not transform. */
+.motion-chevron {
+  transition: rotate var(--motion-fast) var(--motion-ease-enter);
+}
+
+/* Editor tabs (TransitionGroup in app.vue): new tabs slide in, the others move into place; closing is instant. */
+.motion-tab-enter-active {
+  animation: slide-in-from-bottom-and-fade var(--motion-base) var(--motion-ease-enter);
+}
+
+.motion-tab-move {
+  transition: transform var(--motion-base) var(--motion-ease-enter);
+}
+
+/* A collapsible panel's content fades in when it is expanded. */
+.motion-panel[data-state='expanded'] > * {
+  animation: fade-in var(--motion-base) var(--motion-ease-enter);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  /* Also covers the loading icons inside Nuxt UI components; running states are shown as text as well. */
   .animate-spin {
     animation: none;
+  }
+
+  /* Fades only, like Nuxt UI's keyframes under this setting (scale-in, slide-…-and-fade). */
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes modal-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .motion-chevron,
+  .motion-tab-move {
+    transition: none;
   }
 }

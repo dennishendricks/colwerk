@@ -391,8 +391,9 @@ function fkTitle(c: ColumnInfo) {
             @contextmenu="menuTarget = { schema: schema.name }"
           >
             <UIcon
-              :name="schemaOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-              class="size-3.5 shrink-0 text-dimmed"
+              name="i-lucide-chevron-right"
+              class="motion-chevron size-3.5 shrink-0 text-dimmed"
+              :class="schemaOpen(schema.name) ? 'rotate-90' : ''"
             />
             <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-muted" />
             <span class="truncate">{{ schema.name }}</span>
@@ -403,7 +404,7 @@ function fkTitle(c: ColumnInfo) {
             />
           </button>
 
-          <div v-if="flatSchema || schemaOpen(schema.name)" :class="flatSchema ? '' : 'pl-4'">
+          <div v-if="flatSchema || schemaOpen(schema.name)" :class="flatSchema ? '' : 'motion-expand pl-4'">
             <p v-if="s.errors[keyOf(schema.name)]" class="px-3 py-1 text-xs text-error">
               {{ s.errors[keyOf(schema.name)] }}
             </p>
@@ -416,8 +417,9 @@ function fkTitle(c: ColumnInfo) {
                 @contextmenu="menuTarget = { schema: schema.name, table }"
               >
                 <UIcon
-                  :name="tableOpen(schema.name, table.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-                  class="size-3.5 shrink-0 text-dimmed"
+                  name="i-lucide-chevron-right"
+                  class="motion-chevron size-3.5 shrink-0 text-dimmed"
+                  :class="tableOpen(schema.name, table.name) ? 'rotate-90' : ''"
                 />
                 <UIcon
                   :name="table.kind === 'view' ? 'i-lucide-eye' : 'i-lucide-table-2'"
@@ -437,7 +439,7 @@ function fkTitle(c: ColumnInfo) {
                 </span>
               </button>
 
-              <div v-if="tableOpen(schema.name, table.name)" class="pl-9 pr-2">
+              <div v-if="tableOpen(schema.name, table.name)" class="motion-expand pl-9 pr-2">
                 <p v-if="s.errors[keyOf(schema.name, table.name)]" class="py-1 text-xs text-error">
                   {{ s.errors[keyOf(schema.name, table.name)] }}
                 </p>
@@ -493,16 +495,13 @@ function fkTitle(c: ColumnInfo) {
                     @click="toggleGroup(keyOf(schema.name, table.name, 'indexes'))"
                   >
                     <UIcon
-                      :name="
-                        expanded.has(keyOf(schema.name, table.name, 'indexes'))
-                          ? 'i-lucide-chevron-down'
-                          : 'i-lucide-chevron-right'
-                      "
-                      class="size-3.5 shrink-0 text-dimmed"
+                      name="i-lucide-chevron-right"
+                      class="motion-chevron size-3.5 shrink-0 text-dimmed"
+                      :class="expanded.has(keyOf(schema.name, table.name, 'indexes')) ? 'rotate-90' : ''"
                     />
                     {{ t('schema.indexes', { n: s.indexes[keyOf(schema.name, table.name)]!.length }) }}
                   </button>
-                  <div v-if="expanded.has(keyOf(schema.name, table.name, 'indexes'))" class="pl-5">
+                  <div v-if="expanded.has(keyOf(schema.name, table.name, 'indexes'))" class="motion-expand pl-5">
                     <div
                       v-for="index in s.indexes[keyOf(schema.name, table.name)]"
                       :key="index.name"
@@ -532,13 +531,14 @@ function fkTitle(c: ColumnInfo) {
                 @click="toggleGroup(keyOf(schema.name, undefined, 'routines'))"
               >
                 <UIcon
-                  :name="routinesOpen(schema.name) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-                  class="size-3.5 shrink-0 text-dimmed"
+                  name="i-lucide-chevron-right"
+                  class="motion-chevron size-3.5 shrink-0 text-dimmed"
+                  :class="routinesOpen(schema.name) ? 'rotate-90' : ''"
                 />
                 <UIcon name="i-lucide-square-function" class="size-4 shrink-0 text-muted" />
                 <span class="truncate">{{ t('schema.functions', { n: shownRoutines(schema.name)!.length }) }}</span>
               </button>
-              <div v-if="routinesOpen(schema.name)" class="pl-4">
+              <div v-if="routinesOpen(schema.name)" class="motion-expand pl-4">
                 <div
                   v-for="routine in shownRoutines(schema.name)"
                   :key="`${routine.kind}:${routine.name}`"
