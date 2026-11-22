@@ -9,7 +9,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
 import { dropActive } from '~/composables/data-files'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, load } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, driverOf, load } = useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -97,8 +97,8 @@ function onServerEvent(type: string, data: string) {
 }
 
 // Files opened with Colwerk from the system (file associations): the shell keeps them until the page has loaded
-// and takes them (src-tauri/src/main.rs). Query files open in a tab, database files as a connection, data files
-// are queried (composables/data-files.ts).
+// and takes them (src-tauri/src/main.rs). Query and plan files (.sql, .sqlplan) open in a tab, database files as a
+// connection, data files are queried (composables/data-files.ts).
 async function openSystemFiles() {
   await openPaths(await invoke<string[]>('take_opened_files'))
 }
@@ -140,11 +140,19 @@ watch(
 
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
+const auditOpen = ref(false)
 const historyOpen = ref(false)
 const importOpen = ref(false)
 const compareOpen = ref(false)
 const aboutOpen = ref(false)
 const quickOpen = ref(false)
+const sessionsOpen = ref(false)
+watch(activeConnectionId, () => (sessionsOpen.value = false))
+// The audit log opens from the MCP dialog, which makes room for it.
+function openAudit() {
+  mcpOpen.value = false
+  auditOpen.value = true
+}
 const schemaTree = useTemplateRef('schemaTree')
 // Searches the schema tree's connection, so the selected table is queried on the same one.
 const canQuickOpen = computed(() => !!activeConnectionId.value && !activeConnection.value?.disconnected)
@@ -273,6 +281,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 useApplicationMenu({
   openMcp: () => (mcpOpen.value = true),
+  openMcpAudit: () => (auditOpen.value = true),
   openHistory: () => (historyOpen.value = true),
   openShortcuts: () => (shortcutsOpen.value = true),
   openAbout: () => (aboutOpen.value = true),
@@ -327,6 +336,19 @@ useApplicationMenu({
               :title="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               :aria-label="activeConnection.disconnected ? t('app.connect') : t('app.disconnectHint')"
               @click="toggleConnection()"
+            />
+            <UButton
+              v-if="
+                activeConnection &&
+                !activeConnection.disconnected &&
+                driverOf(activeConnectionId)?.capabilities.sessionActions.length
+              "
+              icon="i-lucide-activity"
+              color="neutral"
+              variant="outline"
+              :title="t('sessions.open')"
+              :aria-label="t('sessions.open')"
+              @click="sessionsOpen = true"
             />
           </div>
           <DatabasePicker />
@@ -532,8 +554,9 @@ useApplicationMenu({
     <LazyConnectionImportModal v-model:open="importOpen" />
     <FileQueryModals />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
-    <LazyMcpModal v-model:open="mcpOpen" />
+    <LazyMcpModal v-model:open="mcpOpen" @audit="openAudit" />
     <ReleaseNotesModal />
+    <UnlockModal />
     <LazyAboutModal v-model:open="aboutOpen" />
     <LazyQuickOpen
       v-if="activeConnectionId"
@@ -542,12 +565,18 @@ useApplicationMenu({
       :database="activeDatabase"
       @select="(schema, table) => schemaTree?.selectTable(schema, table)"
     />
+    <LazySessionMonitorModal
+      v-if="activeConnectionId"
+      v-model:open="sessionsOpen"
+      :connection-id="activeConnectionId"
+    />
     <LazyCompareModal v-model:open="compareOpen" />
     <LazyHistoryModal
       v-model:open="historyOpen"
       :connection-id="activeTab?.connectionId ?? activeConnectionId"
       @select="(e) => openInNewTab(e.connectionId, e.sql)"
     />
+    <LazyAuditModal v-model:open="auditOpen" @select="(e) => openInNewTab(e.connectionId!, e.sql!)" />
     <LazyDataImportModal />
     <UModal
       :open="!!closing.length"

@@ -227,13 +227,11 @@ async function dryRunPending() {
   }
 }
 
-// SQL Server, SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
+// SQLite and ClickHouse have no plan with runtime statistics without executing the statement as usual.
 const planItems = computed(() => [
   [
     { label: 'Plan', icon: 'i-lucide-list-tree', onSelect: () => showPlan() },
-    ...(driver.value?.dialect === 'mssql' ||
-    driver.value?.dialect === 'sqlite' ||
-    driver.value?.dialect === 'clickhouse'
+    ...(driver.value?.dialect === 'sqlite' || driver.value?.dialect === 'clickhouse'
       ? []
       : [{ label: 'Analyze', icon: 'i-lucide-gauge', onSelect: () => showPlan(true) }]),
     ...(canDryRun.value ? [{ label: t('query.dryRun'), icon: 'i-lucide-flask-conical', onSelect: dryRunEditor }] : []),
@@ -515,6 +513,7 @@ async function confirmConnection() {
 
 const status = computed(() => {
   const { plan } = props.tab
+  if (plan?.file) return `${t('query.plan')} · ${plan.file}`
   if (plan) return `${t('query.plan')} · ${formatDuration(plan.durationMs)} · ${formatClock(plan.executedAt)}`
   const pin = viewedPin.value
   const r = props.tab.result
@@ -799,6 +798,7 @@ const status = computed(() => {
             :description="tab.error"
             class="m-3 w-auto whitespace-pre-wrap font-mono"
           />
+          <LazyPlanView v-else-if="tab.plan?.format === 'showplan'" :xml="tab.plan.text" />
           <pre v-else-if="tab.plan" class="h-full overflow-auto p-3 font-mono text-xs">{{ tab.plan.text }}</pre>
           <!-- Both grids share the quick filter; the row count in the status is the current result's. -->
           <SplitterGroup v-else-if="tab.compare && pinView" direction="horizontal" class="h-full">

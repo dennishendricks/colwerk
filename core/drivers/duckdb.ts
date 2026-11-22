@@ -328,7 +328,9 @@ export const duckdbDriver: Driver = {
       const memory = !config.file || config.file === ':memory:'
       const path = memory ? `:memory:${config.id}` : config.file!
       // An in-memory database cannot be opened read-only; the workbench refuses writes to it.
-      return new DuckDBSession(await connect(path, !!config.readOnly && !memory, !!config.v1Storage))
+      return new DuckDBSession(
+        await connect(path, !!config.readOnly && !memory, !!config.v1Storage, !!config.mcpSandbox),
+      )
     } catch (e) {
       throw wrap(e)
     }

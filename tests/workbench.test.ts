@@ -3,7 +3,7 @@ import { test } from 'bun:test'
 import { rm } from 'node:fs/promises'
 import { assert, assertEquals, assertMatch, assertRejects } from './assert.ts'
 import { join } from 'node:path'
-import { type AppError, type ConnectionConfig, DbError } from '../core/types.ts'
+import { AppError, type ConnectionConfig, DbError } from '../core/types.ts'
 import { Workbench } from '../core/workbench.ts'
 import { reachable, tempDir, testConnections } from './helpers.ts'
 
@@ -19,6 +19,13 @@ test('timeout cancels the statement', async () => {
   await assertRejects(() => wb.execute('tab', 'wb-timeout', SLOW, 1, 1), Error, 'did not finish within 1 s')
   assert(performance.now() - started < 5_000, 'timeout took too long')
   assertEquals((await wb.execute('tab', 'wb-timeout', 'select 1 as x', 10, 1)).resultSets[0]!.rows, [[1]])
+  await wb.closeAll()
+})
+
+test('embedded databases have no session monitor', async () => {
+  const wb = workbench({ id: 'wb-sessions', name: 'duck', dialect: 'duckdb', file: ':memory:' })
+  const err = await assertRejects(() => wb.sessions('wb-sessions'), AppError)
+  assertEquals(err.key, 'sessionsUnsupported')
   await wb.closeAll()
 })
 
@@ -145,7 +152,7 @@ const explainCases: { config: ConnectionConfig; create: string; table: string; a
     config: testConnections.mssql,
     create: 'create table #wb_explain_t (x int)',
     table: '#wb_explain_t',
-    analyze: false,
+    analyze: true,
   },
   {
     config: testConnections.clickhouse,
@@ -163,11 +170,21 @@ for (const c of explainCases) {
     const id = c.config.id
     await wb.execute('tab', id, c.create, 1, 10)
     const select = `select x from ${c.table} where x % 2 = 0;`
-    assertMatch((await wb.explain('tab', id, select, false, 10)).plan, c.plan ?? /wb_explain_t/)
-    if (c.analyze) assert((await wb.explain('tab', id, select, true, 10)).plan.trim())
+    const plan = await wb.explain('tab', id, select, false, 10)
+    if (c.config.dialect === 'mssql') {
+      assertEquals(plan.format, 'showplan')
+      assertMatch(plan.plan, /<ShowPlanXML/)
+    } else assertMatch(plan.plan, c.plan ?? /wb_explain_t/)
+    if (c.analyze) {
+      const actual = await wb.explain('tab', id, select, true, 10)
+      if (c.config.dialect === 'mssql') {
+        assertEquals(actual.format, 'showplan')
+        assertMatch(actual.plan, /<ShowPlanXML/)
+      } else assert(actual.plan.trim())
+    }
     await assertRejects(() => wb.explain('tab', id, `insert into ${c.table} values (1)`, true, 10), Error, 'read-only')
     await assertRejects(() => wb.explain('tab', id, 'select 1; select 2', false, 10), Error, 'single statement')
-    // SQL Server: SHOWPLAN is switched off again, so statements run normally afterwards.
+    // SQL Server: SHOWPLAN and STATISTICS XML are switched off again, so statements run normally afterwards.
     await wb.execute('tab', id, `insert into ${c.table} values (2)`, 1, 10)
     assertEquals((await wb.execute('tab', id, select, 10, 10)).resultSets[0]!.rows, [[2]])
     await wb.closeAll()

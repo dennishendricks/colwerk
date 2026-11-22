@@ -1,3 +1,6 @@
+-- The session monitor reads the lock waits of all sessions.
+grant process on *.* to dbm@'%';
+
 create table customers (
   id         bigint unsigned auto_increment primary key,
   email      varchar(255) not null unique,

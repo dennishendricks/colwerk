@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import type * as Bindings from '@duckdb/node-bindings'
 import { wkbToText } from '../geometry.ts'
-import { type CellValue, DbError } from '../types.ts'
+import { AppError, type CellValue, DbError } from '../types.ts'
 import { toHex } from '../values.ts'
 
 type Vector = Bindings.Vector
@@ -40,24 +40,66 @@ async function call<T>(promise: Promise<T>): Promise<T> {
 
 // One cache per access mode: switching a connection to read-only would otherwise collide with the
 // read-write instance while it is still open.
-const caches: { readWrite?: Bindings.InstanceCache; readOnly?: Bindings.InstanceCache } = {}
+// The sandbox of MCP clients has a cache of its own: its configuration differs.
+const caches: {
+  readWrite?: Bindings.InstanceCache
+  readOnly?: Bindings.InstanceCache
+  sandbox?: Bindings.InstanceCache
+} = {}
+
+// Files open for writing in this process, by path: a sandbox must not open them as a second instance
+// (DuckDB does not support two instances on one file; POSIX locks do not separate them within a process).
+const writers = new Map<string, number>()
 
 /**
  * Opens a connection to the database at `path`. Every connection holds its own database handle from the
  * instance cache, so a file is opened only once per process and configuration.
+ *
+ * `sandbox` (MCP clients): the file opens read-only in an instance without access to files, URLs and extensions;
+ * an in-memory database is an empty one of its own.
  */
-export async function connect(path: string, readOnly: boolean, v1Storage: boolean): Promise<Connection> {
+export async function connect(
+  path: string,
+  readOnly: boolean,
+  v1Storage: boolean,
+  sandbox = false,
+): Promise<Connection> {
   const d = duckdb()
-  if (v1Storage && !readOnly && !path.startsWith(':memory:') && !existsSync(path)) await createV1(path)
-  const cache = readOnly
-    ? (caches.readOnly ??= d.create_instance_cache())
-    : (caches.readWrite ??= d.create_instance_cache())
+  const memory = path.startsWith(':memory:')
+  if (sandbox && !memory && writers.get(path)) {
+    throw new AppError(
+      'mcpDuckdbInUse',
+      `Colwerk has ${path} open for writing; MCP can only read it in its sandbox when it is not. Disconnect the connection, open it read-only, or allow MCP access to files and URLs for it.`,
+      { params: { file: path } },
+    )
+  }
+  const ro = readOnly || (sandbox && !memory)
+  if (v1Storage && !ro && !memory && !existsSync(path)) await createV1(path)
+  const cache = sandbox
+    ? (caches.sandbox ??= d.create_instance_cache())
+    : ro
+      ? (caches.readOnly ??= d.create_instance_cache())
+      : (caches.readWrite ??= d.create_instance_cache())
   const config = d.create_config()
-  if (readOnly) d.set_config(config, 'access_mode', 'READ_ONLY')
+  if (ro) d.set_config(config, 'access_mode', 'READ_ONLY')
+  if (sandbox) {
+    d.set_config(config, 'enable_external_access', 'false')
+    // A statement cannot switch it back.
+    d.set_config(config, 'lock_configuration', 'true')
+  }
   const db = await call(d.get_or_create_from_cache(cache, path, config))
+  const writing = !ro && !memory
+  if (writing) writers.set(path, (writers.get(path) ?? 0) + 1)
+  const release = () => {
+    if (!writing) return
+    const n = writers.get(path)! - 1
+    if (n) writers.set(path, n)
+    else writers.delete(path)
+  }
   try {
-    return new Connection(db, await call(d.connect(db)))
+    return new Connection(db, await call(d.connect(db)), release)
   } catch (e) {
+    release()
     d.close_sync(db)
     throw e
   }
@@ -81,6 +123,7 @@ export class Connection {
   constructor(
     private db: Bindings.Database,
     private conn: Bindings.Connection,
+    private onClose: () => void = () => {},
   ) {}
 
   /** Runs one statement; the result streams and must be closed. `params` are bound as VARCHAR. */
@@ -114,6 +157,7 @@ export class Connection {
     this.closed = true
     duckdb().disconnect_sync(this.conn)
     duckdb().close_sync(this.db)
+    this.onClose()
   }
 }
 

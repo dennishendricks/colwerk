@@ -1,2 +1,2 @@
-// Dialect helpers from core, re-exported for the app's auto-imports.
-export { isLakehouse, sqlDialect } from '../../core/types.ts'
+// Helpers from core/types.ts, re-exported for the app's auto-imports.
+export { isLakehouse, mcpLoginAuths, secretProviders, sqlDialect } from '../../core/types.ts'
