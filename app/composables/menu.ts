@@ -1,5 +1,6 @@
 import { exit } from '@tauri-apps/plugin-process'
 import type { ApplicationMenuItem } from '~/utils/application-menu'
+import { urlPromptOpen } from './data-files'
 
 /** Actions of the menu that open or toggle parts of the page owned by the caller. */
 interface MenuViewActions {
@@ -9,6 +10,7 @@ interface MenuViewActions {
   openShortcuts: () => void
   openAbout: () => void
   openConnection: () => void
+  openImport: () => void
   toggleSidebar: () => void
   openQuickOpen: () => void
 }
@@ -29,6 +31,8 @@ export function useApplicationMenu(view: MenuViewActions) {
   const colorMode = useColorMode()
   const { macOS } = useKbd()
   const { zoomIn, zoomOut, resetZoom } = useZoom()
+  const { openImport } = useImport()
+  const { pickAndQuery } = useDataFiles()
 
   watchEffect(() => {
     if (!isDesktop) return
@@ -61,10 +65,13 @@ export function useApplicationMenu(view: MenuViewActions) {
         item(t('menu.duplicateTab'), 'duplicate-tab', !!tab, 'CmdOrCtrl+Shift+D'),
         'separator',
         item(t('menu.open'), 'open', true, 'CmdOrCtrl+O'),
+        item(t('menu.queryFile'), 'query-file'),
+        item(t('menu.queryUrl'), 'query-url'),
         item(t('menu.save'), 'save', !!tab, 'CmdOrCtrl+S'),
         item(t('menu.saveAs'), 'save-as', !!tab, 'CmdOrCtrl+Shift+S'),
         'separator',
         item(t('menu.newConnection'), 'new-connection'),
+        item(t('menu.importConnections'), 'import-connections'),
         item(
           activeConnection.value?.disconnected ? t('menu.connect') : t('menu.disconnect'),
           'toggle-connection',
@@ -72,6 +79,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         ),
         'separator',
         item(t('menu.exportResult'), 'export', !!tab && !tab.error && !!shown?.columns.length && !busy),
+        item(t('menu.importData'), 'import-data'),
         'separator',
         item(t('menu.closeTab'), 'close-tab', !!tab, 'CmdOrCtrl+W'),
       ]),
@@ -145,11 +153,16 @@ export function useApplicationMenu(view: MenuViewActions) {
     'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
     'duplicate-tab': () => duplicateTab(activeTab.value),
     open: () => openFile(activeConnectionId.value, activeDatabase.value),
+    'query-file': () => pickAndQuery(),
+    'query-url': () => (urlPromptOpen.value = true),
     save: () => saveFile(activeTab.value),
     'save-as': () => saveFile(activeTab.value, true),
     'new-connection': view.openConnection,
+    'import-connections': view.openImport,
     'toggle-connection': () => toggleConnection(),
     'close-tab': () => requestClose(activeTab.value),
+    'import-data': () =>
+      openImport({ target: { connectionId: activeConnectionId.value, database: activeDatabase.value } }),
     history: view.openHistory,
     sidebar: view.toggleSidebar,
     'quick-open': view.openQuickOpen,

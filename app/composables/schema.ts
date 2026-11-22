@@ -1,5 +1,15 @@
 /* eslint-disable @typescript-eslint/no-dynamic-delete -- the reactive records below are keyed maps; deleting entries is intended. */
-import type { ColumnInfo, DatabaseInfo, IndexInfo, IntrospectRequest, RoutineInfo, SchemaInfo, TableInfo } from '#core'
+import type {
+  ColumnInfo,
+  DatabaseInfo,
+  ForeignKeyInfo,
+  IndexInfo,
+  IntrospectRequest,
+  RoutineInfo,
+  SchemaInfo,
+  TableInfo,
+} from '#core'
+import type { SchemaModel } from '~/utils/sql-scope'
 
 // Schema tree: loaded lazily per level; the server caches, `refresh` bypasses both caches.
 
@@ -17,6 +27,8 @@ interface SchemaState {
   /** Keyed like `columns`. */
   indexes: Record<string, IndexInfo[]>
   routines: Record<string, RoutineInfo[]>
+  /** Keyed like `columns` (one table), or by `keyOf(schema)` (a whole schema). */
+  foreignKeys: Record<string, ForeignKeyInfo[]>
   loading: Record<string, boolean>
   errors: Record<string, string>
 }
@@ -43,6 +55,7 @@ export function useSchema() {
       columns: {},
       indexes: {},
       routines: {},
+      foreignKeys: {},
       loading: {},
       errors: {},
     })
@@ -81,7 +94,7 @@ export function useSchema() {
   }
 
   /** `group` keys the indexes of a table or the routines of a schema (loading state, expansion). */
-  const keyOf = (schema: string, table?: string, group?: 'indexes' | 'routines') =>
+  const keyOf = (schema: string, table?: string, group?: 'indexes' | 'routines' | 'foreignKeys') =>
     JSON.stringify([schema, table ?? null, ...(group ? [group] : [])])
 
   /** Databases the login can switch to; listed through the connection's default database. */
@@ -102,6 +115,7 @@ export function useSchema() {
         s.columns = {}
         s.indexes = {}
         s.routines = {}
+        s.foreignKeys = {}
       }
     })
 
@@ -141,6 +155,16 @@ export function useSchema() {
       (s, v) => (s.routines[schema] = v),
     )
 
+  /** Foreign keys of a table (either side), or of the schema when `table` is not set. */
+  const loadForeignKeys = (target: SchemaTarget, schema: string, table?: string, refresh = false) =>
+    introspect<ForeignKeyInfo[]>(
+      target,
+      keyOf(schema, table, 'foreignKeys'),
+      { kind: 'foreignKeys', schema, ...(table ? { table } : {}) },
+      refresh,
+      (s, v) => (s.foreignKeys[keyOf(schema, table)] = v),
+    )
+
   /** Current definition of a table, view or routine (not cached). */
   const loadDdl = (target: SchemaTarget, schema: string, name: string, object: 'table' | 'view' | 'routine') =>
     api<{ ddl: string }>(`/api/connections/${target.connectionId}/introspect`, {
@@ -166,6 +190,25 @@ export function useSchema() {
     return out
   }
 
+  /** What the editor's completion and linting know: loaded tables and columns, foreign keys and functions. */
+  function schemaModel(target: SchemaTarget): SchemaModel {
+    const s = state(target)
+    const defSchema = defaultSchema(target)
+    const keys = new Map<string, ForeignKeyInfo>()
+    for (const fk of Object.values(s.foreignKeys).flat()) keys.set(JSON.stringify(fk), fk)
+    return {
+      defaultSchema: defSchema,
+      tables: Object.fromEntries(
+        Object.entries(s.tables).map(([schema, tables]) => [
+          schema,
+          Object.fromEntries(tables.map((t) => [t.name, s.columns[keyOf(schema, t.name)]?.map((c) => c.name) ?? null])),
+        ]),
+      ),
+      foreignKeys: [...keys.values()],
+      functions: (defSchema && s.routines[defSchema]?.filter((r) => r.kind === 'function').map((r) => r.name)) || [],
+    }
+  }
+
   return {
     state,
     keyOf,
@@ -175,8 +218,10 @@ export function useSchema() {
     loadColumns,
     loadIndexes,
     loadRoutines,
+    loadForeignKeys,
     loadDdl,
     defaultSchema,
     completionSchema,
+    schemaModel,
   }
 }

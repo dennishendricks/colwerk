@@ -144,6 +144,123 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     assertEquals(statuses, [400, 400, 400])
   })
 
+  test('imports connections from a chosen file without sending secrets to the UI', async () => {
+    const path = `${dataDir}/pgpass`
+    await writeFile(path, 'import.example.com:5432:app:alice:pgpass-secret\nimport.example.com:5432:app:alice:again\n')
+    const post = (url: string, body: object) => call(url, { method: 'POST', body: JSON.stringify(body) })
+    const sources = await json(await call('/api/connections/import'))
+    assertEquals(sources.map((s: { source: string }) => s.source).sort(), [
+      'ads',
+      'beekeeper',
+      'dbeaver',
+      'dbt',
+      'pgpass',
+    ])
+    assertEquals((await post('/api/connections/import/scan', { source: 'pgpass', path: 'relative' })).status, 400)
+    const missing = await post('/api/connections/import/scan', { source: 'pgpass', path: `${dataDir}/nope` })
+    assertEquals((await missing.json()).data.key, 'importNotFound')
+    const preview = await json(await post('/api/connections/import/scan', { source: 'pgpass', path }))
+    assertEquals(
+      preview.items.map((i: { duplicate?: string }) => i.duplicate),
+      [undefined, 'alice@import.example.com:5432/app'],
+    )
+    assertEquals(JSON.stringify(preview).includes('pgpass-secret'), false)
+    const keys = preview.items.map((i: { key: string }) => i.key)
+    const result = await json(await post('/api/connections/import', { source: 'pgpass', path, keys }))
+    assertEquals(result, { imported: 1, failed: [] })
+    const listed = await json(await call('/api/connections'))
+    const imported = listed.find((c: { name: string }) => c.name === 'alice@import.example.com:5432/app')
+    assertEquals([imported.hasPassword, imported.password], [true, undefined])
+    // Importing again finds it as a duplicate.
+    assertEquals(await json(await post('/api/connections/import', { source: 'pgpass', path, keys })), {
+      imported: 0,
+      failed: [],
+    })
+    // The other tests expect a store without it.
+    await json(await call(`/api/connections/${imported.id}`, { method: 'DELETE' }))
+  })
+
+  test('imports a file into a new table and reports unknown imports and invalid targets', async () => {
+    const post = (path: string, body: object) => call(path, { method: 'POST', body: JSON.stringify(body) })
+    const csv = `${dataDir}/import.csv`
+    await writeFile(csv, 'id,name\n1,a\n2,b\n')
+    const target = await json(
+      await post('/api/connections', { name: 'import target', dialect: 'sqlite', file: `${dataDir}/import.db` }),
+    )
+    const source = { kind: 'file', path: csv }
+    const preview = await json(await post('/api/imports/preview', { source }))
+    assertEquals(
+      preview.columns.map((c: { name: string }) => c.name),
+      ['id', 'name'],
+    )
+    const start = await json(
+      await post('/api/imports/job1/start', {
+        source,
+        target: {
+          connectionId: target.id,
+          schema: 'main',
+          table: 'imported',
+          create: 'create table "main"."imported" ("id" integer, "name" text)',
+        },
+        columns: [
+          { source: 0, name: 'id', type: 'integer' },
+          { source: 1, name: 'name', type: 'text' },
+        ],
+        strategy: 'append',
+        keys: [],
+        batchSize: 1,
+        onError: 'stop',
+      }),
+    )
+    assertEquals([start.inserted, start.error], [2, undefined])
+    const statuses = await Promise.all(
+      [
+        call('/api/imports/job1'),
+        post('/api/imports/preview', { source: { kind: 'file', path: 'relative.csv' } }),
+        post('/api/imports/job2/start', { source: { kind: 'table', connectionId: 'x', schema: 's', table: 't' } }),
+      ].map((p) => p.then((r) => (r.body?.cancel(), r.status))),
+    )
+    assertEquals(statuses, [404, 400, 400])
+    assertEquals((await json(await post('/api/imports/job1/cancel', {}))).ok, true)
+    await json(await call(`/api/connections/${target.id}`, { method: 'DELETE' }))
+  })
+
+  test('compares tables of two connections and checks the engines', async () => {
+    const post = (path: string, body: object) => call(path, { method: 'POST', body: JSON.stringify(body) })
+    const connect = async (name: string, dialect: string) =>
+      (await json(await post('/api/connections', { name, dialect, file: ':memory:' }))).id as string
+    const [a, b, sqlite] = [await connect('A', 'duckdb'), await connect('B', 'duckdb'), await connect('C', 'sqlite')]
+    const exec = async (id: string, sql: string) =>
+      json(await post(`/api/tabs/compare-${id}/execute`, { connectionId: id, sql, rowLimit: 10 }))
+    await exec(
+      a,
+      `create table t (id integer primary key, name varchar); insert into t values (1, 'x'), (2, 'y'), (3, 'z')`,
+    )
+    await exec(
+      b,
+      `create table t (id integer primary key, name varchar); insert into t values (2, 'y'), (3, 'q'), (4, 'w')`,
+    )
+    const ref = (connectionId: string) => ({ connectionId, schema: 'main', table: 't' })
+    const result = await json(await post('/api/compare/data', { id: 'api-compare', source: ref(a), target: ref(b) }))
+    assertEquals(result.counts, { same: 1, onlyInSource: 1, onlyInTarget: 1, different: 1 })
+    assertStringIncludes(result.script, `insert into "main"."t" ("id", "name") values (1, 'x');`)
+    // Neither the same engine nor an engine with schema compare.
+    const mixed = await post('/api/compare/data', { id: 'api-compare', source: ref(a), target: ref(sqlite) })
+    assertEquals([mixed.status, (await mixed.json()).data.key], [400, 'compareDialects'])
+    const schema = await post('/api/compare/schema', { source: ref(a), target: ref(b) })
+    assertEquals([schema.status, (await schema.json()).data.key], [400, 'compareUnsupported'])
+    const relative = await post('/api/compare/data', {
+      id: 'api-compare',
+      source: ref(a),
+      target: ref(b),
+      path: 'x.sql',
+    })
+    assertEquals((relative.body?.cancel(), relative.status), 400)
+    assertEquals(await json(await post('/api/compare/api-compare/cancel', {})), { ok: true })
+    for (const id of [a, b, sqlite]) await json(await call(`/api/connections/${id}`, { method: 'DELETE' }))
+    await json(await call('/api/history', { method: 'DELETE' }))
+  })
+
   describe.skipIf(!pgUp)('postgres', () => {
     const pg = testConnections.postgres
     let saved: { id: string; hasPassword: boolean }

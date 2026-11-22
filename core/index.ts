@@ -1,5 +1,5 @@
 export * from './types.ts'
-export { drivers, driverStatus, installDriver, loadDriver } from './registry.ts'
+export { addFileSources, drivers, driverStatus, installDriver, loadDriver } from './registry.ts'
 export { type ConnectionInput, ConnectionStore, type ConnectionSummary } from './store.ts'
 export { defaultDataDir } from './data-dir.ts'
 export { addToHistory, type HistoryEntry } from './history.ts'
@@ -8,5 +8,29 @@ export { Workbench } from './workbench.ts'
 export { mcpConfig, ownMcpSessions } from './mcp-session.ts'
 export { withoutLogin } from './login.ts'
 export { isReadOnlyStatement, isSelectStatement, type SplitDialect } from './sql-split.ts'
-export { createExporter, type Exporter, type ExportFormat } from './export.ts'
+export { createExporter, type Exporter, type ExportFormat, exportFormats, type ExportOptions } from './export.ts'
 export { fileDialog } from './dialog.ts'
+export {
+  findImportFile,
+  type ImportCandidate,
+  type ImportNote,
+  type ImportPreview,
+  type ImportPreviewItem,
+  type ImportResult,
+  type ImportSkipped,
+  type ImportSource as ConnectionImportSource,
+  importPaths,
+  importSources,
+  previewImport as previewConnectionImport,
+  readImport,
+  sameConnection,
+} from './connection-import/index.ts'
+export {
+  previewImport,
+  runImport,
+  type ImportPlan,
+  type ImportProgress,
+  type ImportSource,
+  type ImportSummary,
+} from './import.ts'
+export * from './compare/index.ts'

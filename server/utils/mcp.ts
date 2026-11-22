@@ -151,7 +151,10 @@ export async function readQuery(connectionId: string, sql: string, rowLimit: num
   try {
     const result = await dbCall(async () => {
       const id = sessionId(connection)
-      await workbench.execute(tabId, id, GUARD[dialect], 1, QUERY_TIMEOUT_SECONDS)
+      // On read-only connections the request setting already protects; setting `readonly` again may be refused.
+      if (!(dialect === 'clickhouse' && connection.readOnly)) {
+        await workbench.execute(tabId, id, GUARD[dialect], 1, QUERY_TIMEOUT_SECONDS)
+      }
       return workbench.execute(tabId, id, sql, rowLimit, QUERY_TIMEOUT_SECONDS)
     })
     if (details) details.rowCount = result.resultSets[0]?.rows.length ?? 0
