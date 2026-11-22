@@ -94,6 +94,25 @@ test('store: the SSH secret is encrypted like the password, and the host key is 
     assertEquals((await store.list())[0]!.hasSshSecret, false)
   }))
 
+test('store: the MCP password is encrypted like the password and never listed', () =>
+  withDir(async (dir) => {
+    const store = new ConnectionStore(dir, new FakeKeychain())
+    await store.save({ ...conn, mcpLogin: true, mcpUser: 'reader', mcpPassword: 'mcp-geheim' })
+    const file = await readFile(join(dir, 'connections.json'), 'utf8')
+    assertEquals(file.includes('mcp-geheim'), false)
+    assertEquals(file.includes('"mcpPasswordEnc": "v1:'), true)
+    const [summary] = await store.list()
+    assertEquals(
+      [summary!.hasMcpPassword, 'mcpPassword' in summary!, 'mcpPasswordEnc' in summary!],
+      [true, false, false],
+    )
+    assertEquals((await store.get('c1')).mcpPassword, 'mcp-geheim')
+    await store.save({ ...conn, mcpLogin: true, mcpPassword: undefined })
+    assertEquals((await store.get('c1')).mcpPassword, 'mcp-geheim')
+    await store.save({ ...conn, mcpLogin: true, mcpPassword: '' })
+    assertEquals((await store.list())[0]!.hasMcpPassword, false)
+  }))
+
 test('store: color and write confirmation reach the summary', () =>
   withDir(async (dir) => {
     const store = new ConnectionStore(dir, new FakeKeychain())

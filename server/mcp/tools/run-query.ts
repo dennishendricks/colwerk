@@ -17,17 +17,19 @@ WHEN NOT TO USE: When the user wants to see, edit or run the query themselves; u
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, sql, limit }) {
-    const result = await readQuery(connectionId, sql, limit)
-    const set = result.resultSets[0]
-    return {
-      columns: set?.columns ?? [],
-      rows: set?.rows ?? [],
-      rowCount: set?.rows.length ?? 0,
-      durationMs: Math.round(result.durationMs),
-      truncated: set?.truncated ?? false,
-      ...(set?.truncated && {
-        note: `The result has more than ${limit} rows and was cut off. Narrow it down with filters or aggregations.`,
-      }),
-    }
+    return audited('run-query', connectionId, async () => {
+      const result = await readQuery(connectionId, sql, limit)
+      const set = result.resultSets[0]
+      return {
+        columns: set?.columns ?? [],
+        rows: set?.rows ?? [],
+        rowCount: set?.rows.length ?? 0,
+        durationMs: Math.round(result.durationMs),
+        truncated: set?.truncated ?? false,
+        ...(set?.truncated && {
+          note: `The result has more than ${limit} rows and was cut off. Narrow it down with filters or aggregations.`,
+        }),
+      }
+    })
   },
 })

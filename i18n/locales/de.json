@@ -57,6 +57,7 @@
     "about": "Über Colwerk",
     "quit": "Beenden",
     "setupMcp": "MCP einrichten …",
+    "mcpAudit": "MCP-Protokoll …",
     "checkUpdates": "Nach Updates suchen …",
     "file": "Ablage",
     "newTab": "Neuer Tab",
@@ -296,6 +297,14 @@
     "sshHostKey": "Host-Key",
     "sshHostKeyHelp": "Wird beim ersten Verbinden gespeichert; ein anderer Key wird abgelehnt.",
     "forgetHostKey": "Host-Key vergessen",
+    "mcpLogin": "Eigene Anmeldung für KI-Assistenten (MCP)",
+    "mcpLoginHelp": "MCP-Clients melden sich mit dieser Anmeldung an statt mit der obigen, nie mit jener. Gib ihr eine Datenbankrolle, die nur lesen darf, was der Assistent braucht.",
+    "mcpUser": "MCP-Benutzer",
+    "mcpPassword": "MCP-Passwort",
+    "mcpToken": "MCP-Token",
+    "clearMcpPassword": "Gespeichertes MCP-Passwort entfernen",
+    "mcpExternalAccess": "KI-Assistenten (MCP) Dateien und URLs lesen lassen",
+    "mcpExternalAccessHelp": "Aus: MCP-Abfragen öffnen die Datenbank schreibgeschützt in einer eigenen DuckDB-Instanz, die keine Dateien oder URLs lesen kann (read_csv, read_text, httpfs). An: Sie laufen in der Instanz des Editors mit deren Zugriff.",
     "import": "Importieren"
   },
   "colors": {
@@ -451,7 +460,33 @@
     "description": "KI-Assistenten lesen über MCP Strukturen und führen SELECT-Abfragen auf deinen Verbindungen aus. Colwerk muss dafür laufen.",
     "claudeDesktop": "Einstellungen → Entwickler → Konfiguration bearbeiten, in {file} eintragen und Claude neu starten:",
     "codex": "ChatGPT bindet nur MCP-Server über HTTPS aus dem Internet ein, nicht lokale Programme wie Colwerk. Codex (CLI und App) unterstützt sie, per Befehl oder in {file}:",
-    "others": "Andere Clients (z. B. Cursor, VS Code) nehmen denselben Befehl als stdio-Server auf."
+    "others": "Andere Clients (z. B. Cursor, VS Code) nehmen denselben Befehl als stdio-Server auf.",
+    "openAudit": "Protokoll",
+    "injectionTitle": "Abfrageergebnisse können Prompt Injection enthalten",
+    "injectionNotice": "Zeilen, die der Assistent erhält, können von anderen geschriebenen Text enthalten, der ihm Anweisungen geben will. Nur-Lese-Zugriff hindert den Assistenten nicht daran, mit seinen anderen Werkzeugen danach zu handeln, etwa mit Datei-, Shell- oder Webzugriff. Verbinde nur Daten, denen du vertraust, und prüfe, was der Assistent tut.",
+    "hardening": "In den Verbindungseinstellungen (Erweitert) kannst du MCP eine eigene Anmeldung geben, z. B. eine Datenbankrolle mit minimalen Leserechten. MCP-Abfragen auf DuckDB können keine Dateien oder URLs lesen, außer du erlaubst es für die Verbindung."
+  },
+  "audit": {
+    "title": "MCP-Protokoll",
+    "description": "Jeder Werkzeugaufruf eines KI-Assistenten, ohne Ergebnisdaten. Ein Klick öffnet die Abfrage in einem neuen Tab.",
+    "connection": "Verbindung",
+    "allConnections": "Alle Verbindungen",
+    "period": "Zeitraum",
+    "periods": {
+      "hour": "Letzte Stunde",
+      "day": "Letzte 24 Stunden",
+      "week": "Letzte 7 Tage",
+      "all": "Alle"
+    },
+    "empty": "Keine Einträge gefunden.",
+    "deletedConnection": "Gelöschte Verbindung",
+    "unknownClient": "Unbekannter Client",
+    "failed": "Fehlgeschlagen",
+    "timedOut": "Zeitüberschreitung",
+    "retention": "Einträge aufbewahren",
+    "retentionDays": "{n} Tage",
+    "limited": "Die neuesten {n} Einträge werden angezeigt.",
+    "clear": "Protokoll leeren"
   },
   "shortcuts": {
     "title": "Tastenkürzel",
@@ -735,6 +770,7 @@
     "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
     "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
     "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren.",
+    "mcpDuckdbInUse": "Colwerk hat {file} zum Schreiben geöffnet, daher kann MCP die Datei nicht in seiner Sandbox lesen. Trenne die Verbindung, öffne sie schreibgeschützt oder erlaube MCP für sie Dateien und URLs zu lesen.",
     "invalidSecretRef": "Die Geheimnis-Referenz ist unvollständig oder ungültig.",
     "secretCliMissing": "{cli} wurde nicht gefunden. Installiere es und stelle sicher, dass es im PATH liegt.",
     "secretLocked": "{name} ist gesperrt. Entsperre es und versuch es noch einmal.",

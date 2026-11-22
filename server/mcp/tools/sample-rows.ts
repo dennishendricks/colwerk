@@ -15,12 +15,14 @@ WHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-q
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, schema, table, limit }) {
-    const { dialect } = await connectionOf(connectionId)
-    await tableOf(connectionId, schema, table)
-    const sql = `select * from ${quoteIdent(schema, dialect)}.${quoteIdent(table, dialect)}`
-    const set = (await readQuery(connectionId, sql, limit)).resultSets[0]
-    return {
-      rows: set?.rows.map((row) => Object.fromEntries(set.columns.map((c, i) => [c.name, row[i]]))) ?? [],
-    }
+    return audited('sample-rows', connectionId, async () => {
+      const { dialect } = await connectionOf(connectionId)
+      await tableOf(connectionId, schema, table)
+      const sql = `select * from ${quoteIdent(schema, dialect)}.${quoteIdent(table, dialect)}`
+      const set = (await readQuery(connectionId, sql, limit)).resultSets[0]
+      return {
+        rows: set?.rows.map((row) => Object.fromEntries(set.columns.map((c, i) => [c.name, row[i]]))) ?? [],
+      }
+    })
   },
 })
