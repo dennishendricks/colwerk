@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ImportPreview, ImportPreviewItem, ImportSource } from '#core'
+import type { ImportPreview, ImportPreviewItem, ConnectionImportSource } from '#core'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -7,9 +7,9 @@ const { drivers, load } = useConnections()
 const { t } = useI18n()
 const toast = useToast()
 
-const sources = ref<{ source: ImportSource; path: string | null }[]>([])
-const preview = ref<ImportPreview & { source: ImportSource }>()
-const scanning = ref<ImportSource>()
+const sources = ref<{ source: ConnectionImportSource; path: string | null }[]>([])
+const preview = ref<ImportPreview & { source: ConnectionImportSource }>()
+const scanning = ref<ConnectionImportSource>()
 const importing = ref(false)
 const error = ref<string>()
 const failed = ref<{ name: string; message: string }[]>([])
@@ -33,7 +33,7 @@ watch(
 )
 
 // Without `path` the source's default file is read.
-async function scan(source: ImportSource, path?: string) {
+async function scan(source: ConnectionImportSource, path?: string) {
   scanning.value = source
   error.value = undefined
   try {
@@ -49,7 +49,7 @@ async function scan(source: ImportSource, path?: string) {
   }
 }
 
-async function choose(source: ImportSource) {
+async function choose(source: ConnectionImportSource) {
   try {
     const path = await fileDialog('open', t('connectionImport.chooseFile'))
     if (path) await scan(source, path)

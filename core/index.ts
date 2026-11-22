@@ -16,11 +16,19 @@ export {
   type ImportPreviewItem,
   type ImportResult,
   type ImportSkipped,
-  type ImportSource,
+  type ImportSource as ConnectionImportSource,
   importPaths,
   importSources,
-  previewImport,
+  previewImport as previewConnectionImport,
   readImport,
   sameConnection,
 } from './connection-import/index.ts'
+export {
+  previewImport,
+  runImport,
+  type ImportPlan,
+  type ImportProgress,
+  type ImportSource,
+  type ImportSummary,
+} from './import.ts'
 export * from './compare/index.ts'

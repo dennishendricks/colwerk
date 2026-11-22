@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path'
-import { previewImport, readImport } from '#core'
+import { previewConnectionImport, readImport } from '#core'
 
 // Imports the selected connections (`keys`, see ImportCandidate.key) of a source's file; the file is read again,
 // so that passwords and SSH secrets never pass through the UI. `passwords` holds those the user typed in.
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'path (absolute) and keys are required' })
   }
   const result = await dbCall(() => readImport(known, path))
-  const { items } = previewImport(result, await store.list(), path)
+  const { items } = previewConnectionImport(result, await store.list(), path)
   const imported: string[] = []
   const failed: { name: string; message: string }[] = []
   for (const [i, c] of result.candidates.entries()) {

@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path'
-import { AppError, findImportFile, importPaths, previewImport, readImport } from '#core'
+import { AppError, findImportFile, importPaths, previewConnectionImport, readImport } from '#core'
 
 // Reads the connections of a source's file without saving anything; `path` is the chosen file, else the default one.
 export default defineEventHandler(async (event) => {
@@ -14,6 +14,6 @@ export default defineEventHandler(async (event) => {
       const missing = importPaths(known)[0]!
       throw new AppError('importNotFound', `File not found: ${missing}`, { params: { path: missing } })
     }
-    return previewImport(await readImport(known, file), await store.list(), file)
+    return previewConnectionImport(await readImport(known, file), await store.list(), file)
   })
 })
