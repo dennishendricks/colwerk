@@ -19,11 +19,20 @@ const fetcher = $fetch.create({
   },
 }) as (url: string, options?: object) => Promise<unknown>
 
-export function api<T = unknown>(
+/** A password manager to unlock for secret references, set when the server reports it locked (UnlockModal.vue). */
+export const vaultToUnlock = ref<{ provider: string; name: string; database: string; keyFile: string }>()
+
+export async function api<T = unknown>(
   url: string,
   options?: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown },
 ): Promise<T> {
-  return fetcher(url, options) as Promise<T>
+  try {
+    return (await fetcher(url, options)) as T
+  } catch (e) {
+    const data = (e as { data?: { data?: { key?: string; params?: Record<string, string> } } }).data?.data
+    if (data?.key === 'secretLocked' && data.params) vaultToUnlock.value = data.params as typeof vaultToUnlock.value
+    throw e
+  }
 }
 
 /** The error's text; errors of Colwerk itself (`key` from the server, see server/utils/colwerk.ts) in the UI's language. */
