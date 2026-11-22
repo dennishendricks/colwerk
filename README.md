@@ -48,6 +48,8 @@ are listed there, along with a software bill of materials of the npm packages an
   structure.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
+- **Schema and data compare** – compare two schemas, or one table across two connections of the same engine; deploy
+  and sync scripts can be copied or opened in a tab, nothing runs automatically.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
   cursors and a searchable query history.
 - **Opens your files** – double-click a `.sql` file to open it in a tab, a DuckDB or SQLite file (`.duckdb`, `.sqlite`,
@@ -113,6 +115,9 @@ Core decisions:
   JSON.
 - **Bounded results.** Drivers read at most `rowLimit + 1` rows and cancel the rest; each tab has a timeout (default 60
   s).
+- **Compare from catalog queries and merged streams.** Schema snapshots come from catalog queries on the metadata
+  session; data compare streams both tables ordered by key under a binary collation and merges them, holding at most
+  one batch per side.
 - **Server-side export.** CSV/Parquet files are written by the server to the path chosen in a native save dialog,
   because the desktop webview does not handle downloads.
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
@@ -156,6 +161,14 @@ first use, verified by hash and stored in the data directory.
   drops temporary tables. A long step that returns no rows (an aggregate, a large `UPDATE`) still runs to its end in the
   background; outside a transaction its changes are committed.
 - SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
+- Schema compare covers tables, columns, primary key, unique, check and foreign key constraints, indexes and views of
+  PostgreSQL 12+, MySQL/MariaDB and SQL Server. Not compared: sequences other than serial/identity, routines, triggers,
+  types and enums, comments, grants, partitioning, table options, materialized views and column order. SQLite, DuckDB,
+  ClickHouse and lakehouses have no schema compare. Dropping a PostgreSQL view that other views depend on fails.
+- Data compare covers PostgreSQL, MySQL/MariaDB, SQL Server, SQLite and DuckDB, one table at a time. It rejects
+  array, spatial and nested columns (PostgreSQL arrays and geometries, DuckDB `LIST`/`STRUCT`/`MAP`/`UNION`, MySQL
+  spatial types, SQL Server `geometry`/`geography`/`xml`/`sql_variant`/`hierarchyid`).
+- MySQL sync scripts assume `NO_BACKSLASH_ESCAPES` is off (the default).
 - Geometries of SQL Server (`geometry`, `geography`) and SpatiaLite use their own binary formats and are shown as hex;
   DuckDB, PostGIS and MySQL/MariaDB geometries are shown as WKT.
 
