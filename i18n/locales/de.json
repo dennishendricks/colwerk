@@ -95,7 +95,8 @@
     "shortcuts": "Tastenkürzel",
     "releaseNotes": "Versionshinweise",
     "privacy": "Datenschutzhinweise",
-    "exportDiagnostics": "Diagnose exportieren …"
+    "exportDiagnostics": "Diagnose exportieren …",
+    "importConnections": "Verbindungen importieren …"
   },
   "diagnostics": {
     "title": "Diagnose speichern",
@@ -272,7 +273,8 @@
     "clearSshSecret": "Gespeichertes SSH-Passwort / Passphrase entfernen",
     "sshHostKey": "Host-Key",
     "sshHostKeyHelp": "Wird beim ersten Verbinden gespeichert; ein anderer Key wird abgelehnt.",
-    "forgetHostKey": "Host-Key vergessen"
+    "forgetHostKey": "Host-Key vergessen",
+    "import": "Importieren"
   },
   "colors": {
     "red": "Rot",
@@ -289,7 +291,8 @@
     "openFile": "Datei öffnen …",
     "queryFile": "Datendatei abfragen …",
     "queryUrl": "URL abfragen …",
-    "recent": "Letzte Abfragen"
+    "recent": "Letzte Abfragen",
+    "importConnections": "Verbindungen importieren"
   },
   "files": {
     "scratchName": "Dateien",
@@ -640,6 +643,46 @@
     "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
     "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
     "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren.",
+    "importNotFound": "Datei nicht gefunden: {path}",
+    "importUnreadable": "Die Datei konnte nicht gelesen werden: {detail}",
     "readOnly": "Die Verbindung ist schreibgeschützt: Die Anweisung kann Daten oder Strukturen ändern."
+  },
+  "connectionImport": {
+    "title": "Verbindungen importieren",
+    "description": "Übernimmt Verbindungen aus anderen Datenbank-Tools. Die Quelldateien werden nur gelesen.",
+    "sources": {
+      "dbeaver": "DBeaver",
+      "beekeeper": "Beekeeper Studio",
+      "ads": "Azure Data Studio",
+      "pgpass": ".pgpass",
+      "dbt": "dbt profiles.yml"
+    },
+    "notFound": "Nicht am Standardort gefunden",
+    "scan": "Verbindungen anzeigen",
+    "chooseFile": "Datei wählen …",
+    "back": "Zurück",
+    "selectAll": "Alle auswählen",
+    "duplicate": "Existiert bereits als {name}",
+    "password": "Passwort",
+    "skipped": "Nicht importiert ({n}) | Nicht importiert ({n})",
+    "nothingFound": "In dieser Datei wurden keine Verbindungen gefunden.",
+    "importN": "{n} Verbindung importieren | {n} Verbindungen importieren",
+    "imported": "{n} Verbindung importiert | {n} Verbindungen importiert",
+    "failed": "Nicht alle Verbindungen konnten importiert werden:",
+    "notes": {
+      "unsupportedEngine": "{engine} wird nicht unterstützt",
+      "noHost": "Kein Server und keine Datei angegeben",
+      "wildcard": "Platzhalter für {field} kann nicht übernommen werden",
+      "envVar": "{field} stammt aus env_var('{variable}'): nach dem Import eintragen",
+      "passwordElsewhere": "Das Passwort liegt im geschützten Speicher der anderen App: hier oder später eingeben",
+      "decryptFailed": "Gespeicherte Anmeldedaten konnten nicht entschlüsselt werden",
+      "authUnsupported": "Anmeldung {auth} wird nicht unterstützt: Anmeldung nach dem Import prüfen",
+      "windowsLogin": "Windows-Anmeldung: Domäne, Benutzer und Passwort eintragen",
+      "sshJumpHost": "SSH-Jumphost nicht übernommen",
+      "tlsOptions": "TLS-Einstellungen nicht übernommen: nach dem Import prüfen",
+      "tlsCertificates": "Client-Zertifikat nicht übernommen",
+      "relativePath": "Relativer Pfad {path}: Dateiort prüfen",
+      "options": "Nicht übernommen: {options}"
+    }
   }
 }

@@ -10,6 +10,8 @@ import {
   DbError,
   type Dialect,
   drivers,
+  type ConnectionImportSource,
+  importSources,
   isLakehouse,
   type SshAuth,
   sshAuths,
@@ -200,4 +202,12 @@ export function parseConnection(body: unknown): ConnectionInput {
     confirmWrites: b.confirmWrites === true,
     requireWhere: typeof b.requireWhere === 'boolean' ? b.requireWhere : undefined,
   }
+}
+
+/** The import source named in a request body. */
+export function importSource(source: unknown): ConnectionImportSource {
+  if (!importSources.includes(source as ConnectionImportSource)) {
+    throw createError({ statusCode: 400, message: 'Unknown import source' })
+  }
+  return source as ConnectionImportSource
 }

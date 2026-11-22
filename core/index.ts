@@ -9,6 +9,21 @@ export { isReadOnlyStatement, isSelectStatement, type SplitDialect } from './sql
 export { createExporter, type Exporter, type ExportFormat, exportFormats, type ExportOptions } from './export.ts'
 export { fileDialog } from './dialog.ts'
 export {
+  findImportFile,
+  type ImportCandidate,
+  type ImportNote,
+  type ImportPreview,
+  type ImportPreviewItem,
+  type ImportResult,
+  type ImportSkipped,
+  type ImportSource as ConnectionImportSource,
+  importPaths,
+  importSources,
+  previewImport as previewConnectionImport,
+  readImport,
+  sameConnection,
+} from './connection-import/index.ts'
+export {
   previewImport,
   runImport,
   type ImportPlan,
