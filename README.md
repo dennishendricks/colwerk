@@ -44,6 +44,9 @@ are listed there, along with a software bill of materials of the npm packages an
   committed or rolled back.
 - **Gentle on the database** – reads only up to the row limit, loads the schema tree on demand and takes table sizes from
   statistics instead of `COUNT(*)`.
+- **Import and copy data** – load CSV, TSV, JSON/NDJSON, Excel and Parquet files or the table of another connection into
+  a new or existing table, with column mapping, a reviewable `CREATE TABLE`, append, truncate + reload or upsert, in
+  batches inside transactions.
 - **Production guard rails** – color-coded connections and optional confirmation before statements that change data or
   structure.
 - **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
@@ -115,6 +118,9 @@ Core decisions:
   s).
 - **Server-side export.** CSV/Parquet files are written by the server to the path chosen in a native save dialog,
   because the desktop webview does not handle downloads.
+- **Imports on the server.** The source is streamed through one session (files through a private in-memory DuckDB),
+  batches are written through another, each in its own transaction (ClickHouse: one insert per batch);
+  `GET /api/imports/<id>` reports the progress.
 - **Sidecar.** The desktop app starts `colwerk-server` (next to its binary) and opens the URL it prints once it listens.
   The server ends when the app closes its stdin, so it does not outlive the app. The page reaches Tauri's menu, dialog
   and opener APIs as a remote page on `127.0.0.1` (`src-tauri/capabilities`).
@@ -158,6 +164,8 @@ first use, verified by hash and stored in the data directory.
 - SQLite has no decimal or timestamp types: such values come back as stored (text or REAL).
 - Geometries of SQL Server (`geometry`, `geography`) and SpatiaLite use their own binary formats and are shown as hex;
   DuckDB, PostGIS and MySQL/MariaDB geometries are shown as WKT.
+- Imports commit batch by batch; a stopped or cancelled import keeps the batches written before. Source and target in
+  the same SQLite file are not supported (the reader blocks the writer).
 
 ## License
 
