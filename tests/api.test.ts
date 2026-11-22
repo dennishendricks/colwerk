@@ -144,6 +144,42 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     assertEquals(statuses, [400, 400, 400])
   })
 
+  test('imports connections from a chosen file without sending secrets to the UI', async () => {
+    const path = `${dataDir}/pgpass`
+    await writeFile(path, 'import.example.com:5432:app:alice:pgpass-secret\nimport.example.com:5432:app:alice:again\n')
+    const post = (url: string, body: object) => call(url, { method: 'POST', body: JSON.stringify(body) })
+    const sources = await json(await call('/api/connections/import'))
+    assertEquals(sources.map((s: { source: string }) => s.source).sort(), [
+      'ads',
+      'beekeeper',
+      'dbeaver',
+      'dbt',
+      'pgpass',
+    ])
+    assertEquals((await post('/api/connections/import/scan', { source: 'pgpass', path: 'relative' })).status, 400)
+    const missing = await post('/api/connections/import/scan', { source: 'pgpass', path: `${dataDir}/nope` })
+    assertEquals((await missing.json()).data.key, 'importNotFound')
+    const preview = await json(await post('/api/connections/import/scan', { source: 'pgpass', path }))
+    assertEquals(
+      preview.items.map((i: { duplicate?: string }) => i.duplicate),
+      [undefined, 'alice@import.example.com:5432/app'],
+    )
+    assertEquals(JSON.stringify(preview).includes('pgpass-secret'), false)
+    const keys = preview.items.map((i: { key: string }) => i.key)
+    const result = await json(await post('/api/connections/import', { source: 'pgpass', path, keys }))
+    assertEquals(result, { imported: 1, failed: [] })
+    const listed = await json(await call('/api/connections'))
+    const imported = listed.find((c: { name: string }) => c.name === 'alice@import.example.com:5432/app')
+    assertEquals([imported.hasPassword, imported.password], [true, undefined])
+    // Importing again finds it as a duplicate.
+    assertEquals(await json(await post('/api/connections/import', { source: 'pgpass', path, keys })), {
+      imported: 0,
+      failed: [],
+    })
+    // The other tests expect a store without it.
+    await json(await call(`/api/connections/${imported.id}`, { method: 'DELETE' }))
+  })
+
   describe.skipIf(!pgUp)('postgres', () => {
     const pg = testConnections.postgres
     let saved: { id: string; hasPassword: boolean }
