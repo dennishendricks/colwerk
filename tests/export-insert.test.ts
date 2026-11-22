@@ -1,6 +1,6 @@
 // Round trip: rows of a table are exported as INSERT statements, run into an identical table and compared.
 import { test } from 'bun:test'
-import { createExporter } from '../core/export.ts'
+import { createExporter } from '../core/export/index.ts'
 import { loadDriver } from '../core/registry.ts'
 import { sqlDialect } from '../core/types.ts'
 import type { ConnectionConfig, Session } from '../core/types.ts'

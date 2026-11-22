@@ -4,7 +4,7 @@ import { crc32, inflateRawSync } from 'node:zlib'
 import { tempDir } from './helpers.ts'
 import { assert, assertEquals } from './assert.ts'
 import { duckdbDriver } from '../core/drivers/duckdb.ts'
-import { createExporter, type ExportFormat, type ExportOptions } from '../core/export.ts'
+import { createExporter, type ExportFormat, type ExportOptions } from '../core/export/index.ts'
 import type { AppError, CellValue, ResultColumn } from '../core/types.ts'
 
 const columns: ResultColumn[] = [

@@ -32,13 +32,19 @@
 - `drivers/postgres.ts`: exports postgresDriver; **20 KB: grep, then read in parts**
 - `drivers/sqlite.ts`: exports sqliteDriver
 - `drivers/tls.ts`: exports tlsOptions
-- `export.ts`: exports ExportFormat, exportFormats, ExportOptions, Exporter, createExporter; **27 KB: grep, then read in parts**
+- `export/common.ts`: Contracts shared by the export formats: the sink each format implements and helpers they have in common
+- `export/index.ts`: Export of result sets: picks the encoder of a format; the formats live next to this file
+- `export/parquet.ts`: Parquet export through hyparquet-writer
+- `export/text.ts`: Text formats that write every batch as it arrives: CSV, JSON, NDJSON, Markdown and INSERT statements
+- `export/timestamp.ts`: Parsing of ISO dates and timestamps for the typed export formats (Parquet, XLSX)
+- `export/xlsx.ts`: XLSX: one sheet with inline strings (no shared-strings table, so a single pass is enough), written through a streaming deflate into a minimal ZIP container
+- `export/zip.ts`: Minimal streaming ZIP writer (deflate, data descriptors, no ZIP64), used by the XLSX export
 - `file-formats.ts`: Data files DuckDB reads (file querying, data import): the format of a path or URL, the table function reading it and the extensions that needs
 - `geometry.ts`: exports wkbToText, hexEwkbToText, mysqlGeometryToText
 - `history.ts`: exports HistoryEntry, HISTORY_LIMIT, addToHistory
 - `import-sql.ts`: SQL of data imports per target dialect: column types translated from the source, CREATE TABLE, the load strategies and transactions
 - `import.ts`: Data import: one session reads the source and another writes the target
-- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export.ts, ./dialog.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
+- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
 - `keychain.ts`: Stores secrets per data directory in the OS keychain through the platform's command line tools: macOS `security`, Linux `secret-tool` (libsecret), Windows PowerShell with the Credential Manager API
 - `login.ts`: exports withoutLogin, isLoginForbidden
 - `mcp-session.ts`: exports ownMcpSessions, mcpConfig
