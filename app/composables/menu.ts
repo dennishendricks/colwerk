@@ -8,6 +8,7 @@ interface MenuViewActions {
   openShortcuts: () => void
   openAbout: () => void
   openConnection: () => void
+  openImport: () => void
   toggleSidebar: () => void
   openQuickOpen: () => void
 }
@@ -63,6 +64,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         item(t('menu.saveAs'), 'save-as', !!tab, 'CmdOrCtrl+Shift+S'),
         'separator',
         item(t('menu.newConnection'), 'new-connection'),
+        item(t('menu.importConnections'), 'import-connections'),
         item(
           activeConnection.value?.disconnected ? t('menu.connect') : t('menu.disconnect'),
           'toggle-connection',
@@ -145,6 +147,7 @@ export function useApplicationMenu(view: MenuViewActions) {
     save: () => saveFile(activeTab.value),
     'save-as': () => saveFile(activeTab.value, true),
     'new-connection': view.openConnection,
+    'import-connections': view.openImport,
     'toggle-connection': () => toggleConnection(),
     'close-tab': () => requestClose(activeTab.value),
     history: view.openHistory,

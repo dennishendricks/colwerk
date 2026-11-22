@@ -5,7 +5,7 @@ import type { SplitDialect } from '~/utils/sql-split'
 import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
 const props = defineProps<{ tab: QueryTab }>()
-const emit = defineEmits<{ newConnection: [] }>()
+const emit = defineEmits<{ newConnection: []; importConnections: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
@@ -606,6 +606,7 @@ const status = computed(() => {
             :connection-id="tab.connectionId"
             :database="tab.database"
             @new-connection="emit('newConnection')"
+            @import-connections="emit('importConnections')"
             @select="
               (e) => {
                 tab.sql = e.sql
