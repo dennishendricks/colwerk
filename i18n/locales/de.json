@@ -302,7 +302,10 @@
     "claudeDesktop": "Einstellungen → Entwickler → Konfiguration bearbeiten, in {file} eintragen und Claude neu starten:",
     "codex": "ChatGPT bindet nur MCP-Server über HTTPS aus dem Internet ein, nicht lokale Programme wie Colwerk. Codex (CLI und App) unterstützt sie, per Befehl oder in {file}:",
     "others": "Andere Clients (z. B. Cursor, VS Code) nehmen denselben Befehl als stdio-Server auf.",
-    "openAudit": "Protokoll"
+    "openAudit": "Protokoll",
+    "injectionTitle": "Abfrageergebnisse können Prompt Injection enthalten",
+    "injectionNotice": "Zeilen, die der Assistent erhält, können von anderen geschriebenen Text enthalten, der ihm Anweisungen geben will. Nur-Lese-Zugriff hindert den Assistenten nicht daran, mit seinen anderen Werkzeugen danach zu handeln, etwa mit Datei-, Shell- oder Webzugriff. Verbinde nur Daten, denen du vertraust, und prüfe, was der Assistent tut.",
+    "hardening": "In den Verbindungseinstellungen (Erweitert) kannst du MCP eine eigene Anmeldung geben, z. B. eine Datenbankrolle mit minimalen Leserechten. MCP-Abfragen auf DuckDB können keine Dateien oder URLs lesen, außer du erlaubst es für die Verbindung."
   },
   "audit": {
     "title": "MCP-Protokoll",

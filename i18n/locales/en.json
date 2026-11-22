@@ -302,7 +302,10 @@
     "claudeDesktop": "Settings → Developer → Edit Config, add to {file} and restart Claude:",
     "codex": "ChatGPT only integrates MCP servers over HTTPS from the internet, not local programs like Colwerk. Codex (CLI and app) supports them, by command or in {file}:",
     "others": "Other clients (e.g. Cursor, VS Code) take the same command as a stdio server.",
-    "openAudit": "Audit log"
+    "openAudit": "Audit log",
+    "injectionTitle": "Query results can contain prompt injection",
+    "injectionNotice": "Rows returned to the assistant can contain text written by others that tries to give it instructions. Read-only access does not stop the assistant from acting on such text with its other tools, such as files, shell or web access. Connect only data you trust and review what the assistant does.",
+    "hardening": "In the connection settings (Advanced) you can give MCP a login of its own, e.g. a database role with minimal read permissions. MCP queries on DuckDB cannot read files or URLs unless you allow it for the connection."
   },
   "audit": {
     "title": "MCP audit log",

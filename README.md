@@ -135,10 +135,28 @@ Core decisions:
 
 ### Connections and credentials
 
-Connections, open tabs and query history are stored as JSON in the data directory
+Connections, open tabs, query history and the MCP audit log are stored in the data directory
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
-`COLWERK_DATA_DIR`). Passwords are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
-(mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
+`COLWERK_DATA_DIR`). Passwords (including MCP passwords) are encrypted with AES-256-GCM; the key lives in the OS
+keychain, or in `secret.key` (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
+
+### MCP server
+
+`colwerk-server mcp` is a stdio bridge to `/mcp` and authenticates with the MCP token (`core/mcp-token.ts`). Queries
+pass three guard layers: `isSelectStatement`, a transaction that is never committed (`GUARD` in `server/utils/mcp.ts`),
+then the statement timeout and the row limit.
+
+- **MCP login:** optional and per connection, for password, Windows and token logins. It never falls back to the main
+  login, and MCP then gets sessions of its own (`mcp:<id>`). Entra and OAuth logins have none.
+- **DuckDB:** MCP opens the database read-only in its own instance with `enable_external_access = false`, so no files,
+  URLs or extensions. The instance closes after every request. This fails while Colwerk has the file open for writing.
+  The opt-in "Let AI assistants (MCP) read files and URLs" restores the shared instance. Lakehouse connections need
+  file and network access and are queried as in the editor.
+- **Prompt injection:** query results can contain instructions, and read-only access does not stop a model from acting
+  on them with its other tools. The MCP settings show this notice.
+- **Audit log:** every tool call goes to `mcp-audit.jsonl` with time, client (from the bridge), tool, connection, SQL,
+  duration, row count, status and error. Result rows and credentials are never logged. Retention is 7 to 365 days
+  (default 30, at most 10,000 entries). The log can be viewed, filtered and cleared in the app.
 
 ### Drivers and native libraries
 
