@@ -8,7 +8,7 @@ import { replaceSchema } from './sql.ts'
 import type { SchemaCompareResult, SchemaRef, SchemaSnapshot } from './types.ts'
 
 export * from './types.ts'
-export { compareData } from './data.ts'
+export { compareData, compareTab } from './data.ts'
 
 async function snapshot(wb: Workbench, dialect: SplitDialect, ref: SchemaRef): Promise<SchemaSnapshot> {
   // SQL Server's driver (tedious) is only loaded when it is needed.

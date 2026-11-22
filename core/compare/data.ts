@@ -206,6 +206,11 @@ async function writable(wb: Workbench, dialect: SplitDialect, ref: TableRef) {
   return { generated, identity }
 }
 
+type Side = 'source' | 'target'
+
+/** Tab (and so session) a side of a compare streams in; the cancel route needs the names. */
+export const compareTab = (id: string, side: Side) => `compare:${id}:${side}`
+
 type Kind = 'delete' | 'update' | 'insert'
 const SUFFIX: Record<Kind, string> = { delete: 'd', update: 'u', insert: 'i' }
 
@@ -355,7 +360,7 @@ export async function compareData(
   const sides = { source, target }
   const select = (side: 'source' | 'target') =>
     `select ${common.map((c) => ident(c[side].name)).join(', ')} from ${qualified(dialect, sides[side].schema, sides[side].table)} order by ${keys.map((k, i) => orderBy(dialect, k![side].name, k![side].type, kinds[i]!)).join(', ')}`
-  const tab = (side: 'source' | 'target') => `compare:${id}:${side}`
+  const tab = (side: Side) => compareTab(id, side)
   const cancelBoth = () =>
     Promise.all((['source', 'target'] as const).map((side) => wb.cancel(tab(side)).catch(() => {})))
   const onAbort = () => void cancelBoth()
