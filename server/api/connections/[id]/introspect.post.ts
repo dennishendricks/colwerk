@@ -7,7 +7,9 @@ export default defineEventHandler(async (event) => {
     refresh?: boolean
     database?: string
   }>(event)
-  if (!['databases', 'schemas', 'tables', 'columns', 'indexes', 'routines', 'ddl'].includes(request?.kind)) {
+  if (
+    !['databases', 'schemas', 'tables', 'columns', 'indexes', 'routines', 'foreignKeys', 'ddl'].includes(request?.kind)
+  ) {
     throw createError({ statusCode: 400, message: 'Invalid request' })
   }
   const db = parseDatabase(database)

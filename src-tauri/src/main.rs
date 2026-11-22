@@ -22,8 +22,11 @@
 // Windows: besides `main`, the page opens windows `window-<n>` for tabs moved out of a window (`open_window`). All
 // show the same server; closing `main` ends the app.
 //
-// Opening files: Colwerk is registered for query files (.sql) and DuckDB and SQLite databases (bundle.fileAssociations
-// in tauri.conf.json). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
+// Opening files: Colwerk is registered for query files (.sql), DuckDB and SQLite databases and data files (CSV, TSV,
+// Parquet, JSON, NDJSON, Excel), which the page queries in a DuckDB scratch connection (bundle.fileAssociations in
+// tauri.conf.json). On Windows (tauri.windows.conf.json) only query and database files are associated: the installer
+// would make Colwerk the default app for the data files. Files dropped onto a window are handled by the page
+// (webview drag-drop event). The system passes them in the arguments (Windows, Linux; those of a second instance arrive
 // through the single-instance plugin) or with `RunEvent::Opened` (macOS). They wait in `Opened` until the page takes
 // them with `take_opened_files`: once it has loaded, and on the `open-files` event while it runs.
 //
@@ -32,6 +35,7 @@
 // and `resume_server` starts it again if the installation fails.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -43,10 +47,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::webview::PageLoadEvent;
-use tauri::{AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    AppHandle, Emitter, LogicalSize, Manager, RunEvent, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
+};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
-use tauri_plugin_window_state::StateFlags;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 /// The running sidecar with the number of its start (see `watch_health`); the child is taken on exit.
 struct Server(Mutex<(Option<Child>, u32)>);
@@ -57,8 +64,22 @@ struct ServerUrl(Mutex<Option<String>>);
 /// Files the system asked Colwerk to open, until the page takes them (`take_opened_files`).
 struct Opened(Mutex<Vec<PathBuf>>);
 
+/// Labels of the windows that have been shown; the others are still hidden and loading (see `fix_window_state`).
+struct Shown(Mutex<HashSet<String>>);
+
+/// The window states of the previous run, as the window-state plugin stored them (see `fix_window_state`).
+struct SavedStates(serde_json::Value);
+
 /// Extensions of the file associations in tauri.conf.json; other arguments are no files to open.
-const OPENED_EXTENSIONS: [&str; 4] = ["sql", "duckdb", "sqlite", "sqlite3"];
+const OPENED_EXTENSIONS: [&str; 11] = [
+    "sql", "duckdb", "sqlite", "sqlite3", "csv", "tsv", "parquet", "json", "ndjson", "jsonl",
+    "xlsx",
+];
+
+/// Smallest window size in logical pixels; a window that is smaller (or a stored size) gets the default size.
+const MIN_SIZE: f64 = 100.0;
+const DEFAULT_WIDTH: f64 = 1400.0;
+const DEFAULT_HEIGHT: f64 = 900.0;
 
 /// Set once the app exits, when the sidecar ending is expected.
 static EXITING: AtomicBool = AtomicBool::new(false);
@@ -103,6 +124,7 @@ fn main() {
         .manage(Server(Mutex::new((None, 0))))
         .manage(Opened(Mutex::new(Vec::new())))
         .manage(ServerUrl(Mutex::new(None)))
+        .manage(Shown(Mutex::new(HashSet::new())))
         .invoke_handler(tauri::generate_handler![
             export_diagnostics,
             open_window,
@@ -130,7 +152,17 @@ fn main() {
                 app.handle(),
                 std::env::args_os().skip(1).map(|arg| cwd.join(arg)),
             );
-            app_window(app.handle(), "main", WebviewUrl::App("index.html".into())).build()?;
+            let saved = app
+                .path()
+                .app_config_dir()
+                .ok()
+                .and_then(|dir| std::fs::read(dir.join(app.handle().filename())).ok())
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                .unwrap_or_else(|| serde_json::json!({}));
+            app.manage(SavedStates(saved));
+            ensure_min_size(
+                &app_window(app.handle(), "main", WebviewUrl::App("index.html".into())).build()?,
+            );
             let handle = app.handle().clone();
             thread::spawn(move || {
                 if let Err(message) = supervise(&handle)
@@ -156,7 +188,10 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("failed to start Colwerk")
         .run(|app, event| match event {
-            RunEvent::Exit => stop_server(app),
+            RunEvent::Exit => {
+                fix_window_state(app);
+                stop_server(app);
+            }
             #[cfg(target_os = "macos")]
             RunEvent::Opened { urls } => {
                 focus(app);
@@ -283,9 +318,10 @@ fn take_opened_files(opened: tauri::State<Opened>) -> Vec<PathBuf> {
     std::mem::take(&mut *opened.0.lock().unwrap())
 }
 
-/// A window of the app. Size and position of the last run are restored by the window-state plugin. The window is
-/// shown once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank native window
-/// nor the splash in the system's color mode flashes up before it.
+/// A window of the app. Size and position of the last run are restored by the window-state plugin (a stored size below
+/// `MIN_SIZE` is replaced by the default, see `ensure_min_size`), and the window cannot be resized below `MIN_SIZE`.
+/// The window is shown once the app page (not the splash) has loaded, in the chosen color mode, so neither the blank
+/// native window nor the splash in the system's color mode flashes up before it.
 fn app_window<'a>(
     app: &'a AppHandle,
     label: &str,
@@ -293,13 +329,85 @@ fn app_window<'a>(
 ) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
     WebviewWindowBuilder::new(app, label, url)
         .title("Colwerk")
-        .inner_size(1400.0, 900.0)
+        .inner_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+        .min_inner_size(MIN_SIZE, MIN_SIZE)
         .visible(false)
         .on_page_load(|window, payload| {
             if payload.event() == PageLoadEvent::Finished && payload.url().path() != "/index.html" {
                 let _ = window.show();
+                if let Ok(mut shown) = window.state::<Shown>().0.lock() {
+                    shown.insert(window.label().to_string());
+                }
             }
         })
+}
+
+/// Gives a window that was restored too small (a size stored by an earlier version) the default size.
+fn ensure_min_size(window: &WebviewWindow) {
+    let too_small = window
+        .scale_factor()
+        .and_then(|scale| Ok(window.inner_size()?.to_logical::<f64>(scale)))
+        .is_ok_and(|size| size.width < MIN_SIZE || size.height < MIN_SIZE);
+    if too_small {
+        let _ = window.set_size(LogicalSize::new(DEFAULT_WIDTH, DEFAULT_HEIGHT));
+    }
+}
+
+/// The window-state plugin tracks a window from its creation, while it is still hidden and loading, and may store a
+/// tiny size for it when the app exits then. The plugin saves first on `RunEvent::Exit` (plugins are notified before
+/// the app's callback), so this corrects the file afterwards: windows that were never shown get their previous state
+/// back, and sizes below `MIN_SIZE` are dropped, which means the default size at the next start.
+fn fix_window_state(app: &AppHandle) {
+    let path = match app.path().app_config_dir() {
+        Ok(dir) => dir.join(app.filename()),
+        Err(e) => return log::warn!("window state: {e}"),
+    };
+    let Ok(bytes) = std::fs::read(&path) else {
+        return;
+    };
+    let Ok(written) = serde_json::from_slice(&bytes) else {
+        return;
+    };
+    let scale = app
+        .get_webview_window("main")
+        .and_then(|window| window.scale_factor().ok())
+        .unwrap_or(1.0);
+    let shown = app.state::<Shown>().0.lock().unwrap().clone();
+    let saved = &app.state::<SavedStates>().0;
+    if let Some(fixed) = corrected_states(&written, saved, &shown, MIN_SIZE * scale)
+        && let Err(e) = serde_json::to_vec_pretty(&fixed)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| std::fs::write(&path, bytes).map_err(|e| e.to_string()))
+    {
+        log::warn!("window state: {e}");
+    }
+}
+
+/// `written` without the entries of windows not in `shown` (replaced by their entry in `saved`, if any) and without
+/// sizes below `min` physical pixels; `None` if that changes nothing.
+fn corrected_states(
+    written: &serde_json::Value,
+    saved: &serde_json::Value,
+    shown: &HashSet<String>,
+    min: f64,
+) -> Option<serde_json::Value> {
+    let mut fixed = written.as_object()?.clone();
+    for label in written.as_object()?.keys().filter(|l| !shown.contains(*l)) {
+        match saved.get(label) {
+            Some(state) => fixed.insert(label.clone(), state.clone()),
+            None => fixed.remove(label),
+        };
+    }
+    fixed.retain(|_, state| {
+        ["width", "height"].iter().all(|key| {
+            state
+                .get(key)
+                .and_then(|v| v.as_f64())
+                .is_none_or(|v| v >= min)
+        })
+    });
+    let fixed = serde_json::Value::Object(fixed);
+    (fixed != *written).then_some(fixed)
 }
 
 /// Opens the window `label` (`window-<n>`) on the server, unless it is open already. Async: creating a window in a
@@ -312,10 +420,11 @@ async fn open_window(app: AppHandle, label: String) -> Result<(), String> {
     let url = app.state::<ServerUrl>().0.lock().unwrap().clone();
     let url = url.ok_or("the server has not started yet")?;
     let url = url.parse().map_err(|e| format!("{e}"))?;
-    app_window(&app, &label, WebviewUrl::External(url))
+    let window = app_window(&app, &label, WebviewUrl::External(url))
         .build()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    ensure_min_size(&window);
+    Ok(())
 }
 
 /// Shows the server at `url` in every window, and in the windows opened later.
@@ -504,4 +613,46 @@ fn end_server(app: &AppHandle) {
     }
     let _ = child.kill();
     let _ = child.wait();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn shown(labels: &[&str]) -> HashSet<String> {
+        labels.iter().map(|l| l.to_string()).collect()
+    }
+
+    #[test]
+    fn reverts_window_that_was_not_shown() {
+        let written = json!({"main": {"width": 2, "height": 2}});
+        let saved = json!({"main": {"width": 1400, "height": 900}});
+        let fixed = corrected_states(&written, &saved, &shown(&[]), 100.0);
+        assert_eq!(fixed, Some(saved));
+    }
+
+    #[test]
+    fn removes_window_that_was_not_shown_without_saved_state() {
+        let written = json!({"window-1": {"width": 800, "height": 600}});
+        let fixed = corrected_states(&written, &json!({}), &shown(&[]), 100.0);
+        assert_eq!(fixed, Some(json!({})));
+    }
+
+    #[test]
+    fn removes_size_below_minimum() {
+        let written = json!({"main": {"width": 2, "height": 2}});
+        let fixed = corrected_states(&written, &json!({}), &shown(&["main"]), 100.0);
+        assert_eq!(fixed, Some(json!({})));
+    }
+
+    #[test]
+    fn keeps_valid_shown_window() {
+        let written = json!({"main": {"width": 1400, "height": 900}});
+        let saved = json!({"main": {"width": 800, "height": 600}});
+        assert_eq!(
+            corrected_states(&written, &saved, &shown(&["main"]), 100.0),
+            None
+        );
+    }
 }

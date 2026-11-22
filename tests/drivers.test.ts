@@ -5,7 +5,7 @@ import { rm } from 'node:fs/promises'
 import { assert, assertEquals, assertMatch, assertRejects } from './assert.ts'
 import { join } from 'node:path'
 import { loadDriver } from '../core/registry.ts'
-import { type ConnectionConfig, DbError, type QueryResult, type Session } from '../core/types.ts'
+import { type ConnectionConfig, DbError, type ForeignKeyInfo, type QueryResult, type Session } from '../core/types.ts'
 import { reachable, tempDir, testConnections } from './helpers.ts'
 
 /** Rows of the only result set. */
@@ -595,6 +595,18 @@ call delim_p(); select count(*) as n from delim_t; drop procedure delim_p;`,
     assertMatch(cols.total!.type, /^(numeric|decimal)\(12,\s?2\)$/i)
     assertEquals(cols.total!.comment, name === 'sqlite' ? null : 'Order total')
     assertEquals(cols.id!.comment, null)
+  })
+
+  test.skipIf(ignore)(`${name}: foreign keys`, async () => {
+    const s = await session()
+    const pick = (k: ForeignKeyInfo) => [k.schema, k.table, k.columns, k.refSchema, k.refTable, k.refColumns]
+    const expected = [c.schema, 'orders', ['customer_id'], c.customersSchema, 'customers', ['id']]
+    assertEquals((await s.introspect({ kind: 'foreignKeys', schema: c.schema })).map(pick), [expected])
+    assertEquals(
+      (await s.introspect({ kind: 'foreignKeys', schema: c.customersSchema, table: 'customers' })).map(pick),
+      [expected],
+    )
+    assertEquals(await s.introspect({ kind: 'foreignKeys', schema: c.schema, table: 'order_totals' }), [])
   })
 
   test.skipIf(ignore)(`${name}: indexes, routines, DDL`, async () => {

@@ -293,13 +293,14 @@ export class Workbench {
         request.kind === 'schemas' ||
         (request.kind === 'databases' && kind === 'databases') ||
         (request.kind === 'tables' && schema === request.schema) ||
-        // Refreshing a table (its columns) also drops its indexes.
+        // Refreshing a table (its columns) also drops its indexes and foreign keys.
         (request.kind === 'columns' &&
-          (kind === 'columns' || kind === 'indexes') &&
+          (kind === 'columns' || kind === 'indexes' || kind === 'foreignKeys') &&
           schema === request.schema &&
           table === request.table) ||
         (request.kind === 'indexes' && kind === 'indexes' && schema === request.schema && table === request.table) ||
-        (request.kind === 'routines' && kind === 'routines' && schema === request.schema)
+        (request.kind === 'routines' && kind === 'routines' && schema === request.schema) ||
+        (request.kind === 'foreignKeys' && kind === 'foreignKeys' && schema === request.schema)
       if (below) this.cache.delete(key)
     }
   }
