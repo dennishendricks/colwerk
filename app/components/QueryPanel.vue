@@ -2,6 +2,7 @@
 /* eslint-disable vue/no-mutating-props -- `tab` is the shared reactive object from useTabs(), edited in place on purpose. */
 import { SplitterGroup, SplitterPanel, SplitterResizeHandle } from 'reka-ui'
 import type { SplitDialect } from '~/utils/sql-split'
+import type { EditBlock, EditTarget } from '~/utils/table-edit'
 import type { PinnedResult, QueryTab } from '~/composables/tabs'
 
 const props = defineProps<{ tab: QueryTab }>()
@@ -9,8 +10,8 @@ const emit = defineEmits<{ newConnection: [] }>()
 
 const { connections, driverOf } = useConnections()
 const { activeTabId } = useTabs()
-const { run, explain, withVariables, cancel, exportResult } = useExecution()
-const { loadSchemas, loadTables, loadColumns, keyOf, defaultSchema, completionSchema, state } = useSchema()
+const { run, explain, applyEdits, withVariables, cancel, exportResult } = useExecution()
+const { loadSchemas, loadTables, loadColumns, loadIndexes, keyOf, defaultSchema, completionSchema, state } = useSchema()
 const { t, locale } = useI18n()
 
 const editor = useTemplateRef('editor')
@@ -165,6 +166,59 @@ function pinLabel(pin: PinnedResult) {
 const resultItems = computed(
   () => props.tab.result?.resultSets.map((_, i) => ({ label: t('query.result', { n: i + 1 }), value: i })) ?? [],
 )
+
+// Whether the current result can be edited, resolved from the schema (#60).
+const edit = shallowRef<{ target: EditTarget } | { block: EditBlock; columns?: string[] }>()
+// The result belongs to the connection it ran on, even if the tab has switched since.
+const sourceConnection = computed(() => connections.value.find((c) => c.id === props.tab.source?.connectionId))
+watch([currentSet, viewedPin, () => props.tab.compare, sourceConnection], resolveEdit, { immediate: true })
+
+async function resolveEdit() {
+  edit.value = undefined
+  const set = currentSet.value
+  const { source } = props.tab
+  const conn = sourceConnection.value
+  if (!set?.columns.length || viewedPin.value || props.tab.compare || !source || !conn) return
+  const blocker = editBlocker(conn)
+  if (blocker) return void (edit.value = { block: blocker })
+  const st = set.statement
+  const dialect = sqlDialect(conn.dialect)
+  const ref = st && singleTableSource(source.sql.slice(st.from, st.to), dialect)
+  if (!ref) return void (edit.value = { block: 'query' })
+  const target = { connectionId: source.connectionId, database: source.database }
+  const s = state(target)
+  if (!s.schemas) await loadSchemas(target)
+  const schema = ref.schema ?? defaultSchema(target)
+  if (set !== currentSet.value) return
+  if (!schema) return void (edit.value = { block: 'query' })
+  if (!s.tables[schema]) await loadTables(target, schema)
+  if (set !== currentSet.value) return
+  const tables = s.tables[schema] ?? []
+  const table =
+    tables.find((x) => x.name === ref.name) ?? tables.find((x) => x.name.toLowerCase() === ref.name.toLowerCase())
+  if (!table) return void (edit.value = { block: 'query' })
+  if (table.kind !== 'table') return void (edit.value = { block: 'view' })
+  await Promise.all([loadColumns(target, schema, table.name), loadIndexes(target, schema, table.name)])
+  if (set !== currentSet.value) return
+  const columns = s.columns[keyOf(schema, table.name)]
+  const indexes = s.indexes[keyOf(schema, table.name)]
+  edit.value =
+    columns && indexes
+      ? buildEditTarget(dialect, schema, table.name, set.columns, columns, indexes)
+      : { block: 'query' }
+}
+
+async function saveEdits(statements: string[]) {
+  const n = await applyEdits(props.tab, statements)
+  toast.add({
+    title: t('grid.saved', { n: n.toLocaleString(locale.value) }, n),
+    color: 'success',
+    icon: 'i-lucide-check',
+  })
+  const { source } = props.tab
+  const st = currentSet.value?.statement
+  if (source && st) run(props.tab, source.sql.slice(st.from, st.to), 0, (p) => p)
+}
 
 const toast = useToast()
 const exportFormat = ref<'csv' | 'parquet'>('csv')
@@ -600,6 +654,16 @@ const status = computed(() => {
             :key="viewedPin?.id ?? tab.resultIndex"
             v-model:filter="filter"
             :result="shown"
+            :edit="
+              edit && 'target' in edit && !viewedPin
+                ? {
+                    target: edit.target,
+                    confirm: !!sourceConnection?.confirmWrites,
+                    connection: sourceConnection?.name ?? '',
+                    save: saveEdits,
+                  }
+                : undefined
+            "
           />
           <EmptyState
             v-else-if="!busy && !tab.sql.trim()"
@@ -643,6 +707,13 @@ const status = computed(() => {
             :disabled="tab.running"
             @click="download"
           />
+          <span
+            v-if="edit && 'block' in edit"
+            class="ml-auto flex items-center gap-1"
+            :title="t(`grid.readOnlyReasons.${edit.block}`, { columns: edit.columns?.join(', ') ?? '' })"
+          >
+            <UIcon name="i-lucide-lock" />{{ t('grid.readOnly') }}
+          </span>
         </div>
       </SplitterPanel>
     </SplitterGroup>

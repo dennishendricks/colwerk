@@ -117,6 +117,20 @@ export function useExecution() {
     }
   }
 
+  /** Saves grid edits (see Workbench.applyEdits); resolves with the affected rows. */
+  async function applyEdits(tab: QueryTab, statements: string[]): Promise<number> {
+    const { affectedRows } = await api<{ affectedRows: number }>(`/api/tabs/${tab.id}/edit`, {
+      method: 'POST',
+      body: {
+        connectionId: tab.source!.connectionId,
+        database: tab.source!.database,
+        statements,
+        timeout: tab.timeout,
+      },
+    })
+    return affectedRows
+  }
+
   async function cancel(tab: QueryTab) {
     if (tab.exporting) tab.exporting = 'cancelled'
     await api(`/api/tabs/${tab.id}/cancel`, { method: 'POST' }).catch((e) => {
@@ -165,5 +179,5 @@ export function useExecution() {
     }
   }
 
-  return { run, explain, withVariables, cancel, exportResult }
+  return { run, explain, applyEdits, withVariables, cancel, exportResult }
 }

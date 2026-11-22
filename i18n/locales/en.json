@@ -378,7 +378,33 @@
     "copyCsv": "Copy row as CSV",
     "copyMarkdown": "Copy row as Markdown",
     "valueCopied": "Value copied",
-    "columnContains": "Column contains …"
+    "columnContains": "Column contains …",
+    "editValue": "Edit value …",
+    "setNull": "Set NULL",
+    "setDefault": "Set DEFAULT",
+    "apply": "Apply",
+    "addRow": "Add row",
+    "cloneRow": "Clone row",
+    "deleteRow": "Delete row",
+    "revertRow": "Undo changes to row",
+    "rowActions": "Row actions",
+    "editHint": "Double-click a cell to edit it",
+    "changes": "{n} change | {n} changes",
+    "discard": "Discard",
+    "review": "Save …",
+    "reviewTitle": "Save changes?",
+    "reviewDescription": "The statements run in one transaction.",
+    "reviewDescriptionConfirm": "The statements change data in “{connection}”. They run in one transaction.",
+    "saved": "{n} row saved | {n} rows saved",
+    "readOnly": "Read-only",
+    "readOnlyReasons": {
+      "connection": "The connection is read-only.",
+      "dialect": "Editing needs transactions, which this database does not offer.",
+      "query": "Only the result of a SELECT from a single table can be edited (no joins, grouping or set operations).",
+      "view": "Views cannot be edited.",
+      "noKey": "The table has no primary key or unique key.",
+      "keyMissing": "The result does not contain all key columns ({columns})."
+    }
   },
   "schema": {
     "title": "Schema",
@@ -445,6 +471,9 @@
     "sshNoAgent": "No SSH agent found: SSH_AUTH_SOCK is not set.",
     "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
     "sshKeyRequired": "Please enter the path of the private key file.",
-    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance."
+    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance.",
+    "editRowCount": "Statement {n} changed no row: the row was changed or deleted meanwhile. Nothing was saved.",
+    "editReadOnly": "The connection is read-only.",
+    "editUnsupported": "Editing is not available for this database."
   }
 }

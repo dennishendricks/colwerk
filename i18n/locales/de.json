@@ -378,7 +378,33 @@
     "copyCsv": "Datensatz als CSV kopieren",
     "copyMarkdown": "Datensatz als Markdown kopieren",
     "valueCopied": "Wert kopiert",
-    "columnContains": "Spalte enthält …"
+    "columnContains": "Spalte enthält …",
+    "editValue": "Wert bearbeiten …",
+    "setNull": "Auf NULL setzen",
+    "setDefault": "Auf DEFAULT setzen",
+    "apply": "Übernehmen",
+    "addRow": "Zeile hinzufügen",
+    "cloneRow": "Zeile duplizieren",
+    "deleteRow": "Zeile löschen",
+    "revertRow": "Änderungen der Zeile verwerfen",
+    "rowActions": "Zeilenaktionen",
+    "editHint": "Zum Bearbeiten doppelt auf eine Zelle klicken",
+    "changes": "{n} Änderung | {n} Änderungen",
+    "discard": "Verwerfen",
+    "review": "Speichern …",
+    "reviewTitle": "Änderungen speichern?",
+    "reviewDescription": "Die Anweisungen laufen in einer Transaktion.",
+    "reviewDescriptionConfirm": "Die Anweisungen ändern Daten in „{connection}“. Sie laufen in einer Transaktion.",
+    "saved": "{n} Zeile gespeichert | {n} Zeilen gespeichert",
+    "readOnly": "Nur lesen",
+    "readOnlyReasons": {
+      "connection": "Die Verbindung ist schreibgeschützt.",
+      "dialect": "Bearbeiten braucht Transaktionen, die diese Datenbank nicht bietet.",
+      "query": "Bearbeitet werden kann nur das Ergebnis eines SELECT aus einer einzelnen Tabelle (ohne Joins, Gruppierung oder Mengenoperationen).",
+      "view": "Sichten können nicht bearbeitet werden.",
+      "noKey": "Die Tabelle hat keinen Primärschlüssel und keinen eindeutigen Schlüssel.",
+      "keyMissing": "Das Ergebnis enthält nicht alle Schlüsselspalten ({columns})."
+    }
   },
   "schema": {
     "title": "Schema",
@@ -445,6 +471,9 @@
     "sshNoAgent": "Kein SSH-Agent gefunden: SSH_AUTH_SOCK ist nicht gesetzt.",
     "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
     "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
-    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren."
+    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren.",
+    "editRowCount": "Anweisung {n} hat keine Zeile geändert: Die Zeile wurde inzwischen geändert oder gelöscht. Es wurde nichts gespeichert.",
+    "editReadOnly": "Die Verbindung ist schreibgeschützt.",
+    "editUnsupported": "Für diese Datenbank ist Bearbeiten nicht verfügbar."
   }
 }

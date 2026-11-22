@@ -46,7 +46,7 @@ are listed there, along with a software bill of materials of the npm packages an
   statistics instead of `COUNT(*)`.
 - **Production guard rails** – color-coded connections and optional confirmation before statements that change data or
   structure.
-- **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV.
+- **Result grid** – sort, filter, pin, hide and resize columns; copy rows as JSON or CSV; edit, add, clone and delete rows of a single table with a key, reviewed as SQL and saved in one transaction.
 - **CSV and Parquet export** – the visible rows or the full, unlimited result, written straight to disk.
 - **Editor comforts** – autocomplete for tables and columns, SQL formatting, execution plans, SQL templates, multiple
   cursors and a searchable query history.
