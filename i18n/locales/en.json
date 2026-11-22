@@ -252,7 +252,9 @@
     "mcpUser": "MCP user",
     "mcpPassword": "MCP password",
     "mcpToken": "MCP token",
-    "clearMcpPassword": "Remove stored MCP password"
+    "clearMcpPassword": "Remove stored MCP password",
+    "mcpExternalAccess": "Let AI assistants (MCP) read files and URLs",
+    "mcpExternalAccessHelp": "Off: MCP queries open the database read-only in a DuckDB instance of their own, which cannot read files or URLs (read_csv, read_text, httpfs). On: they run in the editor's instance with its access."
   },
   "colors": {
     "red": "Red",
@@ -451,6 +453,7 @@
     "sshNoAgent": "No SSH agent found: SSH_AUTH_SOCK is not set.",
     "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
     "sshKeyRequired": "Please enter the path of the private key file.",
-    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance."
+    "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance.",
+    "mcpDuckdbInUse": "Colwerk has {file} open for writing, so MCP cannot read it in its sandbox. Disconnect the connection, open it read-only, or let MCP read files and URLs for it."
   }
 }

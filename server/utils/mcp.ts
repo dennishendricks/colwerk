@@ -13,6 +13,25 @@ import {
 
 // Shared by the tools in server/mcp/tools. Every tool except open-query only reads.
 
+// Sandboxed DuckDB sessions read the file as of their opening; they are closed once no MCP request runs anymore,
+// so the next request sees the editor's changes and the file is not held.
+const sandboxes = new Set<string>()
+let running = 0
+
+/** Runs one MCP request (server/mcp/index.ts). */
+export async function mcpRequest<T>(next: () => Promise<T>): Promise<T> {
+  running++
+  try {
+    return await next()
+  } finally {
+    if (--running === 0) {
+      const ids = [...sandboxes]
+      sandboxes.clear()
+      await Promise.all(ids.map((id) => workbench.closeConnection(id)))
+    }
+  }
+}
+
 /** Statement timeout for queries run by an MCP client. */
 const QUERY_TIMEOUT_SECONDS = 30
 
@@ -32,7 +51,10 @@ export function sessionId(connection: ConnectionSummary): string {
   if (workbench.isDisconnected(connection.id)) {
     throw new AppError('disconnected', 'The connection is disconnected.', { code: 'EDISCONNECTED' })
   }
-  return ownMcpSessions(connection) ? `mcp:${connection.id}` : connection.id
+  if (!ownMcpSessions(connection)) return connection.id
+  const id = `mcp:${connection.id}`
+  if (connection.dialect === 'duckdb') sandboxes.add(id)
+  return id
 }
 
 /** MySQL schemas are databases; every other connection is bound to the one database it was configured with. */

@@ -130,6 +130,10 @@ export interface ConnectionConfig {
   mcpUser?: string
   /** Password or token of the MCP login; stored like `password`. */
   mcpPassword?: string
+  /** DuckDB: MCP queries run in the editor's database instance and may read files and URLs; off = in a sandbox (see mcpSandbox). */
+  mcpExternalAccess?: boolean
+  /** Set for sessions of MCP clients only (core/mcp-session.ts), never stored: DuckDB opens the database in an instance of its own, read-only and without access to files and URLs. */
+  mcpSandbox?: boolean
 }
 
 export interface DriverCapabilities {

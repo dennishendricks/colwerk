@@ -252,7 +252,9 @@
     "mcpUser": "MCP-Benutzer",
     "mcpPassword": "MCP-Passwort",
     "mcpToken": "MCP-Token",
-    "clearMcpPassword": "Gespeichertes MCP-Passwort entfernen"
+    "clearMcpPassword": "Gespeichertes MCP-Passwort entfernen",
+    "mcpExternalAccess": "KI-Assistenten (MCP) Dateien und URLs lesen lassen",
+    "mcpExternalAccessHelp": "Aus: MCP-Abfragen öffnen die Datenbank schreibgeschützt in einer eigenen DuckDB-Instanz, die keine Dateien oder URLs lesen kann (read_csv, read_text, httpfs). An: Sie laufen in der Instanz des Editors mit deren Zugriff."
   },
   "colors": {
     "red": "Rot",
@@ -451,6 +453,7 @@
     "sshNoAgent": "Kein SSH-Agent gefunden: SSH_AUTH_SOCK ist nicht gesetzt.",
     "sshRequired": "Ein SSH-Tunnel braucht SSH-Host und SSH-Benutzer.",
     "sshKeyRequired": "Bitte den Pfad der Private-Key-Datei angeben.",
-    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren."
+    "sshNotCombinable": "Ein SSH-Tunnel lässt sich nicht mit Unix-Socket oder benannter Instanz kombinieren.",
+    "mcpDuckdbInUse": "Colwerk hat {file} zum Schreiben geöffnet, daher kann MCP die Datei nicht in seiner Sandbox lesen. Trenne die Verbindung, öffne sie schreibgeschützt oder erlaube MCP für sie Dateien und URLs zu lesen."
   }
 }

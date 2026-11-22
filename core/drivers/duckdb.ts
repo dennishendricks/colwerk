@@ -311,7 +311,7 @@ export const duckdbDriver: Driver = {
     try {
       // Named in-memory databases keep one shared database per connection across all its sessions.
       const path = !config.file || config.file === ':memory:' ? `:memory:${config.id}` : config.file
-      return new DuckDBSession(await connect(path, !!config.readOnly, !!config.v1Storage))
+      return new DuckDBSession(await connect(path, !!config.readOnly, !!config.v1Storage, !!config.mcpSandbox))
     } catch (e) {
       throw wrap(e)
     }

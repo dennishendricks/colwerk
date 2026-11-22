@@ -184,5 +184,6 @@ export function parseConnection(body: unknown): ConnectionInput {
     mcpUser: mcpLogin && auth !== 'token' ? str('mcpUser') : undefined,
     // undefined = keep stored MCP password, '' = remove it
     mcpPassword: !mcpLogin ? '' : typeof b.mcpPassword === 'string' ? b.mcpPassword : undefined,
+    mcpExternalAccess: dialect === 'duckdb' && b.mcpExternalAccess === true,
   }
 }

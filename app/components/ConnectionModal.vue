@@ -69,6 +69,7 @@ watch(
       mcpLogin: c?.mcpLogin ?? false,
       mcpUser: c?.mcpUser ?? '',
       mcpPassword: '',
+      mcpExternalAccess: c?.mcpExternalAccess ?? false,
     })
     // Opens with the further options shown when the connection uses one of them.
     showAdvanced.value = !!(
@@ -783,6 +784,9 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             :help="t('connection.v1StorageHelp')"
           >
             <USwitch v-model="form.v1Storage" :label="t('connection.v1Storage')" />
+          </UFormField>
+          <UFormField v-if="form.dialect === 'duckdb'" class="col-span-2" :help="t('connection.mcpExternalAccessHelp')">
+            <USwitch v-model="form.mcpExternalAccess" color="warning" :label="t('connection.mcpExternalAccess')" />
           </UFormField>
         </template>
 
