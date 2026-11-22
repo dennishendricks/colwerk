@@ -1,4 +1,5 @@
 import { drivers, loadDriver } from './registry.ts'
+import { secrets } from './secrets.ts'
 import { writingStatement } from './sql-guard.ts'
 import { openTunnel, type Tunnel } from './ssh-tunnel.ts'
 import { isReadOnlyStatement, splitStatements } from './sql-split.ts'
@@ -368,6 +369,8 @@ export class Workbench {
 
   /** Opens the session, through the connection's SSH tunnel if it has one. */
   private async connectSession(config: ConnectionConfig, tunnelKey: string, saveHostKey: boolean): Promise<Session> {
+    // Secrets from password managers are read on every connect and only kept in this copy (core/secrets.ts).
+    config = await secrets.resolveConfig(config)
     const driver = await loadDriver(config.dialect)
     if (!config.ssh) return driver.connect(config)
     const { tunnel, release } = await this.acquireTunnel(tunnelKey, config, saveHostKey)

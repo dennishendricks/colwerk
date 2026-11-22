@@ -13,6 +13,7 @@ import {
   type ConnectionImportSource,
   importSources,
   isLakehouse,
+  parseSecretRef,
   type SshAuth,
   sshAuths,
   Workbench,
@@ -154,6 +155,15 @@ export function parseConnection(body: unknown): ConnectionInput {
     throw createError({ statusCode: 400, message: 'Invalid port', data: { key: 'invalidPort' } })
   }
   const entra = auth?.startsWith('entra-') ?? false
+  const secretRef = (value: unknown) => {
+    try {
+      return parseSecretRef(value)
+    } catch {
+      throw createError({ statusCode: 400, message: 'Invalid secret reference', data: { key: 'invalidSecretRef' } })
+    }
+  }
+  const passwordRef = secretRef(b.passwordRef)
+  const sshSecretRef = !ssh || sshAuth === 'agent' ? undefined : secretRef(b.sshSecretRef)
   return {
     id: str('id') ?? crypto.randomUUID(),
     name: str('name')!,
@@ -163,8 +173,9 @@ export function parseConnection(body: unknown): ConnectionInput {
     port,
     database: str('database'),
     user: str('user'),
-    // undefined = keep stored password, '' = remove it
-    password: typeof b.password === 'string' ? b.password : undefined,
+    // undefined = keep stored password, '' = remove it (a reference replaces it)
+    password: passwordRef ? '' : typeof b.password === 'string' ? b.password : undefined,
+    passwordRef,
     auth,
     domain: auth === 'windows' ? str('domain') : undefined,
     tenantId: entra ? str('tenantId') : undefined,
@@ -195,8 +206,10 @@ export function parseConnection(body: unknown): ConnectionInput {
     sshUser: ssh ? str('sshUser') : undefined,
     sshAuth,
     sshKeyFile: sshAuth === 'key' ? str('sshKeyFile') : undefined,
-    // undefined = keep stored secret, '' = remove it
-    sshSecret: !ssh || sshAuth === 'agent' ? '' : typeof b.sshSecret === 'string' ? b.sshSecret : undefined,
+    // undefined = keep stored secret, '' = remove it (a reference replaces it)
+    sshSecret:
+      !ssh || sshAuth === 'agent' || sshSecretRef ? '' : typeof b.sshSecret === 'string' ? b.sshSecret : undefined,
+    sshSecretRef,
     sshHostKey: ssh ? str('sshHostKey') : undefined,
     color,
     confirmWrites: b.confirmWrites === true,

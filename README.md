@@ -117,7 +117,7 @@ reachable. Unity Catalog and OneLake need cloud accounts and have no automated t
 ### Architecture
 
 ```
-core/       runtime-agnostic TypeScript on node: APIs: drivers, sessions, export, store, keychain (no Nuxt dependencies)
+core/       runtime-agnostic TypeScript on node: APIs: drivers, sessions, export, store, keychain, secret references (no Nuxt dependencies)
 server/     thin Nitro layer: security middleware, /api/* routes, MCP tools; no database logic
 app/        Nuxt UI frontend, talks to /api/* only; native menus and dialogs through Tauri (app/utils/desktop.ts)
 launcher/   entry point of the server binary (colwerk-server), MCP stdio bridge
@@ -173,6 +173,18 @@ Connections, open tabs and query history are stored as JSON in the data director
 (`~/Library/Application Support/colwerk`, `%APPDATA%\colwerk`, `$XDG_CONFIG_HOME/colwerk`; override with
 `COLWERK_DATA_DIR`). Passwords, keys and tokens are encrypted with AES-256-GCM; the key lives in the OS keychain, or in `secret.key`
 (mode 0600) if none is available or `COLWERK_KEYCHAIN=off`.
+
+Instead of being stored, every secret field (password, client secret, token, SSH password or passphrase) can reference a
+password manager: 1Password (`op://vault/item/field`, read with `op`), Bitwarden (item ID and field, `bw`), Bitwarden
+Secrets Manager (secret ID, `bws`) or KeePassXC (database file, entry path, attribute and optional key file,
+`keepassxc-cli`). Colwerk stores only the reference and reads the secret on every connect, so a rotated password is
+picked up; the value stays in memory and is never written to disk. The CLIs run without a shell with the reference as
+the only argument, the secret is read from stdout. Master passwords of KeePassXC and Bitwarden and the Secrets Manager
+token are asked for in the app and kept in memory until Colwerk quits (Bitwarden: only the `bw` session key); an
+inherited `BW_SESSION` or `BWS_ACCESS_TOKEN` works too, 1Password uses its app integration or
+`OP_SERVICE_ACCOUNT_TOKEN`. The CLIs are looked up on the PATH and in `/opt/homebrew/bin`, `/usr/local/bin`,
+`/Applications/KeePassXC.app/Contents/MacOS` and `%ProgramFiles%\KeePassXC`; on Windows only `.exe` files work (not
+npm's `bw.cmd`). `bw` reads its local copy: run `bw sync` to pick up changes (Colwerk syncs once after unlocking).
 
 The connection import only reads the other tools' files, at their default locations or a file you choose. DBeaver and
 Beekeeper Studio passwords are decrypted with those apps' built-in keys. Azure Data Studio keeps passwords in the OS

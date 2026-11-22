@@ -271,6 +271,28 @@
     "sshKeyFile": "Private key file",
     "sshPassphrase": "Passphrase (optional)",
     "clearSshSecret": "Remove stored SSH password / passphrase",
+    "secretSource": "Source",
+    "secretSources": {
+      "stored": "Colwerk",
+      "1password": "1Password",
+      "bitwarden": "Bitwarden",
+      "bitwarden-sm": "Bitwarden Secrets Manager",
+      "keepassxc": "KeePassXC"
+    },
+    "secretRefHelp": {
+      "1password": "In 1Password: Copy Secret Reference on the field. Colwerk stores only the reference and reads the secret with the op CLI on every connect.",
+      "bitwarden": "Item ID (bw list items) and field: password, username, notes or the name of a custom field. Read with the bw CLI on every connect; run bw sync to pick up changes made elsewhere.",
+      "bitwarden-sm": "Secret ID from Bitwarden Secrets Manager, read with the bws CLI on every connect.",
+      "keepassxc": "Read with keepassxc-cli on every connect. Colwerk asks for the master password once and keeps it in memory until it quits."
+    },
+    "bwItem": "Item ID",
+    "bwField": "Field",
+    "bwsSecretId": "Secret ID",
+    "keepassDatabase": "Database file",
+    "keepassEntry": "Entry",
+    "keepassEntryHelp": "Path of the entry, e.g. Databases/Production",
+    "keepassAttribute": "Attribute",
+    "keepassKeyFile": "Key file (optional)",
     "sshHostKey": "Host key",
     "sshHostKeyHelp": "Recorded on the first connect; a different key is refused.",
     "forgetHostKey": "Forget host key",
@@ -356,6 +378,19 @@
     "empty": "No queries found.",
     "deletedConnection": "Deleted connection",
     "clear": "Clear history"
+  },
+  "unlock": {
+    "title": "Unlock {name}",
+    "description": {
+      "bitwarden": "Colwerk unlocks the Bitwarden CLI with your master password and keeps only its session in memory until it quits.",
+      "bitwarden-sm": "Access token of a machine account. Colwerk keeps it in memory until it quits.",
+      "keepassxc": "Master password of {database}. Colwerk keeps it in memory until it quits."
+    },
+    "masterPassword": "Master password",
+    "accessToken": "Access token",
+    "keyFileHelp": "Leave empty if the database is protected by the key file only.",
+    "unlock": "Unlock",
+    "unlocked": "{name} unlocked. Try again."
   },
   "compare": {
     "open": "Compare",
@@ -700,6 +735,14 @@
     "sshRequired": "An SSH tunnel needs an SSH host and an SSH user.",
     "sshKeyRequired": "Please enter the path of the private key file.",
     "sshNotCombinable": "An SSH tunnel cannot be combined with a Unix socket or a named instance.",
+    "invalidSecretRef": "The secret reference is incomplete or invalid.",
+    "secretCliMissing": "{cli} was not found. Install it and make sure it is on the PATH.",
+    "secretLocked": "{name} is locked. Unlock it and try again.",
+    "opSignedOut": "1Password is locked or not signed in: unlock the 1Password app (with CLI integration on) or run op signin.",
+    "bwSignedOut": "The Bitwarden CLI is not logged in: run bw login in a terminal.",
+    "secretNotFound": "{name}: {reference} not found.",
+    "secretUnlockFailed": "{name} could not be unlocked: {detail}",
+    "secretFailed": "{name}: {detail}",
     "importNotFound": "File not found: {path}",
     "importUnreadable": "The file could not be read: {detail}",
     "readOnly": "The connection is read-only: the statement may change data or structures."

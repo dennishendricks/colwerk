@@ -549,6 +549,7 @@ useApplicationMenu({
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" />
     <ReleaseNotesModal />
+    <UnlockModal />
     <LazyAboutModal v-model:open="aboutOpen" />
     <LazyQuickOpen
       v-if="activeConnectionId"
