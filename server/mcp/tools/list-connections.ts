@@ -29,25 +29,27 @@ The lakehouse dialects iceberg (Apache Iceberg), delta (Delta Lake), unity (Data
 Names are not unique; identify a connection by connectionId.`,
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler() {
-    const connections = await store.list()
-    return {
-      connections: await Promise.all(
-        connections.map(async (c) => {
-          const base = {
-            connectionId: c.id,
-            name: c.name,
-            folder: c.folder ?? null,
-            dialect: c.dialect,
-            dialectLabel: drivers.find((d) => d.dialect === c.dialect)?.label ?? c.dialect,
-            readOnly: c.readOnly === true,
-          }
-          try {
-            return { ...base, databases: databasesOf(c, await probe(c)), status: 'connected' }
-          } catch (e) {
-            return { ...base, databases: databasesOf(c), status: 'unreachable', error: (e as Error).message }
-          }
-        }),
-      ),
-    }
+    return audited('list-connections', undefined, async () => {
+      const connections = await store.list()
+      return {
+        connections: await Promise.all(
+          connections.map(async (c) => {
+            const base = {
+              connectionId: c.id,
+              name: c.name,
+              folder: c.folder ?? null,
+              dialect: c.dialect,
+              dialectLabel: drivers.find((d) => d.dialect === c.dialect)?.label ?? c.dialect,
+              readOnly: c.readOnly === true,
+            }
+            try {
+              return { ...base, databases: databasesOf(c, await probe(c)), status: 'connected' }
+            } catch (e) {
+              return { ...base, databases: databasesOf(c), status: 'unreachable', error: (e as Error).message }
+            }
+          }),
+        ),
+      }
+    })
   },
 })

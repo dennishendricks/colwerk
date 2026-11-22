@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const open = defineModel<boolean>('open', { default: false })
+const emit = defineEmits<{ audit: [] }>()
 
 const bridge = ref<{ command: string; args: string[] }>()
 watch(
@@ -50,6 +51,17 @@ codex mcp add colwerk -- {{ cli }}</pre>
           <pre class="overflow-x-auto rounded bg-elevated p-2 text-xs select-all">{{ toml }}</pre>
         </section>
         <p class="text-muted">{{ $t('mcp.others') }}</p>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end">
+        <UButton
+          :label="$t('mcp.openAudit')"
+          icon="i-lucide-scroll-text"
+          color="neutral"
+          variant="ghost"
+          @click="emit('audit')"
+        />
       </div>
     </template>
   </UModal>

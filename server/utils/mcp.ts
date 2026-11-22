@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   AppError,
   type ConnectionSummary,
@@ -17,12 +18,13 @@ import {
 // so the next request sees the editor's changes and the file is not held.
 const sandboxes = new Set<string>()
 let running = 0
+const client = new AsyncLocalStorage<string>()
 
-/** Runs one MCP request (server/mcp/index.ts). */
-export async function mcpRequest<T>(next: () => Promise<T>): Promise<T> {
+/** Runs one MCP request of `clientName` (server/mcp/index.ts). */
+export async function mcpRequest<T>(clientName: string, next: () => Promise<T>): Promise<T> {
   running++
   try {
-    return await next()
+    return await client.run(clientName, next)
   } finally {
     if (--running === 0) {
       const ids = [...sandboxes]
@@ -55,6 +57,44 @@ export function sessionId(connection: ConnectionSummary): string {
   const id = `mcp:${connection.id}`
   if (connection.dialect === 'duckdb') sandboxes.add(id)
   return id
+}
+
+// Details a tool call adds to its audit entry while it runs (readQuery fills in the SQL and row count).
+const auditing = new AsyncLocalStorage<{ sql?: string; rowCount?: number }>()
+
+/** Runs a tool call and records it in the audit log (server/utils/audit.ts), also when it fails. Never records result rows. */
+export async function audited<T>(
+  tool: string,
+  connectionId: string | undefined,
+  fn: () => Promise<T>,
+  sql?: string,
+): Promise<T> {
+  const details: { sql?: string; rowCount?: number } = { sql }
+  const at = new Date().toISOString()
+  const started = performance.now()
+  let failure: { message: string; timeout: boolean } | undefined
+  try {
+    return await auditing.run(details, fn)
+  } catch (e) {
+    const code = (e as { data?: { code?: string } }).data?.code ?? (e as { code?: string }).code
+    failure = { message: (e as Error).message, timeout: code === 'ETIMEOUT' }
+    throw e
+  } finally {
+    const connection = connectionId
+      ? (await store.list().catch(() => [])).find((c) => c.id === connectionId)
+      : undefined
+    recordAudit({
+      at,
+      client: client.getStore() ?? 'unknown',
+      tool,
+      connectionId,
+      connectionName: connection?.name,
+      ...details,
+      durationMs: Math.round(performance.now() - started),
+      status: !failure ? 'ok' : failure.timeout ? 'timeout' : 'error',
+      error: failure?.message.slice(0, 1000),
+    })
+  }
 }
 
 /** MySQL schemas are databases; every other connection is bound to the one database it was configured with. */
@@ -101,16 +141,21 @@ const GUARD: Record<SplitDialect, string> = {
 export async function readQuery(connectionId: string, sql: string, rowLimit: number): Promise<QueryResult> {
   const connection = await connectionOf(connectionId)
   const dialect = sqlDialect(connection.dialect)
+  const details = auditing.getStore()
+  // Before the check, so that refused SQL is logged too.
+  if (details) details.sql = sql
   if (!isSelectStatement(sql, dialect)) {
     throw createError({ statusCode: 400, message: 'Only a single SELECT or WITH statement is allowed.' })
   }
   const tabId = `mcp:${crypto.randomUUID()}`
   try {
-    return await dbCall(async () => {
+    const result = await dbCall(async () => {
       const id = sessionId(connection)
       await workbench.execute(tabId, id, GUARD[dialect], 1, QUERY_TIMEOUT_SECONDS)
       return workbench.execute(tabId, id, sql, rowLimit, QUERY_TIMEOUT_SECONDS)
     })
+    if (details) details.rowCount = result.resultSets[0]?.rows.length ?? 0
+    return result
   } finally {
     await workbench.closeTab(tabId)
   }

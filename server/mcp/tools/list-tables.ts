@@ -14,20 +14,22 @@ rowEstimate comes from the catalog statistics and may be outdated; it is null fo
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, schema, filter }) {
-    const connection = await connectionOf(connectionId)
-    const schemas = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'schemas' }))
-    if (!schemas.some((s) => s.name === schema)) {
-      throw createError({
-        statusCode: 404,
-        message: `Schema '${schema}' not found. Call list-schemas for valid names.`,
-      })
-    }
-    const tables = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'tables', schema }))
-    const needle = filter?.toLowerCase()
-    return {
-      tables: tables
-        .filter((t) => !needle || t.name.toLowerCase().includes(needle))
-        .map((t) => ({ name: t.name, type: t.kind, rowEstimate: t.rowEstimate, comment: t.comment })),
-    }
+    return audited('list-tables', connectionId, async () => {
+      const connection = await connectionOf(connectionId)
+      const schemas = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'schemas' }))
+      if (!schemas.some((s) => s.name === schema)) {
+        throw createError({
+          statusCode: 404,
+          message: `Schema '${schema}' not found. Call list-schemas for valid names.`,
+        })
+      }
+      const tables = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'tables', schema }))
+      const needle = filter?.toLowerCase()
+      return {
+        tables: tables
+          .filter((t) => !needle || t.name.toLowerCase().includes(needle))
+          .map((t) => ({ name: t.name, type: t.kind, rowEstimate: t.rowEstimate, comment: t.comment })),
+      }
+    })
   },
 })

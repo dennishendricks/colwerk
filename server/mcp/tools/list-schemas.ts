@@ -16,33 +16,35 @@ For MySQL/MariaDB a schema is a database.`,
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   async handler({ connectionId, database }) {
-    const connection = await connectionOf(connectionId)
-    let schemas = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'schemas' }))
-    if (database !== undefined) {
-      const databases = databasesOf(connection, schemas)
-      if (!databases.includes(database)) {
-        throw createError({
-          statusCode: 404,
-          message: `Database '${database}' is not available through this connection. Available: ${
-            databases.join(', ') || 'none'
-          }.`,
-        })
+    return audited('list-schemas', connectionId, async () => {
+      const connection = await connectionOf(connectionId)
+      let schemas = await dbCall(() => workbench.introspect(sessionId(connection), { kind: 'schemas' }))
+      if (database !== undefined) {
+        const databases = databasesOf(connection, schemas)
+        if (!databases.includes(database)) {
+          throw createError({
+            statusCode: 404,
+            message: `Database '${database}' is not available through this connection. Available: ${
+              databases.join(', ') || 'none'
+            }.`,
+          })
+        }
+        if (connection.dialect === 'mysql') schemas = schemas.filter((s) => s.name === database)
       }
-      if (connection.dialect === 'mysql') schemas = schemas.filter((s) => s.name === database)
-    }
-    return {
-      schemas: await Promise.all(
-        schemas.map(async ({ name }) => {
-          const tables = await dbCall(() =>
-            workbench.introspect(sessionId(connection), { kind: 'tables', schema: name }),
-          )
-          return {
-            name,
-            tables: tables.filter((t) => t.kind === 'table').length,
-            views: tables.filter((t) => t.kind === 'view').length,
-          }
-        }),
-      ),
-    }
+      return {
+        schemas: await Promise.all(
+          schemas.map(async ({ name }) => {
+            const tables = await dbCall(() =>
+              workbench.introspect(sessionId(connection), { kind: 'tables', schema: name }),
+            )
+            return {
+              name,
+              tables: tables.filter((t) => t.kind === 'table').length,
+              views: tables.filter((t) => t.kind === 'view').length,
+            }
+          }),
+        ),
+      }
+    })
   },
 })

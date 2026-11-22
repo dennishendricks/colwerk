@@ -146,9 +146,15 @@ watch(
 
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
+const auditOpen = ref(false)
 const historyOpen = ref(false)
 const aboutOpen = ref(false)
 const quickOpen = ref(false)
+// The audit log opens from the MCP dialog, which makes room for it.
+function openAudit() {
+  mcpOpen.value = false
+  auditOpen.value = true
+}
 const schemaTree = useTemplateRef('schemaTree')
 // Searches the schema tree's connection, so the selected table is queried on the same one.
 const canQuickOpen = computed(() => !!activeConnectionId.value && !activeConnection.value?.disconnected)
@@ -277,6 +283,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 useApplicationMenu({
   openMcp: () => (mcpOpen.value = true),
+  openMcpAudit: () => (auditOpen.value = true),
   openHistory: () => (historyOpen.value = true),
   openShortcuts: () => (shortcutsOpen.value = true),
   openAbout: () => (aboutOpen.value = true),
@@ -517,7 +524,7 @@ useApplicationMenu({
 
     <LazyConnectionModal v-model:open="modalOpen" :connection="editing" />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
-    <LazyMcpModal v-model:open="mcpOpen" />
+    <LazyMcpModal v-model:open="mcpOpen" @audit="openAudit" />
     <ReleaseNotesModal />
     <LazyAboutModal v-model:open="aboutOpen" />
     <LazyQuickOpen
@@ -532,6 +539,7 @@ useApplicationMenu({
       :connection-id="activeTab?.connectionId ?? activeConnectionId"
       @select="(e) => openInNewTab(e.connectionId, e.sql)"
     />
+    <LazyAuditModal v-model:open="auditOpen" @select="(e) => openInNewTab(e.connectionId!, e.sql!)" />
     <UModal
       :open="!!closing.length"
       :title="closing.length > 1 ? t('app.closeTabsTitle', { n: closing.length }) : t('app.closeTabTitle')"

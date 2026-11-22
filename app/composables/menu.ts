@@ -4,6 +4,7 @@ import type { ApplicationMenuItem } from '~/utils/application-menu'
 /** Actions of the menu that open or toggle parts of the page owned by the caller. */
 interface MenuViewActions {
   openMcp: () => void
+  openMcpAudit: () => void
   openHistory: () => void
   openShortcuts: () => void
   openAbout: () => void
@@ -50,6 +51,7 @@ export function useApplicationMenu(view: MenuViewActions) {
         // On Windows and Linux in the Help menu.
         ...(macOS.value ? [item(t('menu.about'), 'about'), 'separator' as const] : []),
         item(t('menu.setupMcp'), 'mcp'),
+        item(t('menu.mcpAudit'), 'mcp-audit'),
         item(t('menu.checkUpdates'), 'update'),
         'separator',
         ...(macOS.value ? roles('Quit') : [item(t('menu.quit'), 'quit')]),
@@ -135,6 +137,7 @@ export function useApplicationMenu(view: MenuViewActions) {
 
   defineMenuHandlers({
     mcp: view.openMcp,
+    'mcp-audit': view.openMcpAudit,
     update: () => checkForUpdate(true),
     quit: () => exit(),
     privacy: () => openUrl(privacyUrl),

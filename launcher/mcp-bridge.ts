@@ -13,12 +13,24 @@ const send = (message: unknown) =>
 // Read from the keychain once, and again after any failure (e.g. the token was replaced).
 let token: Promise<string | undefined> | undefined
 
+// Name and version of the MCP client from its `initialize` request, sent along for the audit log.
+let client: string | undefined
+
 async function forward(line: string): Promise<void> {
-  let message: { id?: string | number }
+  let message: { id?: string | number; method?: string; params?: { clientInfo?: { name?: string; version?: string } } }
   try {
     message = JSON.parse(line)
   } catch {
     return send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } })
+  }
+  if (message.method === 'initialize') {
+    const info = message.params?.clientInfo
+    client =
+      [info?.name, info?.version]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/[^\x20-\x7e]/g, '')
+        .slice(0, 100) || undefined
   }
   try {
     const instance = readInstance()
@@ -30,6 +42,7 @@ async function forward(line: string): Promise<void> {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
         authorization: `Bearer ${current}`,
+        ...(client && { 'x-colwerk-mcp-client': client }),
       },
       body: line,
     }).catch(() => {

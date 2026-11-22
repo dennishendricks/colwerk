@@ -56,6 +56,7 @@
     "about": "Über Colwerk",
     "quit": "Beenden",
     "setupMcp": "MCP einrichten …",
+    "mcpAudit": "MCP-Protokoll …",
     "checkUpdates": "Nach Updates suchen …",
     "file": "Ablage",
     "newTab": "Neuer Tab",
@@ -300,7 +301,30 @@
     "description": "KI-Assistenten lesen über MCP Strukturen und führen SELECT-Abfragen auf deinen Verbindungen aus. Colwerk muss dafür laufen.",
     "claudeDesktop": "Einstellungen → Entwickler → Konfiguration bearbeiten, in {file} eintragen und Claude neu starten:",
     "codex": "ChatGPT bindet nur MCP-Server über HTTPS aus dem Internet ein, nicht lokale Programme wie Colwerk. Codex (CLI und App) unterstützt sie, per Befehl oder in {file}:",
-    "others": "Andere Clients (z. B. Cursor, VS Code) nehmen denselben Befehl als stdio-Server auf."
+    "others": "Andere Clients (z. B. Cursor, VS Code) nehmen denselben Befehl als stdio-Server auf.",
+    "openAudit": "Protokoll"
+  },
+  "audit": {
+    "title": "MCP-Protokoll",
+    "description": "Jeder Werkzeugaufruf eines KI-Assistenten, ohne Ergebnisdaten. Ein Klick öffnet die Abfrage in einem neuen Tab.",
+    "connection": "Verbindung",
+    "allConnections": "Alle Verbindungen",
+    "period": "Zeitraum",
+    "periods": {
+      "hour": "Letzte Stunde",
+      "day": "Letzte 24 Stunden",
+      "week": "Letzte 7 Tage",
+      "all": "Alle"
+    },
+    "empty": "Keine Einträge gefunden.",
+    "deletedConnection": "Gelöschte Verbindung",
+    "unknownClient": "Unbekannter Client",
+    "failed": "Fehlgeschlagen",
+    "timedOut": "Zeitüberschreitung",
+    "retention": "Einträge aufbewahren",
+    "retentionDays": "{n} Tage",
+    "limited": "Die neuesten {n} Einträge werden angezeigt.",
+    "clear": "Protokoll leeren"
   },
   "shortcuts": {
     "title": "Tastenkürzel",

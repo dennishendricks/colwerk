@@ -340,7 +340,10 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
       const mcp = async (
         method: string,
         params: object,
-        headers: Record<string, string> = { authorization: `Bearer ${mcpToken}` },
+        headers: Record<string, string> = {
+          authorization: `Bearer ${mcpToken}`,
+          'x-colwerk-mcp-client': 'test-client 1.0',
+        },
       ) => {
         const res = await call(
           '/mcp',
@@ -422,6 +425,24 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
       assertEquals(denied.error, true)
       assertStringIncludes(denied.text, 'Microsoft Entra sign-in required')
       await json(await call(`/api/connections/${entra.id}`, { method: 'DELETE' }))
+
+      // Every call is logged with the client name, also the refused ones; never with result rows.
+      const audit = await json(await call('/api/mcp/audit'))
+      const find = (f: (e: Record<string, unknown>) => boolean) => audit.entries.find(f)
+      const ran = find((e) => e.tool === 'run-query' && e.status === 'ok')
+      assertEquals([ran.rowCount, ran.client], [2, 'test-client 1.0'])
+      assertEquals(find((e) => e.sql === 'delete from sales.orders').status, 'error')
+      assertEquals(
+        audit.entries.some((e: object) => 'rows' in e),
+        false,
+      )
+      assertEquals(audit.retentionDays, 30)
+      await json(await call('/api/mcp/audit', { method: 'POST', body: JSON.stringify({ retentionDays: 7 }) }))
+      assertEquals((await json(await call('/api/mcp/audit'))).retentionDays, 7)
+      const invalid = await call('/api/mcp/audit', { method: 'POST', body: JSON.stringify({ retentionDays: 5 }) })
+      assertEquals((invalid.body?.cancel(), invalid.status), 400)
+      await json(await call('/api/mcp/audit', { method: 'DELETE' }))
+      assertEquals((await json(await call('/api/mcp/audit'))).entries, [])
     })
 
     test('mcp: a separate MCP login is used for MCP only', async () => {

@@ -56,6 +56,7 @@
     "about": "About Colwerk",
     "quit": "Quit",
     "setupMcp": "Set Up MCP …",
+    "mcpAudit": "MCP Audit Log …",
     "checkUpdates": "Check for Updates …",
     "file": "File",
     "newTab": "New Tab",
@@ -300,7 +301,30 @@
     "description": "Through MCP, AI assistants read structures and run SELECT queries on your connections. Colwerk must be running for this.",
     "claudeDesktop": "Settings → Developer → Edit Config, add to {file} and restart Claude:",
     "codex": "ChatGPT only integrates MCP servers over HTTPS from the internet, not local programs like Colwerk. Codex (CLI and app) supports them, by command or in {file}:",
-    "others": "Other clients (e.g. Cursor, VS Code) take the same command as a stdio server."
+    "others": "Other clients (e.g. Cursor, VS Code) take the same command as a stdio server.",
+    "openAudit": "Audit log"
+  },
+  "audit": {
+    "title": "MCP audit log",
+    "description": "Every tool call of an AI assistant, without result data. A click opens the query in a new tab.",
+    "connection": "Connection",
+    "allConnections": "All connections",
+    "period": "Period",
+    "periods": {
+      "hour": "Last hour",
+      "day": "Last 24 hours",
+      "week": "Last 7 days",
+      "all": "All"
+    },
+    "empty": "No entries found.",
+    "deletedConnection": "Deleted connection",
+    "unknownClient": "Unknown client",
+    "failed": "Failed",
+    "timedOut": "Timed out",
+    "retention": "Keep entries for",
+    "retentionDays": "{n} days",
+    "limited": "Showing the newest {n} entries.",
+    "clear": "Clear log"
   },
   "shortcuts": {
     "title": "Keyboard shortcuts",
