@@ -141,6 +141,7 @@ watch(
 const shortcutsOpen = ref(false)
 const mcpOpen = ref(false)
 const historyOpen = ref(false)
+const compareOpen = ref(false)
 const aboutOpen = ref(false)
 const quickOpen = ref(false)
 const schemaTree = useTemplateRef('schemaTree')
@@ -441,11 +442,20 @@ useApplicationMenu({
             @click="addTab(activeConnectionId, activeDatabase)"
           />
           <UButton
-            icon="i-lucide-history"
+            icon="i-lucide-git-compare"
             size="xs"
             variant="ghost"
             color="neutral"
             class="ml-auto"
+            :title="t('compare.open')"
+            :aria-label="t('compare.open')"
+            @click="compareOpen = true"
+          />
+          <UButton
+            icon="i-lucide-history"
+            size="xs"
+            variant="ghost"
+            color="neutral"
             :title="t('app.history')"
             :aria-label="t('app.history')"
             @click="historyOpen = true"
@@ -528,6 +538,7 @@ useApplicationMenu({
       :database="activeDatabase"
       @select="(schema, table) => schemaTree?.selectTable(schema, table)"
     />
+    <LazyCompareModal v-model:open="compareOpen" />
     <LazyHistoryModal
       v-model:open="historyOpen"
       :connection-id="activeTab?.connectionId ?? activeConnectionId"

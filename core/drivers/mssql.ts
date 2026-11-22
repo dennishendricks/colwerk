@@ -69,7 +69,7 @@ function cell(value: unknown, type: string): CellValue {
 }
 
 // Type of sys.columns `c` with length/precision, as in the table definition.
-const COLUMN_TYPE = `
+export const COLUMN_TYPE = `
       type_name(c.user_type_id) + case
         when type_name(c.user_type_id) in ('varchar', 'char', 'varbinary', 'binary')
           then '(' + case c.max_length when -1 then 'max' else cast(c.max_length as varchar) end + ')'

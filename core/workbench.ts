@@ -234,6 +234,11 @@ export class Workbench {
     return result
   }
 
+  /** Runs `fn` on the metadata session of the connection (serially with introspection), e.g. for catalog queries. */
+  metadata<T>(connectionId: string, database: string | undefined, fn: (s: Session) => Promise<T>): Promise<T> {
+    return this.runMeta(connectionId, database, fn)
+  }
+
   /** Closes every session of a connection and drops its cache (after edit/delete). */
   async closeConnection(connectionId: string): Promise<void> {
     this.invalidate(connectionId)
