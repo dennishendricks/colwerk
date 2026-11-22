@@ -15,7 +15,10 @@
 - `components/ConnectionImportModal.vue`
 - `components/ConnectionModal.vue`: **39 KB: grep, then read in parts**
 - `components/ConnectionPicker.vue`
-- `components/DataImportModal.vue`: **28 KB: grep, then read in parts**
+- `components/DataImportLoad.vue`
+- `components/DataImportModal.vue`
+- `components/DataImportSource.vue`
+- `components/DataImportTarget.vue`
 - `components/DatabasePicker.vue`
 - `components/EditorTabs.vue`
 - `components/EmptyState.vue`
@@ -38,10 +41,12 @@
 - `components/UnlockModal.vue`
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
 - `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
+- `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
 - `composables/execution.ts`: exports variablePrompt, useExecution
 - `composables/import.ts`: exports ImportRequest, importRequest, useImport
 - `composables/lint.ts`: exports useLintSettings
 - `composables/menu.ts`: exports useApplicationMenu
+- `composables/schema-levels.ts`: Select items and loading of cascading schema and table pickers for a connection (and database)
 - `composables/schema.ts`: exports SchemaTarget, forgetSchemas, useSchema
 - `composables/tabs.ts`: exports PinnedResult, QueryTab, ReturnedTab, hasOpenTransaction, forgetTransactions, useTabs
 - `composables/window-keys.ts`: Window-wide keys that defineShortcuts cannot match: zooming (⌘+ / ⌘- / ⌘0) and switching tabs (⇧⌘[ / ⇧⌘])
@@ -53,6 +58,7 @@
 - `utils/blocking.ts`: exports BlockingNode, blockers, blockingChains
 - `utils/compare.ts`: Constants of the compare from core, re-exported for the app's auto-imports
 - `utils/connection-color.ts`: exports connectionColorClasses
+- `utils/data-import.ts`: Pure helpers of the data import wizard: table names from a source and matching of source to target columns
 - `utils/desktop.ts`: Native parts of the desktop app (src-tauri) through Tauri's JS API: menus and file dialogs
 - `utils/diagnostics.ts`: exports exportDiagnostics
 - `utils/dialect.ts`: Helpers from core/types.ts, re-exported for the app's auto-imports
