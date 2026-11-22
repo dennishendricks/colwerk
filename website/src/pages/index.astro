@@ -1,0 +1,259 @@
+---
+// Landing page: Starlight splash layout with the launch video, features, privacy, MCP, FAQ and downloads.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
+import { Badge, Card, CardGrid, Code, Steps } from '@astrojs/starlight/components'
+import HeroVideo from '../components/HeroVideo.astro'
+import Download from '../components/Download.astro'
+import { repo } from '../config'
+
+const engines = ['SQLite', 'PostgreSQL', 'MySQL / MariaDB', 'SQL Server', 'ClickHouse', 'DuckDB']
+const lakehouses = ['Apache Iceberg', 'Delta Lake', 'Databricks Unity Catalog', 'Microsoft Fabric OneLake']
+
+const general = [
+  {
+    title: 'One session per tab',
+    icon: 'seti:db',
+    text: 'Every editor tab holds its own connection. Transactions, temp tables and SET options stay where you left them. If a transaction is still open, Colwerk offers to commit or roll it back.',
+  },
+  {
+    title: 'Gentle on your database',
+    icon: 'rocket',
+    text: 'Drivers read only up to the row limit and cancel the rest. The schema tree loads on demand through its own metadata session, and table sizes come from statistics instead of COUNT(*).',
+  },
+  {
+    title: 'Guard rails for production',
+    icon: 'warning',
+    text: 'Give a connection a color, for example red for production, and it marks the sidebar, tabs and toolbar. On request, Colwerk asks before any statement that may change data or structures.',
+  },
+  {
+    title: 'CSV & Parquet export',
+    icon: 'document',
+    text: 'Export the rows you see or the full result without limit. Colwerk writes the file to disk itself, so large exports never pass through the UI.',
+  },
+  {
+    title: 'Built-in MCP server',
+    icon: 'puzzle',
+    text: 'Your AI assistant can browse schemas, run read-only queries and open SQL in a new tab. You decide what actually runs.',
+  },
+  {
+    title: 'Local by design',
+    icon: 'laptop',
+    text: 'Bound to 127.0.0.1 on a random port with a per-start token. Passwords are encrypted with AES-256-GCM, and the key lives in your OS keychain.',
+  },
+] as const
+
+// text is HTML (<kbd>)
+const daily = [
+  {
+    title: 'A result grid that keeps up',
+    text: 'Sort, filter, pin, hide and resize columns. Search the result, open long values, or copy a row as JSON or CSV.',
+  },
+  {
+    title: 'Keys in the schema tree',
+    text: 'Primary keys, foreign keys with their target and indexes show right in the tree. Double-click a table to query all its columns.',
+  },
+  {
+    title: 'Keyboard first',
+    text: 'Format SQL with <kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>F</kbd>, run with <kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd> and open the execution plan with <kbd>⌘/Ctrl</kbd> <kbd>E</kbd>. Multiple cursors and block selection included. Press <kbd>?</kbd> for all shortcuts.',
+  },
+  {
+    title: 'Sensible defaults',
+    text: 'New tabs start with a limit of 200 rows and a 60-second timeout. Enough to see your data, too little to strain the server. Both can be changed per tab.',
+  },
+  {
+    title: 'SQL from the schema',
+    text: 'Generate SELECT, INSERT, UPDATE and DELETE templates with the right parameter style for each engine. UPDATE and DELETE match on the primary key.',
+  },
+  {
+    title: 'Autocomplete and history',
+    text: 'Autocompletion knows your tables and columns. The last 50 queries are searchable and open in a new tab with one click.',
+  },
+  {
+    title: 'Opens your files',
+    text: 'Double-click a .sql file to open it in a new tab, or a .duckdb, .sqlite or .sqlite3 file to open it as a connection. If Colwerk is already running, its window comes to the front.',
+  },
+  {
+    title: 'Tabs in their own window',
+    text: 'Move a tab to a new window and back to the main window when you are done. Each window has its own menu.',
+  },
+]
+
+const privacy = [
+  {
+    title: 'Developed in Germany',
+    text: 'Colwerk is built and maintained in Germany. The code is MIT licensed, so anyone can audit it. Updates are signed, and every release includes a software bill of materials.',
+  },
+  {
+    title: 'No tracking',
+    text: 'Colwerk has no telemetry, no analytics and no account, and it does not report what you do or which databases you connect to.',
+  },
+  {
+    title: 'No built-in AI',
+    text: 'Colwerk sends nothing to any AI service. If you want an assistant, you connect your own and decide which model sees your data.',
+  },
+  {
+    title: 'Credentials stay local',
+    text: 'Passwords are encrypted with AES-256-GCM, and the key lives in your OS keychain. They never leave your machine and are never shown to an AI.',
+  },
+]
+
+const steps = [
+  { title: 'Ask', text: '“Which city buys the most coffee?” in Claude, ChatGPT or any other MCP client.' },
+  {
+    title: 'Explore',
+    text: 'Your AI looks at schemas, tables and sample rows and runs read-only queries to find the answer.',
+  },
+  { title: 'Hand over', text: 'The final query opens in a new Colwerk tab, with an explanation as SQL comment.' },
+  { title: 'You run it', text: 'Review it, change it, run it. Colwerk never runs it for you.' },
+]
+
+const can = [
+  'Browse connections, schemas, tables and columns',
+  'Look at sample rows to understand the data',
+  'Run SELECT queries for exploratory analysis',
+  'Open finished queries in a new editor tab',
+]
+
+const cannot = [
+  'See passwords or other credentials',
+  'Insert, update, delete or change the schema',
+  'Run anything in your editor tabs',
+  'Connect without its own access token',
+]
+
+const handover = `-- Which city buys the most coffee?
+-- Sums coffee orders per customer city
+-- and returns the city with the most cups.
+SELECT c.city, SUM(o.quantity) AS cups
+FROM orders o
+JOIN customers c ON c.id = o.customer_id
+WHERE o.category = 'Coffee'
+GROUP BY c.city
+ORDER BY cups DESC
+LIMIT 1;`
+
+const faqs = [
+  {
+    q: 'Is Colwerk really free?',
+    a: 'Yes. Colwerk is open source under the MIT license. There is no paid tier, no account and no trial. The source code is on GitHub for anyone to read and audit.',
+  },
+  {
+    q: 'Which databases does Colwerk support?',
+    a: 'SQLite, PostgreSQL, MySQL and MariaDB, SQL Server, ClickHouse and DuckDB. Through DuckDB, Colwerk also reads lakehouses: Apache Iceberg, Delta Lake, Databricks Unity Catalog and Microsoft Fabric OneLake.',
+  },
+  {
+    q: 'Which operating systems are supported?',
+    a: 'macOS on Apple Silicon, Windows on x64 and Linux on x64 and arm64 as a .deb package. On macOS and Windows, Colwerk installs signed updates itself.',
+  },
+  {
+    q: 'Does Colwerk collect any data?',
+    a: 'No. There is no telemetry, no analytics and no account. Queries go directly from your computer to your databases. Colwerk only contacts GitHub to check for updates and load release notes, and downloads the DuckDB library and its extensions the first time they are needed.',
+  },
+  {
+    q: 'Where are my passwords stored?',
+    a: 'On your computer only. Passwords are encrypted with AES-256-GCM, and the key lives in your operating system’s keychain. They are never shown to an AI assistant.',
+  },
+  {
+    q: 'Does Colwerk include AI?',
+    a: 'No. Colwerk has a built-in MCP server instead, so you can connect Claude, ChatGPT or any other MCP client you already use. Your AI can explore schemas and run read-only queries, and hands its final query to a new tab. You decide what runs.',
+  },
+  {
+    q: 'Can I use Colwerk with my production database?',
+    a: 'Yes, with guard rails. Give the connection a color, for example red, and it marks the sidebar, tabs and toolbar. On request, Colwerk asks before any statement that may change data or structures. New tabs start with a 200-row limit and a 60-second timeout.',
+  },
+]
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Free, open-source SQL editor & database client',
+    description:
+      'Free, open-source SQL editor and database client for macOS, Windows and Linux. PostgreSQL, MySQL, SQLite, SQL Server, ClickHouse, DuckDB and lakehouses.',
+    template: 'splash',
+    hero: {
+      title: 'Write SQL. Watch it come alive.',
+      tagline:
+        'A lightweight SQL editor and database client for the desktop. One app for your databases. Open source · Made in Germany · No tracking.',
+      actions: [
+        { text: 'Download Colwerk', link: '#download', icon: 'right-arrow' },
+        { text: 'View on GitHub', link: repo, variant: 'secondary', icon: 'external' },
+      ],
+    },
+  }}
+>
+  <HeroVideo />
+
+  <div class="engines" aria-label="Supported databases">
+    {engines.map((e) => <Badge text={e} size="medium" />)}
+  </div>
+  <div class="engines" aria-label="Lakehouses">
+    {lakehouses.map((e) => <Badge text={e} variant="note" />)}
+  </div>
+
+  <h2>Built for people who live in SQL.</h2>
+
+  <h3>Under the hood</h3>
+  <CardGrid>
+    {general.map((f) => <Card title={f.title} icon={f.icon}>{f.text}</Card>)}
+  </CardGrid>
+
+  <h3>Every day</h3>
+  <CardGrid>
+    {
+      daily.map((f) => (
+        <Card title={f.title}>
+          <Fragment set:html={f.text} />
+        </Card>
+      ))
+    }
+  </CardGrid>
+
+  <h2>Your databases. Your rules.</h2>
+  <p>A database client sees everything you query. Colwerk keeps all of it on your machine.</p>
+  <CardGrid>
+    {privacy.map((p) => <Card title={p.title}>{p.text}</Card>)}
+  </CardGrid>
+
+  <h2>Bring your own AI.</h2>
+  <p>
+    Colwerk has no AI inside. It speaks MCP, the open Model Context Protocol, so you can connect the cloud or local
+    assistant you already use and decide what it sees.
+  </p>
+  <Steps>
+    <ol>
+      {
+        steps.map((s) => (
+          <li>
+            <strong>{s.title}:</strong> {s.text}
+          </li>
+        ))
+      }
+    </ol>
+  </Steps>
+  <CardGrid>
+    <Card title="Your AI can" icon="approve-check">
+      <ul>{can.map((c) => <li>{c}</li>)}</ul>
+    </Card>
+    <Card title="Your AI cannot" icon="close">
+      <ul>{cannot.map((c) => <li>{c}</li>)}</ul>
+    </Card>
+  </CardGrid>
+  <Code code={handover} lang="sql" title="Handed over by your AI, waiting in a new tab for you to run" />
+  <p>
+    Queries from your AI run in a separate session inside a read-only transaction that is always rolled back, with a 30
+    s timeout and a row limit. Setup is a single entry in your MCP client; Colwerk shows it for you.
+  </p>
+
+  <h2>Questions, answered.</h2>
+  {
+    faqs.map((f, i) => (
+      <details name="faq" open={i === 0}>
+        <summary>{f.q}</summary>
+        <p>{f.a}</p>
+      </details>
+    ))
+  }
+  <p>Something missing? <a href={`${repo}/issues`}>Ask on GitHub</a>.</p>
+
+  <Download />
+</StarlightPage>

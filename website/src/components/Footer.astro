@@ -1,0 +1,23 @@
+---
+// Starlight's footer plus copyright and the legal pages.
+import Default from '@astrojs/starlight/components/Footer.astro'
+import { repo } from '../config'
+---
+
+<Default />
+<p class="legal">
+  © 2026 Dennis Hendricks · MIT License · <a href="/imprint/">Imprint</a> · <a href="/privacy/">Privacy policy</a> ·
+  <a href={repo}>GitHub</a>
+</p>
+
+<style>
+  .legal {
+    margin-top: 2rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+    text-align: center;
+  }
+  .legal a {
+    color: inherit;
+  }
+</style>

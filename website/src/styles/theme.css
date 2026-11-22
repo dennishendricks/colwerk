@@ -1,0 +1,19 @@
+/* Starlight's default look with Colwerk's brand amber (the app's primary color) as accent */
+:root {
+  --sl-color-accent-low: #3b2a0b;
+  --sl-color-accent: #b07a10;
+  --sl-color-accent-high: #ffd690;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #fde9c2;
+  --sl-color-accent: #8a5a00;
+  --sl-color-accent-high: #4a3200;
+}
+
+/* Engine badges on the landing page */
+.engines {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}

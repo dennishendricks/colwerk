@@ -1,0 +1,38 @@
+---
+// Release notes of every published release, from the GitHub API, in Starlight's page layout.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
+import { Badge } from '@astrojs/starlight/components'
+import { releases as releasesUrl } from '../config'
+import { formatDate, getReleases } from '../github'
+
+const { releases, version } = await getReleases()
+const headings = releases.map((r) => ({ depth: 2, slug: r.tag_name, text: r.tag_name.replace(/^v/, '') }))
+
+// release notes use <h2> for their sections; each release is the <h2> here
+const demote = (html = '') => html.replace(/<(\/?)h2\b/g, '<$1h3')
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Changelog',
+    description: `What's new in Colwerk: release notes for every version, from ${version} back to the first release.`,
+  }}
+  headings={headings}
+>
+  <p>
+    Release notes for every version. Downloads, checksums and SBOMs are on <a href={releasesUrl}>GitHub Releases</a>.
+  </p>
+
+  {
+    releases.map((r) => (
+      <section>
+        <h2 id={r.tag_name}>{r.tag_name.replace(/^v/, '')}</h2>
+        <p>
+          <time datetime={r.published_at}>{formatDate(r.published_at)}</time>
+          {r.prerelease && <Badge text="Pre-release" variant="caution" />} · <a href={r.html_url}>On GitHub</a>
+        </p>
+        <Fragment set:html={demote(r.body_html)} />
+      </section>
+    ))
+  }
+</StarlightPage>

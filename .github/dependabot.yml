@@ -13,6 +13,19 @@ updates:
           - 'minor'
           - 'patch'
 
+  - package-ecosystem: 'bun'
+    directory: '/website'
+    schedule:
+      interval: 'weekly'
+    versioning-strategy: 'increase'
+    assignees:
+      - 'dennishendricks'
+    groups:
+      website-minor-patch:
+        update-types:
+          - 'minor'
+          - 'patch'
+
   - package-ecosystem: 'docker-compose'
     directory: '/'
     schedule:

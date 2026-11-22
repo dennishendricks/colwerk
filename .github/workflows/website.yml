@@ -1,17 +1,54 @@
 name: Website
 
-# Rebuilds the website once a release is published (the release workflow only creates a draft).
+# Checks the website on changes, and publishes it once a release is published (the release workflow only creates a
+# draft). Cloudflare builds the `website` branch through the deploy hook, without automatic builds. That branch is moved
+# to the release's commit here, so documentation merged into main after a release stays offline until the next one.
 on:
+  pull_request:
+    paths: ['website/**', '.github/workflows/website.yml']
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/website.yml']
   release:
     types: [published]
 
 permissions: {}
 
 jobs:
+  # Not named `check`: that name is a required status check of main (ci.yml), and a second job of that name would
+  # stand in for it. Also covers `bun fmt --check` for website/, as ci.yml skips its checks on website-only changes.
+  build:
+    if: github.event_name != 'release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - run: bun fmt --check website
+      - run: bun install --frozen-lockfile
+        working-directory: website
+      - run: bun run build
+        working-directory: website
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # Pre-releases leave the website alone: its download section and docs follow the latest release.
   deploy:
+    if: github.event_name == 'release' && !github.event.release.prerelease
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency: website-deploy
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - run: git push --force origin HEAD:refs/heads/website
       - run: curl --fail-with-body --silent --show-error -X POST "$DEPLOY_HOOK"
         env:
           DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
