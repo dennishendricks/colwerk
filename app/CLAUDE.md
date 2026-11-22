@@ -3,9 +3,10 @@
 # app/ file index
 
 - `app.config.ts`
-- `app.vue`: **24 KB: grep, then read in parts**
+- `app.vue`
 - `components/AboutModal.vue`
 - `components/AuditModal.vue`
+- `components/CloseTabsModal.vue`
 - `components/CompareData.vue`
 - `components/CompareModal.vue`
 - `components/CompareSchema.vue`
@@ -16,6 +17,7 @@
 - `components/ConnectionPicker.vue`
 - `components/DataImportModal.vue`: **28 KB: grep, then read in parts**
 - `components/DatabasePicker.vue`
+- `components/EditorTabs.vue`
 - `components/EmptyState.vue`
 - `components/ErDiagram.vue`
 - `components/ErDiagramModal.vue`
@@ -32,6 +34,7 @@
 - `components/SessionMonitorModal.vue`
 - `components/ShortcutsModal.vue`
 - `components/SqlEditor.vue`
+- `components/TabBarActions.vue`
 - `components/UnlockModal.vue`
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
 - `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
@@ -41,6 +44,7 @@
 - `composables/menu.ts`: exports useApplicationMenu
 - `composables/schema.ts`: exports SchemaTarget, forgetSchemas, useSchema
 - `composables/tabs.ts`: exports PinnedResult, QueryTab, ReturnedTab, hasOpenTransaction, forgetTransactions, useTabs
+- `composables/window-keys.ts`: Window-wide keys that defineShortcuts cannot match: zooming (⌘+ / ⌘- / ⌘0) and switching tabs (⇧⌘[ / ⇧⌘])
 - `composables/zoom.ts`: exports useZoom
 - `plugins/locale.ts`: Applies the language chosen in the application menu; without one, the detected system language stays
 - `plugins/motion.client.ts`: Lets modals grow from the element that opened them (`.modal-motion` in main.css): the last pointer press is recorded and forgotten on any key, so modals opened by shortcut scale in place
