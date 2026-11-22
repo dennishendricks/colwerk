@@ -4,7 +4,7 @@ import type { ColumnInfo, RoutineInfo, TableInfo } from '#core'
 
 const props = defineProps<{ connectionId: string; database?: string }>()
 
-const { connections, driverOf } = useConnections()
+const { driverOf, connectionOf } = useConnections()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRoutines, loadDdl } = useSchema()
 const { tabs, activeTabId, addTab } = useTabs()
 const { run } = useExecution()
@@ -13,7 +13,7 @@ const toast = useToast()
 const { t, locale } = useI18n()
 
 // Read-only connections refuse the others.
-const readOnly = computed(() => connections.value.find((c) => c.id === props.connectionId)?.readOnly)
+const readOnly = computed(() => connectionOf(props.connectionId)?.readOnly)
 
 const schemaTarget = computed(() => ({ connectionId: props.connectionId, database: props.database }))
 const s = computed(() => state(schemaTarget.value))

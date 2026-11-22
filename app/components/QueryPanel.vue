@@ -12,7 +12,7 @@ import type { PinnedResult, QueryTab } from '~/composables/tabs'
 const props = defineProps<{ tab: QueryTab }>()
 const emit = defineEmits<{ newConnection: []; importConnections: [] }>()
 
-const { connections, driverOf } = useConnections()
+const { driverOf, connectionOf, connectionItems } = useConnections()
 const { activeTabId } = useTabs()
 const { run, explain, dryRun, planWarnings, applyEdits, withVariables, cancel, exportResult } = useExecution()
 const {
@@ -32,8 +32,7 @@ const { t, locale } = useI18n()
 
 const editor = useTemplateRef('editor')
 const driver = computed(() => driverOf(props.tab.connectionId))
-const connectionItems = computed(() => connections.value.map((c) => ({ label: c.name, value: c.id })))
-const connection = computed(() => connections.value.find((c) => c.id === props.tab.connectionId))
+const connection = computed(() => connectionOf(props.tab.connectionId))
 const schemaTarget = computed(() =>
   props.tab.connectionId ? { connectionId: props.tab.connectionId, database: props.tab.database } : undefined,
 )
@@ -313,7 +312,7 @@ const resultItems = computed(
 // Whether the current result can be edited, resolved from the schema (#60).
 const edit = shallowRef<{ target: EditTarget } | { block: EditBlock; columns?: string[] }>()
 // The result belongs to the connection it ran on, even if the tab has switched since.
-const sourceConnection = computed(() => connections.value.find((c) => c.id === props.tab.source?.connectionId))
+const sourceConnection = computed(() => connectionOf(props.tab.source?.connectionId))
 watch([currentSet, viewedPin, () => props.tab.compare, sourceConnection], resolveEdit, { immediate: true })
 
 async function resolveEdit() {

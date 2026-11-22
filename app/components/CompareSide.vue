@@ -12,11 +12,11 @@ export interface CompareSideValue {
 const model = defineModel<CompareSideValue>({ required: true })
 const props = defineProps<{ label: string; dialect?: Dialect; withTable?: boolean }>()
 
-const { connections, driverOf } = useConnections()
+const { connections, driverOf, connectionOf } = useConnections()
 const { state, loadDatabases, loadSchemas, loadTables, defaultSchema } = useSchema()
 const { t } = useI18n()
 
-const connection = computed(() => connections.value.find((c) => c.id === model.value.connectionId))
+const connection = computed(() => connectionOf(model.value.connectionId))
 const capabilities = computed(() => driverOf(model.value.connectionId)?.capabilities)
 const target = computed(() =>
   model.value.connectionId ? { connectionId: model.value.connectionId, database: model.value.database } : undefined,

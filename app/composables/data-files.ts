@@ -20,7 +20,7 @@ interface QueryResponse {
 }
 
 export function useDataFiles() {
-  const { connections, drivers, activeConnectionId, activeDatabase, load, openDatabaseFile } = useConnections()
+  const { drivers, activeConnectionId, activeDatabase, load, openDatabaseFile, connectionOf } = useConnections()
   const { activeTab, addTab, openFile } = useTabs()
   const { run } = useExecution()
   const { t, te } = useI18n()
@@ -38,7 +38,7 @@ export function useDataFiles() {
   /** Adds the sources to the active tab's files connection (else the first, else a new one) and queries each. */
   async function queryFiles(sources: string[]) {
     if (!sources.length || !(await ensureDuckdb())) return
-    const tabConnection = connections.value.find((c) => c.id === activeTab.value?.connectionId)
+    const tabConnection = connectionOf(activeTab.value?.connectionId)
     try {
       const { connectionId, added, failed } = await api<QueryResponse>('/api/files/query', {
         method: 'POST',

@@ -9,7 +9,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { de, en } from '@nuxt/ui/locale'
 import { dropActive } from '~/composables/data-files'
 
-const { connections, activeConnectionId, activeDatabase, activeConnection, driverOf, load } = useConnections()
+const { connections, activeConnectionId, activeDatabase, activeConnection, driverOf, load, connectionOf } =
+  useConnections()
 const { canToggle, togglingConnection, confirmingDisconnect, toggleConnection } = useConnectionToggle()
 const {
   tabs,
@@ -41,7 +42,7 @@ const loadError = ref<string>()
 const modalOpen = ref(false)
 const editing = ref<ConnectionSummary>()
 
-const colorOf = (connectionId?: string) => connections.value.find((c) => c.id === connectionId)?.color
+const colorOf = (connectionId?: string) => connectionOf(connectionId)?.color
 
 let listening = false
 

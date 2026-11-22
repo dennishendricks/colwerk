@@ -5,7 +5,7 @@ const open = defineModel<boolean>('open', { default: false })
 const props = defineProps<{ connectionId?: string }>()
 const emit = defineEmits<{ select: [entry: HistoryEntry] }>()
 
-const { connections } = useConnections()
+const { connectionOf } = useConnections()
 const { t, locale } = useI18n()
 const entries = ref<HistoryEntry[]>([])
 const error = ref<string>()
@@ -33,7 +33,7 @@ const shown = computed(() => {
   )
 })
 
-const connectionName = (id: string) => connections.value.find((c) => c.id === id)?.name
+const connectionName = (id: string) => connectionOf(id)?.name
 
 function details(e: HistoryEntry): string {
   const parts = [new Date(e.executedAt).toLocaleString(locale.value, { dateStyle: 'short', timeStyle: 'medium' })]

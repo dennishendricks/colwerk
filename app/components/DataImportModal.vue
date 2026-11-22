@@ -7,7 +7,7 @@ import { qualifiedName } from '~~/core/sql-literals.ts'
 // Wizard: source → target and mapping → load. The server runs the import (core/import.ts) and reports its progress.
 
 const { t } = useI18n()
-const { connections, drivers, driverOf, installDriver } = useConnections()
+const { connections, drivers, driverOf, installDriver, connectionOf, connectionItems } = useConnections()
 const { state, keyOf, loadSchemas, loadTables, loadColumns, defaultSchema } = useSchema()
 const { addTab } = useTabs()
 const { run } = useExecution()
@@ -51,21 +51,20 @@ const importId = ref<string>()
 const progress = ref<ImportProgress>()
 const summary = ref<ImportSummary>()
 
-const connectionName = (id?: string) => connections.value.find((c) => c.id === id)?.name ?? ''
+const connectionName = (id?: string) => connectionOf(id)?.name ?? ''
 const sourceTarget = computed(() =>
   sourceConnectionId.value ? { connectionId: sourceConnectionId.value, database: sourceDatabase.value } : undefined,
 )
-const targetConnection = computed(() => connections.value.find((c) => c.id === targetConnectionId.value))
+const targetConnection = computed(() => connectionOf(targetConnectionId.value))
 const target = computed(() =>
   targetConnectionId.value ? { connectionId: targetConnectionId.value, database: targetDatabase.value } : undefined,
 )
 const targetDialect = computed(() => sqlDialect(targetConnection.value?.dialect ?? 'postgres'))
 const sourceDialect = computed(() => {
-  const dialect = connections.value.find((c) => c.id === sourceConnectionId.value)?.dialect
+  const dialect = connectionOf(sourceConnectionId.value)?.dialect
   return sourceKind.value === 'connection' && dialect ? sqlDialect(dialect) : 'duckdb'
 })
 
-const connectionItems = computed(() => connections.value.map((c) => ({ label: c.name, value: c.id })))
 const targetItems = computed(() =>
   connections.value
     .filter((c) => !isLakehouse(c.dialect) && !c.readOnly && driverOf(c.id)?.installed)

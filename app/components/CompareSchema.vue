@@ -4,7 +4,7 @@ import type { CompareSideValue } from './CompareSide.vue'
 
 const emit = defineEmits<{ close: [] }>()
 
-const { connections } = useConnections()
+const { connectionOf } = useConnections()
 const { t } = useI18n()
 
 const source = ref<CompareSideValue>({})
@@ -15,7 +15,7 @@ const result = ref<SchemaCompareResult>()
 const filter = ref<'differences' | DiffStatus | 'all'>('differences')
 const expanded = reactive(new Set<string>())
 
-const dialectOf = (side: CompareSideValue) => connections.value.find((c) => c.id === side.connectionId)?.dialect
+const dialectOf = (side: CompareSideValue) => connectionOf(side.connectionId)?.dialect
 const supported = computed(
   () => !source.value.connectionId || (schemaCompareDialects as readonly string[]).includes(dialectOf(source.value)!),
 )

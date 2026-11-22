@@ -9,7 +9,10 @@ const connections = ref<ConnectionSummary[]>([])
 const activeConnectionId = ref<string>()
 /** Database selected in the sidebar; undefined = the one configured in the connection. */
 const activeDatabase = ref<string>()
-const activeConnection = computed(() => connections.value.find((c) => c.id === activeConnectionId.value))
+const connectionOf = (id?: string) => connections.value.find((c) => c.id === id)
+const activeConnection = computed(() => connectionOf(activeConnectionId.value))
+/** Select items of all connections. */
+const connectionItems = computed(() => connections.value.map((c) => ({ label: c.name, value: c.id })))
 
 watch(activeConnectionId, () => (activeDatabase.value = undefined))
 
@@ -23,7 +26,7 @@ export function useConnections() {
   }
 
   function driverOf(connectionId?: string): DriverStatus | undefined {
-    const dialect = connections.value.find((c) => c.id === connectionId)?.dialect
+    const dialect = connectionOf(connectionId)?.dialect
     return drivers.value.find((d) => d.dialect === dialect)
   }
 
@@ -52,7 +55,7 @@ export function useConnections() {
   /** Disconnecting closes all sessions of the connection on the server; open transactions are rolled back. */
   async function setConnected(id: string, connected: boolean) {
     await api(`/api/connections/${id}/${connected ? 'connect' : 'disconnect'}`, { method: 'POST' })
-    const connection = connections.value.find((c) => c.id === id)
+    const connection = connectionOf(id)
     if (connection) connection.disconnected = !connected
     if (connected) return
     forgetSchemas(id)
@@ -85,6 +88,8 @@ export function useConnections() {
     activeConnectionId,
     activeDatabase,
     activeConnection,
+    connectionOf,
+    connectionItems,
     load,
     driverOf,
     saveConnection,
