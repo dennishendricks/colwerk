@@ -6,6 +6,7 @@ import {
   type CellValue,
   type ConnectionConfig,
   DbError,
+  type Dialect,
   type IntrospectRequest,
   type IntrospectResult,
   type QueryResult,
@@ -13,6 +14,7 @@ import {
   type Session,
   sqlDialect,
 } from './types.ts'
+import { editDialects } from './table-edit.ts'
 
 // Error codes meaning the connection itself is gone; the session is dropped and reopened on next use.
 const CONNECTION_LOST = new Set([
@@ -164,6 +166,51 @@ export class Workbench {
   /** Streams the full result through the tab's session (same session state as `execute`). */
   stream(tabId: string, connectionId: string, sql: string, sink: RowSink, database?: string): Promise<void> {
     return this.runTab(tabId, connectionId, database, (s) => s.stream(sql, sink))
+  }
+
+  /**
+   * Saves grid edits: the statements run in one transaction in a session of their own, so the tab's own transaction
+   * is never committed or rolled back. A statement that changes no row (changed or deleted meanwhile) rolls back all.
+   */
+  async applyEdits(
+    tabId: string,
+    connectionId: string,
+    statements: string[],
+    timeoutSeconds: number,
+    database?: string,
+  ): Promise<{ affectedRows: number; durationMs: number }> {
+    const config = await this.resolveConfig(connectionId)
+    if (config.readOnly) throw new AppError('editReadOnly', 'The connection is read-only.')
+    if (!editDialects.includes(config.dialect)) {
+      throw new AppError('editUnsupported', 'Editing is not available for this database.')
+    }
+    const id = `edit:${tabId}`
+    try {
+      return await this.runTab(id, connectionId, database, async (s) => {
+        const started = performance.now()
+        const run = (sql: string) => withTimeout(s, timeoutSeconds, () => s.execute(sql, { rowLimit: 1 }))
+        let affectedRows = 0
+        try {
+          await s.execute(EDIT_BEGIN[config.dialect]!, { rowLimit: 1 })
+          for (const [i, sql] of statements.entries()) {
+            const changed = (await run(sql)).affectedRows ?? 0
+            if (!changed) {
+              throw new AppError('editRowCount', `Statement ${i + 1} changed no row; nothing was saved.`, {
+                params: { n: i + 1 },
+              })
+            }
+            affectedRows += changed
+          }
+          await run('commit')
+        } catch (e) {
+          await s.execute('rollback', { rowLimit: 1 }).catch(() => {})
+          throw e
+        }
+        return { affectedRows, durationMs: performance.now() - started }
+      })
+    } finally {
+      await this.closeTab(id)
+    }
   }
 
   private async runTab<T>(
@@ -434,4 +481,13 @@ function releasing(session: Session, release: () => void): Session {
     introspect: (request) => session.introspect(request),
     close: () => session.close().finally(release),
   }
+}
+
+// Statement that opens the transaction of a grid save.
+const EDIT_BEGIN: Partial<Record<Dialect, string>> = {
+  postgres: 'begin',
+  mysql: 'start transaction',
+  mssql: 'begin transaction',
+  duckdb: 'begin transaction',
+  sqlite: 'begin',
 }

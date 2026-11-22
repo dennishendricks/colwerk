@@ -9,8 +9,10 @@ import {
   singleTableSource,
   sqlLiteral,
 } from '../core/table-edit.ts'
-import type { CellValue, ColumnInfo, IndexInfo } from '../core/types.ts'
-import { assertEquals } from './assert.ts'
+import { AppError, type ConnectionConfig, type CellValue, type ColumnInfo, type IndexInfo } from '../core/types.ts'
+import { Workbench } from '../core/workbench.ts'
+import { assertEquals, assertRejects } from './assert.ts'
+import { reachable, testConnections } from './helpers.ts'
 
 test('editBlocker: read-only connections and engines without transactions', () => {
   assertEquals(editBlocker({ dialect: 'postgres' }), undefined)
@@ -223,3 +225,88 @@ test('editorKind', () => {
   assertEquals(editorKind(col('varchar'), 'postgres', 'a'.repeat(101)), 'long')
   assertEquals(editorKind(col('integer'), 'postgres', '1'), 'text')
 })
+
+// A save runs in a session of its own and is all or nothing.
+const saveCases: { config: ConnectionConfig; create: string }[] = [
+  {
+    config: { id: 'edit-duck', name: 'duck', dialect: 'duckdb', file: ':memory:' },
+    create: 'create table t (id int primary key, v varchar)',
+  },
+  {
+    config: { id: 'edit-sqlite', name: 'lite', dialect: 'sqlite', file: ':memory:' },
+    create: 'create table t (id integer primary key, v text)',
+  },
+]
+
+for (const { config, create } of saveCases) {
+  test(`${config.dialect}: applyEdits commits, or rolls everything back`, async () => {
+    const wb = new Workbench(async () => config)
+    const id = config.id
+    const values = async () => (await wb.execute('tab', id, 'select v from t order by id', 10, 10)).resultSets[0]!.rows
+    await wb.execute('tab', id, `${create}; insert into t values (1, 'a'), (2, 'b')`, 1, 10)
+    const update = (n: number, v: string) => `update t set v = '${v}' where id = ${n}`
+    const saved = await wb.applyEdits('tab', id, [update(1, 'x')], 10)
+    assertEquals(saved.affectedRows, 1)
+    assertEquals(await values(), [['x'], ['b']])
+    const err = await assertRejects(() => wb.applyEdits('tab', id, [update(2, 'y'), update(99, 'z')], 10), AppError)
+    assertEquals([err.key, err.params], ['editRowCount', { n: 2 }])
+    assertEquals(await values(), [['x'], ['b']])
+    await wb.closeAll()
+  })
+}
+
+test('applyEdits refuses read-only connections and engines without transactions before connecting', async () => {
+  const readOnly = new Workbench(async () => ({ id: 'edit-ro', name: 'duck', dialect: 'duckdb', readOnly: true }))
+  const err = await assertRejects(() => readOnly.applyEdits('tab', 'edit-ro', ['delete from t'], 10), AppError)
+  assertEquals(err.key, 'editReadOnly')
+  // Unreachable: a connection attempt would fail with another error.
+  const clickhouse = new Workbench(async () => ({ id: 'edit-ch', name: 'ch', dialect: 'clickhouse', port: 1 }))
+  const other = await assertRejects(() => clickhouse.applyEdits('tab', 'edit-ch', ['delete from t'], 10), AppError)
+  assertEquals(other.key, 'editUnsupported')
+})
+
+// Generated statements on a real (not temporary) table; MySQL and SQL Server count unchanged rows differently.
+const containerCases: { config: ConnectionConfig; create: string }[] = [
+  { config: testConnections.postgres, create: 'create table wb_edit_t (id int primary key, v varchar(20))' },
+  { config: testConnections.mysql, create: 'create table wb_edit_t (id int primary key, v varchar(20))' },
+]
+
+for (const { config, create } of containerCases) {
+  test.skipIf(!(await reachable(config)))(`${config.dialect}: grid edits round-trip`, async () => {
+    const wb = new Workbench(async () => config)
+    const id = config.id
+    await wb.execute('tab', id, 'drop table if exists wb_edit_t', 1, 10)
+    try {
+      await wb.execute('tab', id, create, 1, 10)
+      await wb.execute('tab', id, `insert into wb_edit_t values (1, 'a'), (2, 'b')`, 1, 10)
+      const dialect = config.dialect as EditTarget['dialect']
+      const t: EditTarget = {
+        ...target(dialect),
+        schema: config.dialect === 'postgres' ? 'public' : config.database!,
+        table: 'wb_edit_t',
+      }
+      const edited: Changes = {
+        updated: new Map([[0, new Map([[1, { value: "O'Brien" }]])]]),
+        inserted: [[{ value: '3' }, { value: 'c' }, { value: null }]],
+        deleted: new Set([1]),
+      }
+      const statements = editStatements(
+        t,
+        [
+          [1, 'a'],
+          [2, 'b'],
+        ],
+        edited,
+      )
+      assertEquals((await wb.applyEdits('tab', id, statements, 10)).affectedRows, 3)
+      const rows = (await wb.execute('tab', id, 'select id, v from wb_edit_t order by id', 10, 10)).resultSets[0]!.rows
+      assertEquals(rows, [
+        [1, "O'Brien"],
+        [3, 'c'],
+      ])
+    } finally {
+      await wb.execute('tab', id, 'drop table if exists wb_edit_t', 1, 10)
+      await wb.closeAll()
+    }
+  })
+}
