@@ -6,6 +6,7 @@ import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { assert, assertEquals, assertStringIncludes } from './assert.ts'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { drivers } from '../core/registry.ts'
 import { freePort } from '../launcher/common.ts'
 import { reachable, tempDir, testConnections } from './helpers.ts'
 
@@ -98,7 +99,7 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     assertEquals(await rawStatus(port, `evil.example:${port}`, token), 403)
     assertEquals(await rawStatus(port, `127.0.0.1:${port}`, token), 200)
     const ok = await call('/api/drivers', {}, { 'x-colwerk-token': token, origin: base })
-    assertEquals((await json(ok)).length, 10)
+    assertEquals((await json(ok)).length, drivers.length)
   })
 
   test('serves the SPA shell without token', async () => {
