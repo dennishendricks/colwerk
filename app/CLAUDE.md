@@ -25,13 +25,17 @@
 - `components/ErDiagram.vue`
 - `components/ErDiagramModal.vue`
 - `components/FileQueryModals.vue`
+- `components/GridCellDetail.vue`
+- `components/GridCellEditor.vue`
+- `components/GridColumnFilter.vue`
+- `components/GridReviewModal.vue`
 - `components/HistoryModal.vue`
 - `components/McpModal.vue`
 - `components/PlanView.vue`
 - `components/QueryPanel.vue`: **42 KB: grep, then read in parts**
 - `components/QuickOpen.vue`
 - `components/ReleaseNotesModal.vue`
-- `components/ResultGrid.vue`: **29 KB: grep, then read in parts**
+- `components/ResultGrid.vue`
 - `components/SchemaTree.vue`: **24 KB: grep, then read in parts**
 - `components/SecretInput.vue`
 - `components/SessionMonitorModal.vue`
@@ -43,6 +47,8 @@
 - `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
 - `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
 - `composables/execution.ts`: exports variablePrompt, useExecution
+- `composables/grid-columns.ts`: Column definitions of the result grid: header menus, resize handles, row menus, cell rendering, column filter
+- `composables/grid-edits.ts`: Pending edits of one result grid (#60): changed, inserted and deleted rows; nothing is written until "Save"
 - `composables/import.ts`: exports ImportRequest, importRequest, useImport
 - `composables/lint.ts`: exports useLintSettings
 - `composables/menu.ts`: exports useApplicationMenu
@@ -64,6 +70,7 @@
 - `utils/dialect.ts`: Helpers from core/types.ts, re-exported for the app's auto-imports
 - `utils/duration.ts`: exports formatDuration, formatClock
 - `utils/er-model.ts`: exports ErColumn, ErTable, ErRelation, ErModel, tableKey, buildErModel, toMermaid, toDbml, ErNode, ErEdge, +3 more
+- `utils/grid-cells.ts`: Pure helpers of the result grid: row and column types, cell sorting, filtering, sizing and display text
 - `utils/locale.ts`: exports useChosenLocale
 - `utils/motion.ts`: exports PointerMark, modalOrigin
 - `utils/open-url.ts`: exports websiteUrl, privacyUrl, openUrl
