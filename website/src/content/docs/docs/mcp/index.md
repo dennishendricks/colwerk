@@ -110,7 +110,7 @@ URLs or extensions. The instance is closed after every request. This fails while
 disconnect the connection or open it read-only in that case.
 
 If the assistant needs the files and URLs the database refers to, turn on **Let AI assistants (MCP) read files and
-URLs** in the connection. Its queries then run in the editor's DuckDB instance, still inside a transaction that is
+URLs** under More options in the connection. Its queries then run in the editor's DuckDB instance, still inside a transaction that is
 rolled back.
 
 Lakehouse and files connections always need file and network access; assistants query them like the editor does.

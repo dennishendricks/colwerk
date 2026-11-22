@@ -208,26 +208,6 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           <UFormField v-if="!lakehouse" class="col-span-2">
             <USwitch v-model="form.ssl" :label="t('connection.useTls')" />
           </UFormField>
-
-          <UCollapsible v-if="hasAdvanced" v-model:open="showAdvanced" class="col-span-2">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="-ml-2.5"
-              :label="t('connection.advanced')"
-              :trailing-icon="showAdvanced ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-            />
-            <template #content>
-              <ConnectionAdvancedFields
-                v-model:form="form"
-                v-model:clear-ssh-secret="clearSshSecret"
-                v-model:clear-mcp-password="clearMcpPassword"
-                :connection="connection"
-                :mcp-login-available="mcpLoginAvailable"
-              />
-            </template>
-          </UCollapsible>
         </template>
 
         <ConnectionFileFields
@@ -241,38 +221,83 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           :stored-password="!!connection?.hasPassword"
         />
 
-        <UFormField :label="t('connection.color')" :help="t('connection.colorHelp')" class="col-span-2">
-          <ConnectionColorPicker v-model="form.color" />
-        </UFormField>
-        <UFormField class="col-span-2" :help="t(`connection.readOnlyHelps.${lakehouse ? 'lakehouse' : form.dialect}`)">
-          <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
-        </UFormField>
-        <UFormField class="col-span-2" :help="t('connection.confirmWritesHelp')">
-          <USwitch v-model="form.confirmWrites" :label="t('connection.confirmWrites')" />
-        </UFormField>
-        <UFormField class="col-span-2" :help="t('connection.requireWhereHelp')">
-          <USwitch
-            :model-value="form.requireWhere ?? !!form.confirmWrites"
-            :label="t('connection.requireWhere')"
-            @update:model-value="(v) => (form.requireWhere = v)"
+        <UCollapsible v-model:open="showAdvanced" class="col-span-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="-ml-2.5"
+            :label="t('connection.advanced')"
+            :trailing-icon="showAdvanced ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
           />
-        </UFormField>
-        <template v-if="planCheckDialects.includes(form.dialect as SplitDialect)">
-          <UFormField class="col-span-2" :help="t('connection.checkPlanHelp')">
-            <USwitch
-              :model-value="form.checkPlan ?? !!form.confirmWrites"
-              :label="t('connection.checkPlan')"
-              @update:model-value="(v) => (form.checkPlan = v)"
-            />
-          </UFormField>
-          <UFormField
-            v-if="form.checkPlan ?? form.confirmWrites"
-            :label="t('connection.scanRowThreshold')"
-            :help="t('connection.scanRowThresholdHelp')"
-          >
-            <UInput v-model.number="form.scanRowThreshold" type="number" min="1" placeholder="1000000" class="w-full" />
-          </UFormField>
-        </template>
+          <template #content>
+            <div class="grid grid-cols-2 gap-3 pt-3">
+              <ConnectionAdvancedFields
+                v-if="driver?.capabilities.supportsNetwork && hasAdvanced"
+                v-model:form="form"
+                v-model:clear-ssh-secret="clearSshSecret"
+                v-model:clear-mcp-password="clearMcpPassword"
+                :connection="connection"
+                :mcp-login-available="mcpLoginAvailable"
+              />
+              <UFormField
+                v-if="form.dialect === 'duckdb' && form.file && form.file !== ':memory:'"
+                class="col-span-2"
+                :help="t('connection.v1StorageHelp')"
+              >
+                <USwitch v-model="form.v1Storage" :label="t('connection.v1Storage')" />
+              </UFormField>
+              <UFormField
+                v-if="form.dialect === 'duckdb'"
+                class="col-span-2"
+                :help="t('connection.mcpExternalAccessHelp')"
+              >
+                <USwitch v-model="form.mcpExternalAccess" color="warning" :label="t('connection.mcpExternalAccess')" />
+              </UFormField>
+              <UFormField :label="t('connection.color')" :help="t('connection.colorHelp')" class="col-span-2">
+                <ConnectionColorPicker v-model="form.color" />
+              </UFormField>
+              <UFormField
+                class="col-span-2"
+                :help="t(`connection.readOnlyHelps.${lakehouse ? 'lakehouse' : form.dialect}`)"
+              >
+                <USwitch v-model="form.readOnly" :label="t('connection.readOnly')" />
+              </UFormField>
+              <UFormField class="col-span-2" :help="t('connection.confirmWritesHelp')">
+                <USwitch v-model="form.confirmWrites" :label="t('connection.confirmWrites')" />
+              </UFormField>
+              <UFormField class="col-span-2" :help="t('connection.requireWhereHelp')">
+                <USwitch
+                  :model-value="form.requireWhere ?? !!form.confirmWrites"
+                  :label="t('connection.requireWhere')"
+                  @update:model-value="(v) => (form.requireWhere = v)"
+                />
+              </UFormField>
+              <template v-if="planCheckDialects.includes(form.dialect as SplitDialect)">
+                <UFormField class="col-span-2" :help="t('connection.checkPlanHelp')">
+                  <USwitch
+                    :model-value="form.checkPlan ?? !!form.confirmWrites"
+                    :label="t('connection.checkPlan')"
+                    @update:model-value="(v) => (form.checkPlan = v)"
+                  />
+                </UFormField>
+                <UFormField
+                  v-if="form.checkPlan ?? form.confirmWrites"
+                  :label="t('connection.scanRowThreshold')"
+                  :help="t('connection.scanRowThresholdHelp')"
+                >
+                  <UInput
+                    v-model.number="form.scanRowThreshold"
+                    type="number"
+                    min="1"
+                    placeholder="1000000"
+                    class="w-full"
+                  />
+                </UFormField>
+              </template>
+            </div>
+          </template>
+        </UCollapsible>
 
         <button type="submit" class="hidden" />
       </form>

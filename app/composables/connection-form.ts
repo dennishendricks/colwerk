@@ -96,7 +96,7 @@ export function useConnectionForm(open: Ref<boolean>, connection: () => Connecti
   const mcpLoginAvailable = computed(
     () => !!driver.value?.auths.length && mcpLoginAuths.includes(form.auth as ConnectionAuth),
   )
-  // Lakehouses have further options only for some logins.
+  // Lakehouses have engine options only for some logins.
   const hasAdvanced = computed(
     () =>
       !lakehouse.value ||

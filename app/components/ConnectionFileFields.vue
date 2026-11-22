@@ -128,14 +128,4 @@ async function pickFile() {
       />
     </div>
   </UFormField>
-  <UFormField
-    v-if="form.dialect === 'duckdb' && form.file && form.file !== ':memory:'"
-    class="col-span-2"
-    :help="t('connection.v1StorageHelp')"
-  >
-    <USwitch v-model="form.v1Storage" :label="t('connection.v1Storage')" />
-  </UFormField>
-  <UFormField v-if="form.dialect === 'duckdb'" class="col-span-2" :help="t('connection.mcpExternalAccessHelp')">
-    <USwitch v-model="form.mcpExternalAccess" color="warning" :label="t('connection.mcpExternalAccess')" />
-  </UFormField>
 </template>
