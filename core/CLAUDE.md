@@ -22,7 +22,9 @@
 - `data-dir.ts`: exports defaultDataDir
 - `dialog.ts`: Native file dialogs through the platform's command line tools: macOS `osascript`, Windows PowerShell with Windows Forms, Linux `zenity` or `kdialog`
 - `drivers/clickhouse.ts`: ClickHouse through its HTTP interface (node:http/https, no client library)
-- `drivers/duckdb-native.ts`: DuckDB through its C API, as exposed 1:1 by the Node-API addon `@duckdb/node-bindings`; **27 KB: grep, then read in parts**
+- `drivers/duckdb-bindings.ts`: Loads the Node-API addon `@duckdb/node-bindings`
+- `drivers/duckdb-native.ts`: DuckDB through its C API, as exposed 1:1 by the Node-API addon `@duckdb/node-bindings`
+- `drivers/duckdb-vectors.ts`: Decoders of DuckDB vectors: read in place from the vectors' memory and converted to the unified value model
 - `drivers/duckdb.ts`: exports DuckDBSession, duckdbDriver
 - `drivers/entra.ts`: exports ENTRA_SCOPE, isEntra, entraToken
 - `drivers/foreign-keys.ts`: exports ForeignKeyRow, groupForeignKeys
