@@ -1,0 +1,60 @@
+{
+  // Azure Data Studio settings
+  "workbench.colorTheme": "Default Dark+", // not a connection
+  "datasource.connectionGroups": [
+    { "id": "root-id", "name": "ROOT" },
+    { "id": "prod-id", "name": "Prod", "parentId": "root-id" },
+    { "id": "eu-id", "name": "EU", "parentId": "prod-id" }
+  ],
+  "datasource.connections": [
+    {
+      "id": "sql-login",
+      "providerName": "MSSQL",
+      "groupId": "eu-id",
+      "savePassword": true,
+      "options": {
+        "connectionName": "Orders /* EU */",
+        "server": "tcp:db.example.com,1444",
+        "database": "orders",
+        "user": "sa",
+        "authenticationType": "SqlLogin",
+        "encrypt": "Strict",
+        "hostNameInCertificate": "db.example.com",
+        "applicationIntent": "ReadOnly",
+        "multiSubnetFailover": true,
+        "connectRetryCount": 5
+      }
+    },
+    {
+      "id": "integrated",
+      "providerName": "MSSQL",
+      "groupId": "root-id",
+      "savePassword": false,
+      "options": {
+        "server": "host1\\SQLEXPRESS",
+        "authenticationType": "Integrated",
+        "encrypt": true,
+        "trustServerCertificate": true
+      }
+    },
+    {
+      "id": "mfa",
+      "providerName": "MSSQL",
+      "options": {
+        "connectionName": "Azure",
+        "server": "x.database.windows.net",
+        "database": "db",
+        "user": "me@example.com",
+        "authenticationType": "AzureMFA",
+        "azureTenantId": "tenant-9",
+        "encrypt": "Mandatory"
+      }
+    },
+    {
+      "id": "pg",
+      "providerName": "PGSQL",
+      "options": { "host": "pg.example.com", "port": 5433, "dbname": "app", "user": "pguser", "sslmode": "verify-full" }
+    },
+    { "id": "my", "providerName": "MYSQL", "options": { "connectionName": "My", "server": "m" } }
+  ]
+}
