@@ -133,6 +133,7 @@ export function useApplicationMenu(view: MenuViewActions) {
           .map((t, i) => item(t.title, `tab-${i + 1}`, t.id !== activeTabId.value, `CmdOrCtrl+${i + 1}`)),
       ]),
       submenu(t('menu.help'), [
+        item(t('menu.docs'), 'docs'),
         item(t('menu.shortcuts'), 'shortcuts'),
         item(t('menu.releaseNotes'), 'release-notes'),
         'separator',
@@ -149,6 +150,7 @@ export function useApplicationMenu(view: MenuViewActions) {
     update: () => checkForUpdate(true),
     quit: () => exit(),
     privacy: () => openUrl(privacyUrl),
+    docs: () => openUrl(docsUrl),
     'release-notes': () => openUrl(changelogUrl),
     diagnostics: exportDiagnostics,
     'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
