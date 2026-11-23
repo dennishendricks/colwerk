@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Settings chosen once and kept in the data directory; each change is saved at once
 import type { CsvOptions } from '#core'
+import { type Settings, sqlExpressionWidths, type SqlFormatOptions } from '~~/core/settings.ts'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -29,9 +30,43 @@ const encodings = computed(() => [
   { label: 'Windows-1252', value: 'windows-1252' },
 ])
 
-async function setCsv<K extends keyof CsvOptions>(key: K, value: CsvOptions[K]) {
+const cases = computed(() => [
+  { label: t('settings.casePreserve'), value: 'preserve' },
+  { label: t('settings.caseUpper'), value: 'upper' },
+  { label: t('settings.caseLower'), value: 'lower' },
+])
+const caseFields = computed(
+  () =>
+    [
+      { key: 'keywordCase', label: t('settings.keywordCase') },
+      { key: 'functionCase', label: t('settings.functionCase') },
+      { key: 'dataTypeCase', label: t('settings.dataTypeCase') },
+      { key: 'identifierCase', label: t('settings.identifierCase') },
+    ] as const,
+)
+const indents = computed(() => [
+  { label: t('settings.indentSpaces', { n: 4 }), value: 'spaces4' },
+  { label: t('settings.indentSpaces', { n: 2 }), value: 'spaces2' },
+  { label: t('settings.indentTab'), value: 'tab' },
+])
+const logicalNewlines = computed(() => [
+  { label: t('settings.logicalBefore'), value: 'before' },
+  { label: t('settings.logicalAfter'), value: 'after' },
+])
+const commaStyles = computed(() => [
+  { label: t('settings.commasLeading'), value: 'leading' },
+  { label: t('settings.commasTrailing'), value: 'trailing' },
+])
+
+const setCsv = <K extends keyof CsvOptions>(key: K, value: CsvOptions[K]) =>
+  update({ ...settings.value, csv: { ...settings.value.csv, [key]: value } })
+
+const setSqlFormat = <K extends keyof SqlFormatOptions>(key: K, value: SqlFormatOptions[K]) =>
+  update({ ...settings.value, sqlFormat: { ...settings.value.sqlFormat, [key]: value } })
+
+async function update(next: Settings) {
   try {
-    await save({ ...settings.value, csv: { ...settings.value.csv, [key]: value } })
+    await save(next)
   } catch (e) {
     toast.add({
       title: t('settings.saveFailed'),
@@ -83,6 +118,61 @@ async function setCsv<K extends keyof CsvOptions>(key: K, value: CsvOptions[K]) 
             />
           </UFormField>
         </div>
+      </section>
+      <USeparator class="my-5" />
+      <section class="space-y-3">
+        <h3 class="font-semibold">{{ t('settings.sqlFormat') }}</h3>
+        <p class="text-sm text-muted">{{ t('settings.sqlFormatHint') }}</p>
+        <div class="grid grid-cols-2 gap-3">
+          <UFormField v-for="f in caseFields" :key="f.key" :label="f.label">
+            <USelect
+              :model-value="settings.sqlFormat[f.key]"
+              :items="cases"
+              class="w-full"
+              @update:model-value="(v) => setSqlFormat(f.key, v as SqlFormatOptions[typeof f.key])"
+            />
+          </UFormField>
+          <UFormField :label="t('settings.indent')">
+            <USelect
+              :model-value="settings.sqlFormat.indent"
+              :items="indents"
+              class="w-full"
+              @update:model-value="(v) => setSqlFormat('indent', v as SqlFormatOptions['indent'])"
+            />
+          </UFormField>
+          <UFormField :label="t('settings.commas')">
+            <USelect
+              :model-value="settings.sqlFormat.commas"
+              :items="commaStyles"
+              class="w-full"
+              @update:model-value="(v) => setSqlFormat('commas', v as SqlFormatOptions['commas'])"
+            />
+          </UFormField>
+          <UFormField :label="t('settings.logicalOperatorNewline')">
+            <USelect
+              :model-value="settings.sqlFormat.logicalOperatorNewline"
+              :items="logicalNewlines"
+              class="w-full"
+              @update:model-value="
+                (v) => setSqlFormat('logicalOperatorNewline', v as SqlFormatOptions['logicalOperatorNewline'])
+              "
+            />
+          </UFormField>
+          <UFormField :label="t('settings.expressionWidth')" :hint="t('settings.expressionWidthHint')">
+            <UInputNumber
+              :model-value="settings.sqlFormat.expressionWidth"
+              :min="sqlExpressionWidths.min"
+              :max="sqlExpressionWidths.max"
+              class="w-full"
+              @update:model-value="(v) => v != null && setSqlFormat('expressionWidth', v)"
+            />
+          </UFormField>
+        </div>
+        <UCheckbox
+          :model-value="settings.sqlFormat.bangNotEqual"
+          :label="t('settings.bangNotEqual')"
+          @update:model-value="(v) => setSqlFormat('bangNotEqual', v === true)"
+        />
       </section>
     </template>
   </UModal>

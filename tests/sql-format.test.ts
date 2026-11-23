@@ -1,6 +1,7 @@
 import { test } from 'bun:test'
 import { assertEquals } from './assert.ts'
 import { formatSql } from '../app/utils/sql-format.ts'
+import { defaultSqlFormatOptions } from '../core/settings.ts'
 
 test('formats with leading commas, indented joins and on on its own line', () => {
   const sql = `select a.id, b.name as n, count(*) -- cnt
@@ -136,5 +137,71 @@ where
         from
             w
     )`,
+  )
+})
+
+test('options: trailing commas, operators at the line end, <> kept', () => {
+  const sql = `select a, b, from t join u on u.id = t.id and u.x <> 1 where t.a = 1 and t.b = 2`
+  assertEquals(
+    formatSql(sql, 'postgres', {
+      ...defaultSqlFormatOptions,
+      commas: 'trailing',
+      logicalOperatorNewline: 'after',
+      bangNotEqual: false,
+    }),
+    `select
+    a,
+    b
+from
+    t
+    join u
+        on u.id = t.id and
+        u.x <> 1
+where
+    t.a = 1 and
+    t.b = 2`,
+  )
+})
+
+test('options: tabs, two spaces, letter case and expression width', () => {
+  const sql = `with c as (select 1) select a, count(*), cast(b as varchar) from c join d on d.id = c.id and d.x in (1, 2, 3)`
+  assertEquals(
+    formatSql(sql, 'postgres', {
+      ...defaultSqlFormatOptions,
+      indent: 'tab',
+      keywordCase: 'upper',
+      functionCase: 'lower',
+      dataTypeCase: 'upper',
+      identifierCase: 'upper',
+    }),
+    `WITH C AS (
+\tSELECT
+\t\t1
+)
+
+SELECT
+\tA
+\t,count(*)
+\t,cast(B AS VARCHAR)
+FROM
+\tC
+\tJOIN D
+\t\tON D.ID = C.ID
+\t\tAND D.X IN (1, 2, 3)`,
+  )
+  assertEquals(
+    formatSql('select a from t join u on u.id = t.id where t.x in (1, 2, 3)', 'postgres', {
+      ...defaultSqlFormatOptions,
+      indent: 'spaces2',
+      expressionWidth: 20,
+    }),
+    `select
+  a
+from
+  t
+  join u
+    on u.id = t.id
+where
+  t.x in (1, 2, 3)`,
   )
 })

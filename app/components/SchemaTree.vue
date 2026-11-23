@@ -9,6 +9,7 @@ const { state, keyOf, loadSchemas, loadTables, loadColumns, loadIndexes, loadRou
 const { tabs, activeTabId, addTab } = useTabs()
 const { run } = useExecution()
 const { openImport } = useImport()
+const { settings } = useSettings()
 const toast = useToast()
 const { t, locale } = useI18n()
 
@@ -84,7 +85,7 @@ async function columnsOf(schema: string, table: string) {
 
 async function format(sql: string) {
   const { formatSql } = await import('~/utils/sql-format')
-  return formatSql(sql, sqlDialect(driver.value!.dialect))
+  return formatSql(sql, sqlDialect(driver.value!.dialect), settings.value.sqlFormat)
 }
 
 /** Opens `sql` in a new tab of this connection and runs it if `execute` is set. */
