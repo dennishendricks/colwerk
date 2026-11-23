@@ -15,17 +15,17 @@ sidebar:
 
 ## Contents
 
-| File or folder            | Content                                                                             |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| `connections.json`        | Connections; passwords and other secrets encrypted.                                 |
-| `workspace.json`          | Open tabs per window, restored on the next start.                                   |
-| `settings.json`           | The [settings](/docs/data/export/#csv-settings), such as the CSV format.            |
-| `history.json`            | The last 50 queries.                                                                |
-| `mcp-audit.jsonl`         | The [MCP audit log](/docs/mcp/audit-log/); `mcp-audit-settings.json` its retention. |
-| `instance.json`           | Port of the running app, for the MCP bridge; removed on exit.                       |
-| `drivers/`                | The downloaded DuckDB library.                                                      |
-| `logs/`                   | Logs of the desktop app (5 MB each, the last three are kept).                       |
-| `secret.key`, `mcp-token` | Only without a usable keychain: the encryption key and the MCP token.               |
+| File or folder            | Content                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `connections.json`        | Connections; passwords and other secrets encrypted.                                                           |
+| `workspace.json`          | Open tabs per window, restored on the next start.                                                             |
+| `settings.json`           | The settings: [CSV format](/docs/data/export/#csv-settings), [SQL formatting](/docs/editor/#format-settings). |
+| `history.json`            | The last 50 queries.                                                                                          |
+| `mcp-audit.jsonl`         | The [MCP audit log](/docs/mcp/audit-log/); `mcp-audit-settings.json` its retention.                           |
+| `instance.json`           | Port of the running app, for the MCP bridge; removed on exit.                                                 |
+| `drivers/`                | The downloaded DuckDB library.                                                                                |
+| `logs/`                   | Logs of the desktop app (5 MB each, the last three are kept).                                                 |
+| `secret.key`, `mcp-token` | Only without a usable keychain: the encryption key and the MCP token.                                         |
 
 Files with secrets are readable only by your user. DuckDB keeps its extensions in its own folder, `~/.duckdb/extensions`.
 

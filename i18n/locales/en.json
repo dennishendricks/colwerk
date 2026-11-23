@@ -888,6 +888,27 @@
     "escapeDouble": "Double the quote character",
     "escapeBackslash": "Backslash (\\)",
     "encoding": "Encoding",
-    "encodingUtf8Bom": "UTF-8 with BOM"
+    "encodingUtf8Bom": "UTF-8 with BOM",
+    "sqlFormat": "Format SQL",
+    "sqlFormatHint": "For Format SQL and the SQL generated from the schema tree.",
+    "casePreserve": "Unchanged",
+    "caseUpper": "Upper case",
+    "caseLower": "Lower case",
+    "keywordCase": "Keywords",
+    "functionCase": "Functions",
+    "dataTypeCase": "Data types",
+    "identifierCase": "Identifiers",
+    "indent": "Indentation",
+    "indentSpaces": "{n} spaces",
+    "indentTab": "Tab",
+    "commas": "Commas in lists",
+    "commasLeading": "At the line start",
+    "commasTrailing": "At the line end",
+    "logicalOperatorNewline": "AND / OR",
+    "logicalBefore": "At the line start",
+    "logicalAfter": "At the line end",
+    "expressionWidth": "Expression width",
+    "expressionWidthHint": "Characters",
+    "bangNotEqual": "Write <> as !="
   }
 }

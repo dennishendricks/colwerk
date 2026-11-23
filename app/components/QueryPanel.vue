@@ -12,6 +12,7 @@ const { activeTabId } = useTabs()
 const { run, cancel } = useExecution()
 const { defaultSchema, completionSchema } = useSchema()
 const { names: lintNames, writes: lintWrites } = useLintSettings()
+const { settings } = useSettings()
 const { t, locale } = useI18n()
 const toast = useToast()
 
@@ -67,7 +68,7 @@ const { exportFormat, exportScope, insertTable, insertBatch, insertTarget, scope
 async function format() {
   try {
     const { formatSql } = await import('~/utils/sql-format')
-    props.tab.sql = formatSql(props.tab.sql, sqlDialect(driver.value?.dialect ?? 'postgres'))
+    props.tab.sql = formatSql(props.tab.sql, sqlDialect(driver.value?.dialect ?? 'postgres'), settings.value.sqlFormat)
     editor.value?.focus()
   } catch (e) {
     toast.add({

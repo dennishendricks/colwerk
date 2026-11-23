@@ -888,6 +888,27 @@
     "escapeDouble": "Anführungszeichen verdoppeln",
     "escapeBackslash": "Backslash (\\)",
     "encoding": "Zeichenkodierung",
-    "encodingUtf8Bom": "UTF-8 mit BOM"
+    "encodingUtf8Bom": "UTF-8 mit BOM",
+    "sqlFormat": "SQL formatieren",
+    "sqlFormatHint": "Für SQL formatieren und das aus dem Schema-Baum erzeugte SQL.",
+    "casePreserve": "Unverändert",
+    "caseUpper": "Großbuchstaben",
+    "caseLower": "Kleinbuchstaben",
+    "keywordCase": "Schlüsselwörter",
+    "functionCase": "Funktionen",
+    "dataTypeCase": "Datentypen",
+    "identifierCase": "Bezeichner",
+    "indent": "Einrückung",
+    "indentSpaces": "{n} Leerzeichen",
+    "indentTab": "Tabulator",
+    "commas": "Kommas in Listen",
+    "commasLeading": "Am Zeilenanfang",
+    "commasTrailing": "Am Zeilenende",
+    "logicalOperatorNewline": "AND / OR",
+    "logicalBefore": "Am Zeilenanfang",
+    "logicalAfter": "Am Zeilenende",
+    "expressionWidth": "Ausdrucksbreite",
+    "expressionWidthHint": "Zeichen",
+    "bangNotEqual": "<> als != schreiben"
   }
 }

@@ -38,8 +38,28 @@ When the database reports an error with a position, Colwerk marks the place in t
 
 ## Formatting
 
-**Format** in the toolbar or ⌘⇧F formats the whole query in the connection's dialect: four-space indentation, keywords
-as written, one clause per line. ⌘Z undoes it.
+**Format** in the toolbar or ⌘⇧F formats the whole query in the connection's dialect, one clause per line. ⌘Z undoes it.
+
+### Format settings
+
+Open **Settings** (gear icon in the tab bar; in the desktop app **Colwerk → Settings …**) to choose how SQL is
+formatted. The choice is kept in `settings.json` in the [data directory](/docs/reference/data-directory/) and also
+applies to the SQL the [schema tree](/docs/data/schema-tree/) generates.
+
+| Setting            | Options                                                               | Default           |
+| ------------------ | --------------------------------------------------------------------- | ----------------- |
+| Keywords           | Unchanged, upper case, lower case                                     | Unchanged         |
+| Functions          | Unchanged, upper case, lower case                                     | Unchanged         |
+| Data types         | Unchanged, upper case, lower case                                     | Unchanged         |
+| Identifiers        | Unchanged, upper case, lower case                                     | Unchanged         |
+| Indentation        | 4 spaces, 2 spaces, tab                                               | 4 spaces          |
+| Commas in lists    | At the line start (`,b`) or at the line end (`a,`)                    | At the line start |
+| AND / OR           | At the line start or at the line end                                  | At the line start |
+| Expression width   | Parenthesized expressions up to this many characters stay on one line | 200               |
+| Write `<>` as `!=` | On or off                                                             | On                |
+
+Identifiers in quotes (`"MyColumn"`, `[MyColumn]`) keep their case. Unquoted identifiers are case-sensitive in
+ClickHouse, so changing their case there changes what the query refers to.
 
 ## SQL from the schema
 
