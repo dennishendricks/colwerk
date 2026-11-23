@@ -143,6 +143,7 @@ const historyOpen = ref(false)
 const importOpen = ref(false)
 const compareOpen = ref(false)
 const aboutOpen = ref(false)
+const settingsOpen = ref(false)
 const quickOpen = ref(false)
 const sessionsOpen = ref(false)
 watch(activeConnectionId, () => (sessionsOpen.value = false))
@@ -181,6 +182,7 @@ useApplicationMenu({
   openHistory: () => (historyOpen.value = true),
   openShortcuts: () => (shortcutsOpen.value = true),
   openAbout: () => (aboutOpen.value = true),
+  openSettings: () => (settingsOpen.value = true),
   openConnection: () => openModal(),
   openImport: () => (importOpen.value = true),
   toggleSidebar,
@@ -303,6 +305,7 @@ useApplicationMenu({
             @mcp="mcpOpen = true"
             @shortcuts="shortcutsOpen = true"
             @about="aboutOpen = true"
+            @settings="settingsOpen = true"
           />
         </div>
         <div class="min-h-0 flex-1">
@@ -337,6 +340,7 @@ useApplicationMenu({
     <LazyMcpModal v-model:open="mcpOpen" @audit="openAudit" />
     <UnlockModal />
     <LazyAboutModal v-model:open="aboutOpen" />
+    <LazySettingsModal v-model:open="settingsOpen" />
     <LazyQuickOpen
       v-if="activeConnectionId"
       v-model:open="quickOpen"

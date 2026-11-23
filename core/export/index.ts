@@ -1,5 +1,6 @@
 // Export of result sets: picks the encoder of a format; the formats live next to this file.
 import { AppError } from '../types.ts'
+import type { CsvOptions } from '../values.ts'
 import type { Exporter, ExportOptions, Write } from './common.ts'
 import { parquetExporter } from './parquet.ts'
 import { csvExporter, insertExporter, jsonExporter, markdownExporter, ndjsonExporter } from './text.ts'
@@ -10,10 +11,15 @@ export type { Exporter, ExportOptions } from './common.ts'
 export type ExportFormat = 'csv' | 'parquet' | 'xlsx' | 'json' | 'ndjson' | 'markdown' | 'insert'
 export const exportFormats: ExportFormat[] = ['csv', 'parquet', 'xlsx', 'json', 'ndjson', 'markdown', 'insert']
 
-export function createExporter(format: ExportFormat, write: Write, options?: ExportOptions): Exporter {
+export function createExporter(
+  format: ExportFormat,
+  write: Write,
+  options?: ExportOptions,
+  csv?: CsvOptions,
+): Exporter {
   switch (format) {
     case 'csv':
-      return csvExporter(write)
+      return csvExporter(write, csv)
     case 'parquet':
       return parquetExporter(write)
     case 'xlsx':

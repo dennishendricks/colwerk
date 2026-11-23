@@ -19,6 +19,7 @@ sidebar:
 | ------------------------- | ----------------------------------------------------------------------------------- |
 | `connections.json`        | Connections; passwords and other secrets encrypted.                                 |
 | `workspace.json`          | Open tabs per window, restored on the next start.                                   |
+| `settings.json`           | The [settings](/docs/data/export/#csv-settings), such as the CSV format.            |
 | `history.json`            | The last 50 queries.                                                                |
 | `mcp-audit.jsonl`         | The [MCP audit log](/docs/mcp/audit-log/); `mcp-audit-settings.json` its retention. |
 | `instance.json`           | Port of the running app, for the MCP bridge; removed on exit.                       |

@@ -10,6 +10,8 @@ export { withoutLogin } from './login.ts'
 export { isReadOnlyStatement, isSelectStatement, type SplitDialect } from './sql-split.ts'
 export { createExporter, type Exporter, type ExportFormat, exportFormats, type ExportOptions } from './export/index.ts'
 export { fileDialog } from './dialog.ts'
+export { defaultSettings, parseSettings, type Settings } from './settings.ts'
+export { csvDelimiters, csvEncodings, csvEscapes, type CsvOptions, csvQuotes, defaultCsvOptions } from './values.ts'
 export { type CliRunner, createSecrets, parseSecretRef, runCli, secrets } from './secrets.ts'
 export { decodeText } from './text-file.ts'
 export {

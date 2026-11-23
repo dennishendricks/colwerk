@@ -46,7 +46,7 @@
 - `history.ts`: exports HistoryEntry, HISTORY_LIMIT, addToHistory
 - `import-sql.ts`: SQL of data imports per target dialect: column types translated from the source, CREATE TABLE, the load strategies and transactions
 - `import.ts`: Data import: one session reads the source and another writes the target
-- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
+- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./settings.ts, ./values.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
 - `keychain.ts`: Stores secrets per data directory in the OS keychain through the platform's command line tools: macOS `security`, Linux `secret-tool` (libsecret), Windows PowerShell with the Credential Manager API
 - `login.ts`: exports withoutLogin, isLoginForbidden
 - `mcp-session.ts`: exports ownMcpSessions, mcpConfig
@@ -56,6 +56,7 @@
 - `registry.ts`: exports drivers, loadDriver, addFileSources, driverStatus, installDriver
 - `secrets.ts`: Reads secrets through the CLIs of password managers (1Password, Bitwarden, KeePassXC)
 - `session-utils.ts`: Helpers around an open database session, shared by the workbench and the plan queries
+- `settings.ts`: Settings the user chooses once (settings dialog), stored in `settings.json` in the data directory
 - `sql-dml.ts`: exports DmlKind, dryRunDialects, dmlKind
 - `sql-guard.ts`: Text checks against unintended writes, on top of the statement splitter
 - `sql-literals.ts`: SQL text of identifiers and values in a dialect, for generated statements (INSERT export, data import)
@@ -66,5 +67,5 @@
 - `table-edit.ts`: exports editDialects, editBlocker, singleTableSource, EditColumn, EditTarget, EditBlock, buildEditTarget, EditValue, Changes, canUpdateToDefault, +3 more
 - `text-file.ts`: exports decodeText
 - `types.ts`: Runtime-agnostic contracts shared by drivers, the server layer and (type-only) the UI
-- `values.ts`: exports STREAM_BATCH, toHex, sqlTimestampToIso, normalizeValue, cellText, csvField, markdownField, markdownTable, markdownRow, uniqueNames, +1 more
+- `values.ts`: exports STREAM_BATCH, toHex, sqlTimestampToIso, normalizeValue, cellText, csvDelimiters, csvQuotes, csvEscapes, csvEncodings, CsvOptions, +8 more
 - `workbench.ts`: exports Workbench; **21 KB: grep, then read in parts**

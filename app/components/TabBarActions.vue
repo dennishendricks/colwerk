@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The buttons at the right end of the tab bar: compare, history, MCP setup, color mode, shortcuts and about
-const emit = defineEmits<{ compare: []; history: []; mcp: []; shortcuts: []; about: [] }>()
+// The buttons at the right end of the tab bar: compare, history, MCP setup, color mode, shortcuts, settings and about
+const emit = defineEmits<{ compare: []; history: []; mcp: []; shortcuts: []; settings: []; about: [] }>()
 const { t } = useI18n()
 
 // Toggles between the system setting and its opposite; the opposite is stored as a fixed mode (localStorage),
@@ -60,6 +60,17 @@ const colorModeLabel = computed(() =>
     :title="t('app.shortcuts')"
     :aria-label="t('app.shortcuts')"
     @click="emit('shortcuts')"
+  />
+  <!-- In the desktop app it is in the application menu. -->
+  <UButton
+    v-if="!isDesktop"
+    icon="i-lucide-settings"
+    size="xs"
+    variant="ghost"
+    color="neutral"
+    :title="t('app.settings')"
+    :aria-label="t('app.settings')"
+    @click="emit('settings')"
   />
   <!-- In the desktop app it is in the application menu. -->
   <UButton

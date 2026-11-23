@@ -47,6 +47,7 @@
 - `components/SchemaTree.vue`: **24 KB: grep, then read in parts**
 - `components/SecretInput.vue`
 - `components/SessionMonitorModal.vue`
+- `components/SettingsModal.vue`
 - `components/ShortcutsModal.vue`
 - `components/SqlEditor.vue`
 - `components/StoredPasswordField.vue`
@@ -70,6 +71,7 @@
 - `composables/result-export.ts`: Exporting and copying the shown result of a query tab, including the target of SQL INSERT statements
 - `composables/schema-levels.ts`: Select items and loading of cascading schema and table pickers for a connection (and database)
 - `composables/schema.ts`: exports SchemaTarget, forgetSchemas, useSchema
+- `composables/settings.ts`: Settings of the settings dialog, loaded once from the server (settings.json in the data directory) and shared
 - `composables/tabs.ts`: exports PinnedResult, QueryTab, ReturnedTab, hasOpenTransaction, forgetTransactions, useTabs
 - `composables/window-keys.ts`: Window-wide keys that defineShortcuts cannot match: zooming (⌘+ / ⌘- / ⌘0) and switching tabs (⇧⌘[ / ⇧⌘])
 - `composables/zoom.ts`: exports useZoom

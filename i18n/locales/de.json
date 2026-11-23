@@ -51,7 +51,8 @@
     "closeTabsQuery": "{n} Tabs enthalten eine Abfrage, die beim Schließen verloren geht.",
     "disconnectTitle": "Verbindung trennen?",
     "disconnectDescription": "Offene Transaktionen in Tabs dieser Verbindung werden beim Trennen zurückgerollt.",
-    "disconnectConfirm": "Trennen"
+    "disconnectConfirm": "Trennen",
+    "settings": "Einstellungen"
   },
   "menu": {
     "about": "Über Colwerk",
@@ -98,7 +99,8 @@
     "releaseNotes": "Versionshinweise",
     "privacy": "Datenschutzhinweise",
     "exportDiagnostics": "Diagnose exportieren …",
-    "importConnections": "Verbindungen importieren …"
+    "importConnections": "Verbindungen importieren …",
+    "settings": "Einstellungen …"
   },
   "diagnostics": {
     "title": "Diagnose speichern",
@@ -868,5 +870,24 @@
       "relativePath": "Relativer Pfad {path}: Dateiort prüfen",
       "options": "Nicht übernommen: {options}"
     }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "saveFailed": "Einstellungen nicht gespeichert",
+    "csv": "CSV",
+    "csvHint": "Für den Export von CSV-Dateien und das Kopieren von Zeilen als CSV.",
+    "delimiter": "Trennzeichen",
+    "delimiterSemicolon": "Semikolon (;)",
+    "delimiterComma": "Komma (,)",
+    "delimiterTab": "Tabulator",
+    "delimiterPipe": "Senkrechter Strich ({'|'})",
+    "quote": "Anführungszeichen",
+    "quoteDouble": "Doppelt (\")",
+    "quoteSingle": "Einfach (')",
+    "escape": "Maskierung",
+    "escapeDouble": "Anführungszeichen verdoppeln",
+    "escapeBackslash": "Backslash (\\)",
+    "encoding": "Zeichenkodierung",
+    "encodingUtf8Bom": "UTF-8 mit BOM"
   }
 }
