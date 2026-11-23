@@ -9,6 +9,23 @@ const { t } = useI18n()
 const toast = useToast()
 const { settings, save } = useSettings()
 
+// Sections of the sidebar; only the chosen one is shown, so the dialog stays short as settings grow
+type Section = 'csv' | 'sqlFormat'
+const section = ref<Section>('csv')
+const sections = computed(() =>
+  (
+    [
+      { id: 'csv', label: t('settings.csv'), icon: 'i-lucide-file-spreadsheet' },
+      { id: 'sqlFormat', label: t('settings.sqlFormat'), icon: 'i-lucide-wand-sparkles' },
+    ] as const
+  ).map((s) => ({
+    label: s.label,
+    icon: s.icon,
+    active: section.value === s.id,
+    onSelect: () => (section.value = s.id),
+  })),
+)
+
 const delimiters = computed(() => [
   { label: t('settings.delimiterSemicolon'), value: ';' },
   { label: t('settings.delimiterComma'), value: ',' },
@@ -79,101 +96,105 @@ async function update(next: Settings) {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="t('settings.title')">
+  <UModal v-model:open="open" :title="t('settings.title')" :ui="{ content: 'max-w-3xl' }">
     <template #body>
-      <section class="space-y-3">
-        <h3 class="font-semibold">{{ t('settings.csv') }}</h3>
-        <p class="text-sm text-muted">{{ t('settings.csvHint') }}</p>
-        <div class="grid grid-cols-2 gap-3">
-          <UFormField :label="t('settings.delimiter')">
-            <USelect
-              :model-value="settings.csv.delimiter"
-              :items="delimiters"
-              class="w-full"
-              @update:model-value="(v) => setCsv('delimiter', v as CsvOptions['delimiter'])"
+      <div class="flex min-h-[28rem] gap-6">
+        <UNavigationMenu :items="sections" orientation="vertical" class="w-44 shrink-0" />
+        <div class="min-w-0 flex-1">
+          <section v-if="section === 'csv'" class="space-y-3">
+            <h3 class="font-semibold">{{ t('settings.csv') }}</h3>
+            <p class="text-sm text-muted">{{ t('settings.csvHint') }}</p>
+            <div class="grid gap-3">
+              <UFormField :label="t('settings.delimiter')">
+                <USelect
+                  :model-value="settings.csv.delimiter"
+                  :items="delimiters"
+                  class="w-full"
+                  @update:model-value="(v) => setCsv('delimiter', v as CsvOptions['delimiter'])"
+                />
+              </UFormField>
+              <UFormField :label="t('settings.encoding')">
+                <USelect
+                  :model-value="settings.csv.encoding"
+                  :items="encodings"
+                  class="w-full"
+                  @update:model-value="(v) => setCsv('encoding', v as CsvOptions['encoding'])"
+                />
+              </UFormField>
+              <UFormField :label="t('settings.quote')">
+                <USelect
+                  :model-value="settings.csv.quote"
+                  :items="quotes"
+                  class="w-full"
+                  @update:model-value="(v) => setCsv('quote', v as CsvOptions['quote'])"
+                />
+              </UFormField>
+              <UFormField :label="t('settings.escape')">
+                <USelect
+                  :model-value="settings.csv.escape"
+                  :items="escapes"
+                  class="w-full"
+                  @update:model-value="(v) => setCsv('escape', v as CsvOptions['escape'])"
+                />
+              </UFormField>
+            </div>
+          </section>
+          <section v-else-if="section === 'sqlFormat'" class="space-y-3">
+            <h3 class="font-semibold">{{ t('settings.sqlFormat') }}</h3>
+            <p class="text-sm text-muted">{{ t('settings.sqlFormatHint') }}</p>
+            <div class="grid gap-3">
+              <UFormField v-for="f in caseFields" :key="f.key" :label="f.label">
+                <USelect
+                  :model-value="settings.sqlFormat[f.key]"
+                  :items="cases"
+                  class="w-full"
+                  @update:model-value="(v) => setSqlFormat(f.key, v as SqlFormatOptions[typeof f.key])"
+                />
+              </UFormField>
+              <UFormField :label="t('settings.indent')">
+                <USelect
+                  :model-value="settings.sqlFormat.indent"
+                  :items="indents"
+                  class="w-full"
+                  @update:model-value="(v) => setSqlFormat('indent', v as SqlFormatOptions['indent'])"
+                />
+              </UFormField>
+              <UFormField :label="t('settings.commas')">
+                <USelect
+                  :model-value="settings.sqlFormat.commas"
+                  :items="commaStyles"
+                  class="w-full"
+                  @update:model-value="(v) => setSqlFormat('commas', v as SqlFormatOptions['commas'])"
+                />
+              </UFormField>
+              <UFormField :label="t('settings.logicalOperatorNewline')">
+                <USelect
+                  :model-value="settings.sqlFormat.logicalOperatorNewline"
+                  :items="logicalNewlines"
+                  class="w-full"
+                  @update:model-value="
+                    (v) => setSqlFormat('logicalOperatorNewline', v as SqlFormatOptions['logicalOperatorNewline'])
+                  "
+                />
+              </UFormField>
+              <UFormField :label="t('settings.expressionWidth')" :hint="t('settings.expressionWidthHint')">
+                <UInputNumber
+                  :model-value="settings.sqlFormat.expressionWidth"
+                  :min="sqlExpressionWidths.min"
+                  :max="sqlExpressionWidths.max"
+                  class="w-full"
+                  @update:model-value="(v) => v != null && setSqlFormat('expressionWidth', v)"
+                />
+              </UFormField>
+            </div>
+            <UCheckbox
+              :model-value="settings.sqlFormat.bangNotEqual"
+              :label="t('settings.bangNotEqual')"
+              @update:model-value="(v) => setSqlFormat('bangNotEqual', v === true)"
             />
-          </UFormField>
-          <UFormField :label="t('settings.encoding')">
-            <USelect
-              :model-value="settings.csv.encoding"
-              :items="encodings"
-              class="w-full"
-              @update:model-value="(v) => setCsv('encoding', v as CsvOptions['encoding'])"
-            />
-          </UFormField>
-          <UFormField :label="t('settings.quote')">
-            <USelect
-              :model-value="settings.csv.quote"
-              :items="quotes"
-              class="w-full"
-              @update:model-value="(v) => setCsv('quote', v as CsvOptions['quote'])"
-            />
-          </UFormField>
-          <UFormField :label="t('settings.escape')">
-            <USelect
-              :model-value="settings.csv.escape"
-              :items="escapes"
-              class="w-full"
-              @update:model-value="(v) => setCsv('escape', v as CsvOptions['escape'])"
-            />
-          </UFormField>
+          </section>
         </div>
-      </section>
-      <USeparator class="my-5" />
-      <section class="space-y-3">
-        <h3 class="font-semibold">{{ t('settings.sqlFormat') }}</h3>
-        <p class="text-sm text-muted">{{ t('settings.sqlFormatHint') }}</p>
-        <div class="grid grid-cols-2 gap-3">
-          <UFormField v-for="f in caseFields" :key="f.key" :label="f.label">
-            <USelect
-              :model-value="settings.sqlFormat[f.key]"
-              :items="cases"
-              class="w-full"
-              @update:model-value="(v) => setSqlFormat(f.key, v as SqlFormatOptions[typeof f.key])"
-            />
-          </UFormField>
-          <UFormField :label="t('settings.indent')">
-            <USelect
-              :model-value="settings.sqlFormat.indent"
-              :items="indents"
-              class="w-full"
-              @update:model-value="(v) => setSqlFormat('indent', v as SqlFormatOptions['indent'])"
-            />
-          </UFormField>
-          <UFormField :label="t('settings.commas')">
-            <USelect
-              :model-value="settings.sqlFormat.commas"
-              :items="commaStyles"
-              class="w-full"
-              @update:model-value="(v) => setSqlFormat('commas', v as SqlFormatOptions['commas'])"
-            />
-          </UFormField>
-          <UFormField :label="t('settings.logicalOperatorNewline')">
-            <USelect
-              :model-value="settings.sqlFormat.logicalOperatorNewline"
-              :items="logicalNewlines"
-              class="w-full"
-              @update:model-value="
-                (v) => setSqlFormat('logicalOperatorNewline', v as SqlFormatOptions['logicalOperatorNewline'])
-              "
-            />
-          </UFormField>
-          <UFormField :label="t('settings.expressionWidth')" :hint="t('settings.expressionWidthHint')">
-            <UInputNumber
-              :model-value="settings.sqlFormat.expressionWidth"
-              :min="sqlExpressionWidths.min"
-              :max="sqlExpressionWidths.max"
-              class="w-full"
-              @update:model-value="(v) => v != null && setSqlFormat('expressionWidth', v)"
-            />
-          </UFormField>
-        </div>
-        <UCheckbox
-          :model-value="settings.sqlFormat.bangNotEqual"
-          :label="t('settings.bangNotEqual')"
-          @update:model-value="(v) => setSqlFormat('bangNotEqual', v === true)"
-        />
-      </section>
+      </div>
     </template>
   </UModal>
 </template>
