@@ -2,6 +2,7 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { ResultSet } from '#core'
 import type { Ref } from 'vue'
+import { UButton, UDropdownMenu } from '#components'
 import { cellText } from '~~/core/values.ts'
 import type { GridEdits } from '~/composables/grid-edits'
 import type { GridColumn as Column, GridRow as Row } from '~/utils/grid-cells'
@@ -15,8 +16,6 @@ export function useGridColumns(
   root: () => HTMLElement | undefined,
 ) {
   const { t } = useI18n()
-  const UButton = resolveComponent('UButton')
-  const UDropdownMenu = resolveComponent('UDropdownMenu')
   const { changes, pendingValue, rowActions } = edits
 
   const sizeStyle = ({ column }: { column: Column }) => ({ width: `${column.getSize()}px` })
