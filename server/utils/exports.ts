@@ -1,5 +1,13 @@
 import { open, rename, rm } from 'node:fs/promises'
-import { AppError, createExporter, type ExportFormat, type ExportOptions, exportFormats, type RowSink } from '#core'
+import {
+  AppError,
+  createExporter,
+  type CsvOptions,
+  type ExportFormat,
+  type ExportOptions,
+  exportFormats,
+  type RowSink,
+} from '#core'
 
 // The server writes exports directly to the path chosen in the native save dialog (`/api/dialog`):
 // the desktop window does not save browser downloads. The file is written next to the target and
@@ -13,6 +21,7 @@ export async function writeExport(
   path: string,
   produce: (sink: RowSink) => Promise<void>,
   options?: ExportOptions,
+  csv?: CsvOptions,
 ): Promise<void> {
   const aborted = new AbortController()
   running.set(aborted, tabId)
@@ -24,6 +33,7 @@ export async function writeExport(
       await file.write(chunk)
     },
     options,
+    csv,
   )
   let hasColumns = false
   let ok = false

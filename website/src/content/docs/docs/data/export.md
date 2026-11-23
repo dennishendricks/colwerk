@@ -26,13 +26,29 @@ and hidden columns of the grid apply to **Copy as**, not to the file.
 
 | Format     | Details                                                                                                                                     |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| CSV        | Semicolon-separated, every field quoted, UTF-8 with BOM, CRLF line endings; `NULL` as an empty field.                                       |
+| CSV        | Every field quoted, CRLF line endings, `NULL` as an empty field. Separator, quoting and encoding as set in the [settings](#csv-settings).   |
 | Parquet    | Typed columns (boolean, integers, floating point, decimal, date, time, timestamp, UUID); a column with values that do not fit becomes text. |
 | Excel      | One sheet with a frozen header; numbers, dates and times typed. Numbers with more than 15 digits stay text, so they keep every digit.       |
 | JSON       | An array of objects.                                                                                                                        |
 | NDJSON     | One object per line.                                                                                                                        |
 | Markdown   | A table.                                                                                                                                    |
 | SQL INSERT | `INSERT` statements in the dialect of the connection.                                                                                       |
+
+### CSV settings
+
+Open **Settings** (gear icon in the tab bar; in the desktop app **Colwerk → Settings …**) to choose how CSV is written.
+The choice is kept in `settings.json` in the [data directory](/docs/reference/data-directory/) and applies to every CSV
+export and to **Copy row as CSV** in the result grid.
+
+| Setting         | Options                                                     | Default        |
+| --------------- | ----------------------------------------------------------- | -------------- |
+| Separator       | Semicolon `;`, comma `,`, tab, vertical bar `\|`            | Semicolon      |
+| Quote character | Double `"` or single `'`                                    | Double         |
+| Escaping        | Double the quote character (`""`) or backslash (`\"`, `\\`) | Double         |
+| Encoding        | UTF-8 with BOM, UTF-8, UTF-16 LE (with BOM), Windows-1252   | UTF-8 with BOM |
+
+With a backslash, backslashes in the values are doubled too. Windows-1252 covers Western European languages; other
+characters, such as emoji, become `?`. Excel opens UTF-8 with BOM and UTF-16 LE without asking for the encoding.
 
 ### SQL INSERT
 

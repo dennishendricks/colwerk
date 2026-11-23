@@ -6,6 +6,7 @@ import { assert, assertEquals } from './assert.ts'
 import { duckdbDriver } from '../core/drivers/duckdb.ts'
 import { createExporter, type ExportFormat, type ExportOptions } from '../core/export/index.ts'
 import type { AppError, CellValue, ResultColumn } from '../core/types.ts'
+import type { CsvOptions } from '../core/values.ts'
 
 const columns: ResultColumn[] = [
   { name: 'id', type: 'integer' },
@@ -22,9 +23,14 @@ const rows: CellValue[][] = [
 ]
 const table = { columns, rows }
 
-async function encode(format: ExportFormat, { columns, rows } = table, options?: ExportOptions): Promise<Uint8Array> {
+async function encode(
+  format: ExportFormat,
+  { columns, rows } = table,
+  options?: ExportOptions,
+  csv?: CsvOptions,
+): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
-  const exporter = createExporter(format, async (chunk) => void chunks.push(chunk), options)
+  const exporter = createExporter(format, async (chunk) => void chunks.push(chunk), options, csv)
   try {
     exporter.columns(columns)
     await exporter.rows(rows.slice(0, 1))
@@ -48,6 +54,34 @@ test('export: csv quotes fields and distinguishes NULL from empty string', async
       '',
     ].join('\r\n'),
   )
+})
+
+test('export: csv with comma, single quotes and backslash escaping, without BOM', async () => {
+  const csv: CsvOptions = { delimiter: ',', quote: "'", escape: 'backslash', encoding: 'utf-8' }
+  const data = {
+    columns: [
+      { name: 'a', type: 'text' },
+      { name: 'b', type: 'text' },
+    ],
+    rows: [
+      ["it's", 'C:\\x"'],
+      [null, ''],
+    ],
+  }
+  assertEquals(
+    new TextDecoder('utf-8', { ignoreBOM: true }).decode(await encode('csv', data, undefined, csv)),
+    ["'a','b'", "'it\\'s','C:\\\\x\"'", ",''", ''].join('\r\n'),
+  )
+})
+
+test('export: csv in Windows-1252 and UTF-16 LE', async () => {
+  const data = { columns: [{ name: 'a', type: 'text' }], rows: [['Größe €5 😀']] }
+  const options = { delimiter: '\t', quote: '"', escape: 'double' } as const
+  const cp1252 = await encode('csv', data, undefined, { ...options, encoding: 'windows-1252' })
+  assertEquals(new TextDecoder('windows-1252').decode(cp1252), '"a"\r\n"Größe €5 ?"\r\n')
+  const utf16 = await encode('csv', data, undefined, { ...options, encoding: 'utf-16le' })
+  assertEquals([utf16[0], utf16[1]], [0xff, 0xfe])
+  assertEquals(new TextDecoder('utf-16le').decode(utf16), '"a"\r\n"Größe €5 😀"\r\n')
 })
 
 async function readParquet(data: Uint8Array, sql: (file: string) => string[]): Promise<CellValue[][][]> {

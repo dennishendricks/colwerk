@@ -28,6 +28,8 @@ export default defineEventHandler(async (event) => {
     if (typeof connectionId !== 'string') throw createError({ statusCode: 400, message: 'connectionId is required' })
     options = parseInsertOptions(body.insert, sqlDialect((await store.get(connectionId)).dialect))
   }
+  // CSV as chosen in the settings dialog.
+  const csv = format === 'csv' ? (await getSettings()).csv : undefined
   if (Array.isArray(body.rows) && Array.isArray(body.columns)) {
     const { columns, rows } = body
     await dbCall(() =>
@@ -40,6 +42,7 @@ export default defineEventHandler(async (event) => {
           await sink.rows(rows)
         },
         options,
+        csv,
       ),
     )
     return { ok: true }
@@ -56,7 +59,14 @@ export default defineEventHandler(async (event) => {
   }
   const database = parseDatabase(body.database)
   await dbCall(() =>
-    writeExport(tabId, format, path, (sink) => workbench.stream(tabId, connectionId, sql, sink, database), options),
+    writeExport(
+      tabId,
+      format,
+      path,
+      (sink) => workbench.stream(tabId, connectionId, sql, sink, database),
+      options,
+      csv,
+    ),
   )
   return { ok: true }
 })

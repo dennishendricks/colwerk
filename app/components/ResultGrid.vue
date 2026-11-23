@@ -2,7 +2,7 @@
 import type { TableRow } from '@nuxt/ui'
 import type { CellValue, ResultColumn, ResultSet } from '#core'
 import { insertSql } from '~~/core/sql-literals.ts'
-import { csvField, markdownRow } from '~~/core/values.ts'
+import { csvLine, markdownRow } from '~~/core/values.ts'
 import type { GridEdit } from '~/composables/grid-edits'
 import type { GridColumn as Column, GridRow as Row } from '~/utils/grid-cells'
 import type { SplitDialect } from '~/utils/sql-split'
@@ -17,6 +17,8 @@ const props = defineProps<{
 // Text of the quick filter, whose input lives in the caller's status bar.
 const filter = defineModel<string>('filter', { default: '' })
 const { t, locale } = useI18n()
+// Separator and quoting of the CSV copy as chosen in the settings dialog.
+const { settings } = useSettings()
 
 // Pending edits (#60): nothing is written until "Save".
 const edits = useGridEdits(
@@ -149,7 +151,7 @@ function onRowContextmenu(e: Event, row: TableRow<Row>) {
       label: t('grid.copyCsv'),
       action: () =>
         navigator.clipboard.writeText(
-          [columns.map((c) => c.name), cells].map((fields) => fields.map(csvField).join(';')).join('\r\n'),
+          [columns.map((c) => c.name), cells].map((fields) => csvLine(fields, settings.value.csv)).join('\r\n'),
         ),
     },
     {

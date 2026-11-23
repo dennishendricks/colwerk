@@ -44,10 +44,36 @@ export function normalizeValue(value: unknown): CellValue {
 
 export const cellText = (v: CellValue) => (typeof v === 'object' ? JSON.stringify(v) : String(v))
 
-/** CSV field (RFC 4180, `;`-separated): every value is quoted, NULL is an empty field. */
-export function csvField(v: CellValue): string {
-  return v === null ? '' : `"${cellText(v).replaceAll('"', '""')}"`
+export const csvDelimiters = [';', ',', '\t', '|'] as const
+export const csvQuotes = ['"', "'"] as const
+/** `double` repeats the quote character (RFC 4180), `backslash` puts `\` before it and before every `\`. */
+export const csvEscapes = ['double', 'backslash'] as const
+/** `utf-8-bom` and `utf-16le` start with a byte order mark. */
+export const csvEncodings = ['utf-8-bom', 'utf-8', 'utf-16le', 'windows-1252'] as const
+
+export interface CsvOptions {
+  delimiter: (typeof csvDelimiters)[number]
+  quote: (typeof csvQuotes)[number]
+  escape: (typeof csvEscapes)[number]
+  encoding: (typeof csvEncodings)[number]
 }
+
+export const defaultCsvOptions: CsvOptions = { delimiter: ';', quote: '"', escape: 'double', encoding: 'utf-8-bom' }
+
+/** CSV field: every value is quoted, NULL is an empty field. */
+export function csvField(v: CellValue, { quote, escape }: Pick<CsvOptions, 'quote' | 'escape'> = defaultCsvOptions) {
+  if (v === null) return ''
+  const text = cellText(v)
+  const escaped =
+    escape === 'double'
+      ? text.replaceAll(quote, quote + quote)
+      : text.replaceAll('\\', '\\\\').replaceAll(quote, `\\${quote}`)
+  return quote + escaped + quote
+}
+
+/** One CSV line without line break. */
+export const csvLine = (fields: CellValue[], options: CsvOptions = defaultCsvOptions) =>
+  fields.map((f) => csvField(f, options)).join(options.delimiter)
 
 /** Markdown table cell: NULL is empty (like CSV), `|` and backslashes are escaped, line breaks become `<br>`. */
 export function markdownField(v: CellValue): string {

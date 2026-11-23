@@ -35,6 +35,8 @@
 - `api/mcp/audit.delete.ts`: DELETE /api/mcp/audit
 - `api/mcp/audit.get.ts`: GET /api/mcp/audit
 - `api/mcp/audit.post.ts`: POST /api/mcp/audit
+- `api/settings.get.ts`: GET /api/settings; The settings of the settings dialog (see server/utils/settings.ts)
+- `api/settings.post.ts`: POST /api/settings; Saves the settings of the settings dialog; answers with what was saved
 - `api/tabs/[id].delete.ts`: DELETE /api/tabs/:id; A statement still running in the tab is cancelled first: closing the connection alone does not stop it on every server (Postgres keeps running it until it tries to send results)
 - `api/tabs/[id]/cancel.post.ts`: POST /api/tabs/:id/cancel
 - `api/tabs/[id]/dry-run.post.ts`: POST /api/tabs/:id/dry-run
@@ -64,4 +66,5 @@
 - `utils/history.ts`: exports getHistory, clearHistory, recordHistory
 - `utils/imports.ts`: exports startJob, progressOf, cancelJob, finishJob, parseSource, sourceDialect
 - `utils/mcp.ts`: exports mcpRequest, connectionOf, sessionId, audited, databasesOf, tableOf, quoteIdent, readQuery
+- `utils/settings.ts`: Settings of the settings dialog in `settings.json` in the data directory (see core/settings.ts)
 - `utils/workspace.ts`: exports Workspace, getWorkspace, saveWindowWorkspace

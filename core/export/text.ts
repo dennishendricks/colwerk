@@ -1,28 +1,52 @@
 // Text formats that write every batch as it arrives: CSV, JSON, NDJSON, Markdown and INSERT statements.
+import { Buffer } from 'node:buffer'
 import { insertSql, maxInsertRows } from '../sql-literals.ts'
-import { csvField, jsonRecord, markdownField, markdownTable, uniqueNames } from '../values.ts'
+import {
+  type CsvOptions,
+  csvLine,
+  defaultCsvOptions,
+  jsonRecord,
+  markdownField,
+  markdownTable,
+  uniqueNames,
+} from '../values.ts'
 import type { CellValue } from '../types.ts'
 import { encoder, type Exporter, type ExportOptions, needColumns, type Write } from './common.ts'
 
-// CSV (RFC 4180) with `;` as separator and a UTF-8 BOM, see `csvField`.
-export function csvExporter(write: Write): Exporter {
+// CSV with the separator, quoting and encoding of the settings, see `csvField`; CRLF line endings.
+export function csvExporter(write: Write, options: CsvOptions = defaultCsvOptions): Exporter {
   let header: string | undefined
-  const line = (fields: CellValue[]) => `${fields.map(csvField).join(';')}\r\n`
+  const encode = textEncoder(options.encoding)
+  const line = (fields: CellValue[]) => `${csvLine(fields, options)}\r\n`
   const takeHeader = () => {
     const h = header ?? ''
     header = ''
     return h
   }
+  const bom = options.encoding === 'utf-8-bom' || options.encoding === 'utf-16le' ? '\uFEFF' : ''
   return {
     columns: (columns) => {
-      header = `\uFEFF${line(columns.map((c) => c.name))}`
+      header = bom + line(columns.map((c) => c.name))
     },
-    rows: (rows) => write(encoder.encode(takeHeader() + rows.map(line).join(''))),
+    rows: (rows) => write(encode(takeHeader() + rows.map(line).join(''))),
     finish: async () => {
-      if (header) await write(encoder.encode(takeHeader()))
+      if (header) await write(encode(takeHeader()))
     },
     dispose: async () => {},
   }
+}
+
+// Windows-1252 has no encoder in TextEncoder: the table is the inverse of its decoder. Characters it cannot hold
+// become `?`.
+let cp1252: Map<string, number> | undefined
+function textEncoder(encoding: CsvOptions['encoding']): (text: string) => Uint8Array {
+  if (encoding === 'utf-16le') return (text) => Buffer.from(text, 'utf16le')
+  if (encoding !== 'windows-1252') return (text) => encoder.encode(text)
+  cp1252 ??= new Map(
+    Array.from(new TextDecoder('windows-1252').decode(Uint8Array.from({ length: 256 }, (_, i) => i)), (c, i) => [c, i]),
+  )
+  const table = cp1252
+  return (text) => Uint8Array.from(text, (c) => table.get(c) ?? 0x3f)
 }
 
 // JSON, NDJSON, Markdown and INSERT write every batch as it arrives. Like CSV, `columns` is synchronous and the

@@ -43,7 +43,8 @@ with JSON formatted, and copy it.
 
 ## Copying
 
-Right-click a row: **Copy value**, **Copy row as JSON**, **CSV**, **Markdown** or **SQL INSERT**.
+Right-click a row: **Copy value**, **Copy row as JSON**, **CSV**, **Markdown** or **SQL INSERT**. CSV uses the separator
+and quoting of the [CSV settings](/docs/data/export/#csv-settings).
 
 **Copy as** in the export bar copies the whole result as Markdown, JSON or SQL INSERT, exactly as the grid shows it:
 visible columns in their order, rows sorted and filtered.

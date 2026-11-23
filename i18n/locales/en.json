@@ -51,7 +51,8 @@
     "closeTabsQuery": "{n} tabs contain a query that is lost when they are closed.",
     "disconnectTitle": "Disconnect?",
     "disconnectDescription": "Open transactions in tabs of this connection are rolled back when disconnecting.",
-    "disconnectConfirm": "Disconnect"
+    "disconnectConfirm": "Disconnect",
+    "settings": "Settings"
   },
   "menu": {
     "about": "About Colwerk",
@@ -98,7 +99,8 @@
     "releaseNotes": "Release Notes",
     "privacy": "Privacy Notice",
     "exportDiagnostics": "Export Diagnostics …",
-    "importConnections": "Import Connections …"
+    "importConnections": "Import Connections …",
+    "settings": "Settings …"
   },
   "diagnostics": {
     "title": "Save diagnostics",
@@ -868,5 +870,24 @@
       "relativePath": "Relative path {path}: check the file location",
       "options": "Not imported: {options}"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "saveFailed": "Settings not saved",
+    "csv": "CSV",
+    "csvHint": "For exporting CSV files and copying rows as CSV.",
+    "delimiter": "Separator",
+    "delimiterSemicolon": "Semicolon (;)",
+    "delimiterComma": "Comma (,)",
+    "delimiterTab": "Tab",
+    "delimiterPipe": "Vertical bar ({'|'})",
+    "quote": "Quote character",
+    "quoteDouble": "Double quote (\")",
+    "quoteSingle": "Single quote (')",
+    "escape": "Escaping",
+    "escapeDouble": "Double the quote character",
+    "escapeBackslash": "Backslash (\\)",
+    "encoding": "Encoding",
+    "encodingUtf8Bom": "UTF-8 with BOM"
   }
 }

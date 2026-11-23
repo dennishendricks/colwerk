@@ -9,6 +9,7 @@ interface MenuViewActions {
   openHistory: () => void
   openShortcuts: () => void
   openAbout: () => void
+  openSettings: () => void
   openConnection: () => void
   openImport: () => void
   toggleSidebar: () => void
@@ -54,6 +55,8 @@ export function useApplicationMenu(view: MenuViewActions) {
       submenu('Colwerk', [
         // On Windows and Linux in the Help menu.
         ...(macOS.value ? [item(t('menu.about'), 'about'), 'separator' as const] : []),
+        item(t('menu.settings'), 'settings'),
+        'separator',
         item(t('menu.setupMcp'), 'mcp'),
         item(t('menu.mcpAudit'), 'mcp-audit'),
         item(t('menu.checkUpdates'), 'update'),
@@ -189,5 +192,6 @@ export function useApplicationMenu(view: MenuViewActions) {
     ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
     shortcuts: view.openShortcuts,
     about: view.openAbout,
+    settings: view.openSettings,
   })
 }
