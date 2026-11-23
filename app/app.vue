@@ -78,6 +78,21 @@ if (windowLabel === 'main') checkForUpdate()
 
 const { version } = useRuntimeConfig().public
 
+// After an update (desktop app only), a toast links the changelog once. The version of the last start is kept in a
+// cookie, like the language (app/utils/locale.ts); on the first start there is none, so nothing is shown.
+const seenVersion = useCookie<string | undefined>('colwerk-version', { maxAge: 10 * 365 * 24 * 3600 })
+if (isDesktop) {
+  if (seenVersion.value && version.localeCompare(seenVersion.value, undefined, { numeric: true }) > 0) {
+    useToast().add({
+      title: t('releaseNotes.updated', { version }),
+      icon: 'i-lucide-sparkles',
+      duration: 0,
+      actions: [{ label: t('releaseNotes.changelog'), onClick: () => openUrl(changelogUrl) }],
+    })
+  }
+  seenVersion.value = version
+}
+
 // Queries prepared by an MCP client (tool open-query) open in a new tab, without running.
 function onServerEvent(type: string, data: string) {
   if (type !== 'open-query') return
@@ -320,7 +335,6 @@ useApplicationMenu({
     <FileQueryModals />
     <LazyShortcutsModal v-model:open="shortcutsOpen" />
     <LazyMcpModal v-model:open="mcpOpen" @audit="openAudit" />
-    <ReleaseNotesModal />
     <UnlockModal />
     <LazyAboutModal v-model:open="aboutOpen" />
     <LazyQuickOpen

@@ -118,9 +118,8 @@
     "failed": "Suche nach Updates fehlgeschlagen"
   },
   "releaseNotes": {
-    "title": "Neu in Colwerk {version}",
-    "unavailable": "Die Versionshinweise konnten nicht geladen werden.",
-    "release": "Release auf GitHub"
+    "updated": "Colwerk {version} installiert",
+    "changelog": "Was ist neu"
   },
   "connection": {
     "edit": "Verbindung bearbeiten",

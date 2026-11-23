@@ -118,9 +118,8 @@
     "failed": "Checking for updates failed"
   },
   "releaseNotes": {
-    "title": "What's new in Colwerk {version}",
-    "unavailable": "The release notes could not be loaded.",
-    "release": "Release on GitHub"
+    "updated": "Colwerk {version} installed",
+    "changelog": "What's new"
   },
   "connection": {
     "edit": "Edit connection",

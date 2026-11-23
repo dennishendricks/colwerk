@@ -48,7 +48,7 @@ Colwerk checks for a new version each time it starts, and on demand with **Colwe
   are signed, and Colwerk checks the signature before installing.
 - **Linux (.deb)** shows a notice with a **Download** link to the release page; install the new package as usual.
 
-After an update, Colwerk shows the release notes of the new version once. **Help → Release Notes** opens them again,
-and the [changelog](/changelog/) lists the notes of every version.
+After an update, Colwerk shows a notice once with a link to the [changelog](/changelog/), which lists the notes of every
+version. **Help → Release Notes** opens it at any time.
 
 The update check contacts GitHub only. Without a network connection it fails silently, unless you started it yourself.

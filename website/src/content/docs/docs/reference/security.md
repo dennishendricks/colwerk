@@ -12,7 +12,7 @@ also the [privacy policy](/privacy/).
 
 Colwerk itself only connects to:
 
-- **GitHub**, to check for updates, download them and load release notes;
+- **GitHub**, to check for updates and download them;
 - **the npm registry**, once, to download the DuckDB library (verified against a hash fixed at build time);
 - **DuckDB's extension repository**, to install the extensions a feature needs;
 - the databases, catalogs and cloud services you configure.

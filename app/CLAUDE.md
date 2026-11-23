@@ -41,7 +41,6 @@
 - `components/QueryRunModals.vue`
 - `components/QueryToolbar.vue`
 - `components/QuickOpen.vue`
-- `components/ReleaseNotesModal.vue`
 - `components/ResultExportBar.vue`
 - `components/ResultGrid.vue`
 - `components/ResultSwitcher.vue`
@@ -91,7 +90,7 @@
 - `utils/grid-cells.ts`: Pure helpers of the result grid: row and column types, cell sorting, filtering, sizing and display text
 - `utils/locale.ts`: exports useChosenLocale
 - `utils/motion.ts`: exports PointerMark, modalOrigin
-- `utils/open-url.ts`: exports websiteUrl, privacyUrl, openUrl
+- `utils/open-url.ts`: exports websiteUrl, privacyUrl, changelogUrl, openUrl
 - `utils/pre-execution.ts`: Dry run and plan check helpers from core, re-exported for the app's auto-imports
 - `utils/shortcuts.ts`: The shortcut overview (ShortcutsModal.vue), also the source of the shortcut reference in the documentation (scripts/docs-data.ts)
 - `utils/showplan.ts`: exports PlanOperator, MissingIndex, PlanStatement, isShowplan, parseShowplan

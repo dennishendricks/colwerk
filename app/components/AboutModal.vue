@@ -8,7 +8,7 @@ const github = `https://github.com/${repository}`
 const links = computed(() => [
   { label: t('about.website'), url: websiteUrl },
   { label: t('about.repository'), url: github },
-  { label: t('about.releaseNotes'), url: `${github}/releases/tag/v${version}` },
+  { label: t('about.releaseNotes'), url: changelogUrl },
   { label: t('about.reportIssue'), url: `${github}/issues/new` },
 ])
 </script>

@@ -63,19 +63,18 @@ is sent to us. The same applies to cloud services you configure yourself, such a
 Fabric OneLake or a Microsoft Entra sign-in: Colwerk connects directly from your computer to that provider, and the
 provider's privacy policy applies.
 
-### Updates and release notes
+### Updates
 
 When the desktop app starts, and when you choose “Check for updates” in the menu, Colwerk downloads a small file
 describing the latest release (latest.json) from GitHub (github.com). In the browser, or if this check fails, Colwerk
 asks the GitHub API (api.github.com) for the latest release instead. If you choose to install an update, the update
-package is downloaded from GitHub. After an update, and when you open the release notes from the menu, Colwerk loads the
-release notes from the GitHub API; this request identifies only the app version.
+package is downloaded from GitHub.
 
 These requests transmit your IP address and the usual technical request data to GitHub, Inc. They contain no
 information about you, your databases or how you use the app. The legal basis is Art. 6(1)(f) GDPR. Our legitimate
 interest is to inform you about new versions, including security fixes, and to install them when you ask for it.
 GitHub, Inc. is certified under the EU-U.S. Data Privacy Framework. If you block these requests, for example with a
-firewall, Colwerk works as before, just without update hints, updates from within the app and release notes.
+firewall, Colwerk works as before, just without update hints, and updates from within the app.
 
 ### DuckDB library and extensions
 

@@ -149,6 +149,7 @@ export function useApplicationMenu(view: MenuViewActions) {
     update: () => checkForUpdate(true),
     quit: () => exit(),
     privacy: () => openUrl(privacyUrl),
+    'release-notes': () => openUrl(changelogUrl),
     diagnostics: exportDiagnostics,
     'new-tab': () => addTab(activeConnectionId.value, activeDatabase.value),
     'duplicate-tab': () => duplicateTab(activeTab.value),
