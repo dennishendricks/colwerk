@@ -43,10 +43,10 @@ function dismiss(id: string) {
     </div>
     <ul class="space-y-1">
       <li v-for="tour in suggested" :key="tour.id" class="flex items-center gap-1">
-        <span class="min-w-0 flex-1 truncate text-sm">
+        <span class="min-w-0 flex-1 text-sm leading-tight break-words">
           {{ t(`tours.${tour.id}.title`) }}
-          <span v-if="statusOf(tour.id) === 'cancelled'" class="text-xs text-muted">
-            · {{ t('tours.cancelled') }}
+          <span v-if="statusOf(tour.id) === 'cancelled'" class="block text-xs text-muted">
+            {{ t('tours.cancelled') }}
           </span>
         </span>
         <UButton
