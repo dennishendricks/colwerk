@@ -100,7 +100,9 @@ export async function readBeekeeper(file: string): Promise<ImportResult> {
           continue
         }
       } else {
-        const ssl = !!r.ssl
+        // Trusting the certificate only matters with encryption, which the server may enforce without SSL turned on.
+        const trust = dialect === 'mssql' && !!r.trustServerCertificate
+        const ssl = !!r.ssl || trust
         Object.assign(config, {
           host: r.socketPathEnabled ? undefined : str(r.host),
           socket: r.socketPathEnabled ? str(r.socketPath) : undefined,
@@ -110,7 +112,7 @@ export async function readBeekeeper(file: string): Promise<ImportResult> {
           password: await secret('password'),
           ssl,
           sslCa: str(r.sslCaFile),
-          sslInsecure: ssl && (r.sslRejectUnauthorized === 0 || (dialect === 'mssql' && !!r.trustServerCertificate)),
+          sslInsecure: trust || (ssl && r.sslRejectUnauthorized === 0),
         })
         if (!config.host && !config.socket) {
           result.skipped.push({ name, note: { key: 'noHost' } })

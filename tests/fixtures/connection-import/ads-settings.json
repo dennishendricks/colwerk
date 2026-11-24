@@ -33,7 +33,7 @@
       "options": {
         "server": "host1\\SQLEXPRESS",
         "authenticationType": "Integrated",
-        "encrypt": true,
+        "encrypt": false,
         "trustServerCertificate": true
       }
     },

@@ -159,7 +159,8 @@ test('Azure Data Studio: comments, trailing commas, groups, authentication', asy
   assertEquals(integrated.config.host, 'host1')
   assertEquals(integrated.config.instanceName, 'SQLEXPRESS')
   assertEquals(integrated.config.auth, 'windows')
-  assertEquals(integrated.config.sslInsecure, true)
+  // Trust Server Certificate without Encrypt: the server enforces encryption, so TLS is turned on.
+  assertEquals([integrated.config.ssl, integrated.config.sslInsecure], [true, true])
   assertEquals(integrated.config.folder, undefined)
   assertEquals(integrated.notes, [{ key: 'windowsLogin' }])
   const mfa = byKey(result, 'mfa').config
@@ -295,6 +296,8 @@ test('Beekeeper Studio: mapping, decrypted secrets, original untouched', async (
     assertEquals(byKey(result, 'bk-1').notes, [{ key: 'sshJumpHost' }])
     const ms = byKey(result, 'bk-2').config
     assertEquals([ms.dialect, ms.auth, ms.domain, ms.user], ['mssql', 'windows', 'CORP', 'svc'])
+    // Trust Server Certificate without SSL: the server enforces encryption, so TLS is turned on.
+    assertEquals([ms.ssl, ms.sslInsecure], [true, true])
     assertEquals(byKey(result, 'bk-3').config, { name: 'Local file', dialect: 'sqlite', file: '/data/local.db' })
     assertEquals(result.skipped, [
       { name: 'Redshift', note: { key: 'unsupportedEngine', params: { engine: 'redshift' } } },
