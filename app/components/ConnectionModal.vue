@@ -91,7 +91,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
             <option v-for="f in folders" :key="f" :value="f" />
           </datalist>
         </UFormField>
-        <UFormField :label="t('connection.dialect')" class="col-span-2">
+        <UFormField :label="t('connection.dialect')" class="col-span-2" data-tour="connection-engine">
           <USelect v-model="form.dialect" :items="dialectItems" class="w-full" />
         </UFormField>
 
@@ -221,7 +221,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           :stored-password="!!connection?.hasPassword"
         />
 
-        <UCollapsible v-model:open="showAdvanced" class="col-span-2">
+        <UCollapsible v-model:open="showAdvanced" class="col-span-2" data-tour="connection-options">
           <UButton
             color="neutral"
             variant="ghost"
@@ -304,7 +304,7 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
     </template>
 
     <template #footer>
-      <div class="flex w-full gap-2">
+      <div class="flex w-full gap-2" data-tour="connection-actions">
         <UButton
           v-if="connection"
           color="error"

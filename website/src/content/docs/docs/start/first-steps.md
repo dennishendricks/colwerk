@@ -42,9 +42,11 @@ Press **?** for all keyboard shortcuts, or see the [shortcut reference](/docs/re
 
 ## Tutorials
 
-Short guided tours show the window, how to run a query and how to work with results. They use **Colwerk Demo**, a
-DuckDB database in memory that Colwerk adds as a connection the first time a tour needs it, so you can try everything
-without your own data. Delete the connection once you no longer need it.
+Short guided tours show Colwerk one feature at a time. Many of them use a demo database, a DuckDB database in memory
+with sample data, so you can try everything without your own data. Colwerk adds it as a connection named
+**Colwerk Demo** (some tours add variants of it) when a tour needs it, also again after you deleted it. Delete these
+connections once you no longer need them. The demo data is created anew after every restart; changes you make in a tour
+may stay until then.
 
 A card in the bottom right corner offers the tutorials you have not finished yet, the most important first. **Start**
 begins one, the eye button hides a tutorial for good, and the close button hides the card until the next start. All

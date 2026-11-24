@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Runs a guided tour: the popover of the current step (useTour) over the spotlight. Mounted (and loaded) only while
 // the tour runs, one instance per tour (app.vue).
-import type { Tour, TourStep } from '~/utils/tour'
+import type { Tour } from '~/utils/tour'
 
 const props = defineProps<{ definition: Tour }>()
 
@@ -14,20 +14,16 @@ const steps = props.definition.steps()
 const tour = useTour(steps)
 const busy = ref(false)
 
-/** Waits up to 3 s for the step's target to appear, e.g. the grid of a query just run. */
-async function waitForTarget(step: TourStep) {
-  for (let i = 0; step.target && !step.target() && i < 180; i++)
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-}
-
+/** Leaves the shown step (if any) and shows step `index`. */
 async function show(index: number) {
   const step = steps[index]
   if (!step) return
   busy.value = true
   try {
+    if (tour.open.value) await steps[tour.index.value]?.leave?.()
     await step.before?.()
     await nextTick()
-    await waitForTarget(step)
+    if (step.target) await waitForElement(step.target)
     tour.goTo(index)
   } catch (e) {
     toast.add({ title: t('tours.failed'), description: errorMessage(e), color: 'error', icon: 'i-lucide-circle-alert' })
@@ -38,6 +34,7 @@ async function show(index: number) {
 }
 
 function end(status: 'completed' | 'cancelled') {
+  if (tour.open.value) Promise.resolve(steps[tour.index.value]?.leave?.()).catch(() => {})
   tour.finish()
   running.value = undefined
   setStatus(props.definition.id, status).catch(() => {})
@@ -52,16 +49,19 @@ const key = computed(() => `tours.${props.definition.id}.${tour.current.value?.k
 
 <template>
   <TourSpotlight v-if="tour.open.value" :reference="tour.reference.value" />
+  <!-- A new popover per step: opened after a dialog the step opened, it is the top layer and stays clickable. -->
   <UPopover
+    :key="tour.index.value"
     :open="tour.open.value"
     :reference="tour.reference.value"
     :content="{ side: tour.current.value?.side, sideOffset: 16, onEscapeKeyDown: () => end('cancelled') }"
     :dismissible="false"
-    :ui="{ content: 'z-50 w-80 p-4' }"
+    :ui="{ content: 'tour-popover z-[70] w-80 p-4' }"
     arrow
   >
     <template #content>
-      <div class="space-y-2">
+      <!-- An open dialog would take a click here as outside and close. -->
+      <div class="space-y-2" @pointerdown.stop>
         <div class="flex items-start gap-2">
           <p class="flex-1 font-medium">{{ t(`${key}.title`) }}</p>
           <UButton
@@ -86,7 +86,7 @@ const key = computed(() => `tours.${props.definition.id}.${tour.current.value?.k
             variant="ghost"
             class="ml-auto"
             :disabled="busy"
-            @click="tour.prev()"
+            @click="show(tour.index.value - 1)"
           />
           <UButton
             :label="tour.hasNext.value ? t('tours.next') : t('tours.finish')"

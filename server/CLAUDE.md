@@ -18,6 +18,7 @@
 - `api/connections/index.get.ts`: GET /api/connections
 - `api/connections/index.post.ts`: POST /api/connections
 - `api/connections/test.post.ts`: POST /api/connections/test
+- `api/demo.post.ts`: POST /api/demo; Prepares the demo database of a guided tour (see core/demo.ts): saves the connection again if it was deleted and creates its tables; answers with the connection's id
 - `api/dialog.post.ts`: POST /api/dialog
 - `api/drivers.get.ts`: GET /api/drivers
 - `api/drivers/[dialect]/install.post.ts`: POST /api/drivers/:dialect/install

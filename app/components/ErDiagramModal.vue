@@ -137,7 +137,7 @@ async function save() {
       </p>
       <p v-else-if="model && !model.tables.length" class="text-sm text-muted">{{ t('er.empty') }}</p>
       <template v-else-if="model && layout">
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3" data-tour="er-toolbar">
           <UTabs v-model="view" :items="tabs" :content="false" size="sm" class="w-auto" />
           <template v-if="view === 'diagram'">
             <USwitch v-model="keysOnly" :label="t('er.keysOnly')" size="sm" />
@@ -174,7 +174,11 @@ async function save() {
             <UButton icon="i-lucide-save" color="neutral" variant="outline" :label="t('dialog.save')" @click="save" />
           </UFieldGroup>
         </div>
-        <div v-if="view === 'diagram'" class="min-h-0 flex-1 overflow-hidden rounded-md border border-default">
+        <div
+          v-if="view === 'diagram'"
+          class="min-h-0 flex-1 overflow-hidden rounded-md border border-default"
+          data-tour="er-diagram"
+        >
           <ErDiagram ref="diagram" :layout="layout" :label="t('er.label', { name })" @open="rescope" />
         </div>
         <pre

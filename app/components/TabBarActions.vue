@@ -23,6 +23,7 @@ const tutorialItems = computed(() =>
 <template>
   <UButton
     icon="i-lucide-git-compare"
+    data-tour="compare"
     size="xs"
     variant="ghost"
     color="neutral"

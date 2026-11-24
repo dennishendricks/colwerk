@@ -111,6 +111,7 @@ async function confirmConnection() {
     />
     <UButton
       icon="i-lucide-wand-sparkles"
+      data-tour="format"
       size="sm"
       color="neutral"
       variant="ghost"
@@ -133,6 +134,7 @@ async function confirmConnection() {
     />
     <template v-if="tab.transaction">
       <UBadge
+        data-tour="transaction"
         :label="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
         :color="tab.transaction === 'failed' ? 'error' : 'warning'"
         variant="subtle"
@@ -153,6 +155,7 @@ async function confirmConnection() {
         @click="run(tab, 'COMMIT')"
       />
       <UButton
+        data-tour="rollback"
         size="sm"
         color="neutral"
         variant="soft"

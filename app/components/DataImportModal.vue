@@ -46,7 +46,7 @@ const stepItems = computed(() => [
   >
     <template #body>
       <div class="flex flex-col gap-4">
-        <UStepper v-model="step" :items="stepItems" disabled class="w-full" />
+        <UStepper v-model="step" :items="stepItems" disabled class="w-full" data-tour="import-steps" />
 
         <DataImportSource v-if="step === 0" :wizard="wizard" />
         <DataImportTarget v-else-if="step === 1 && preview" :wizard="wizard" />

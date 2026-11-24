@@ -189,6 +189,14 @@ useApplicationMenu({
   toggleSidebar,
   openQuickOpen,
 })
+// Not in the menu, for the guided tours (runMenuAction): opening the compare and closing what a tour opened.
+defineMenuHandlers({
+  compare: () => (compareOpen.value = true),
+  'close-dialogs': () => {
+    for (const open of [modalOpen, importOpen, shortcutsOpen, mcpOpen, auditOpen, historyOpen, compareOpen, quickOpen])
+      open.value = false
+  },
+})
 </script>
 
 <template>

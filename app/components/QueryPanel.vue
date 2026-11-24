@@ -96,6 +96,12 @@ defineMenuHandlers(() =>
         commit: () => run(props.tab, 'COMMIT'),
         rollback: () => run(props.tab, 'ROLLBACK'),
         export: download,
+        // Guided tours (runMenuAction): closes the dialogs a run opened.
+        'close-dialogs': () => {
+          pending.value = undefined
+          pendingUnfiltered.value = undefined
+          planWarning.value = undefined
+        },
       }
     : {},
 )
@@ -246,6 +252,7 @@ const status = computed(() => {
           <UButton
             v-if="!busy && !tab.error && tab.plan"
             icon="i-lucide-copy"
+            data-tour="plan-copy"
             size="xs"
             color="neutral"
             variant="ghost"

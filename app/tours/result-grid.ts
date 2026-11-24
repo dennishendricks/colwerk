@@ -6,7 +6,7 @@ export default defineTour({
   steps: () => {
     const { openTab } = useDemo()
     return [
-      { key: 'grid', target: tourTarget('grid'), side: 'top', before: () => openTab(true) },
+      { key: 'grid', target: tourTarget('grid'), side: 'top', before: () => openTab(undefined, { run: true }) },
       { key: 'columns', target: () => tourTarget('grid')()?.querySelector('thead'), side: 'bottom' },
       { key: 'filter', target: tourTarget('filter'), side: 'bottom' },
       { key: 'export', target: tourTarget('export'), side: 'top' },
