@@ -916,9 +916,7 @@
       "connections": "Verbindungen",
       "mcp": "KI-Assistenten"
     },
-    "introTitle": "Colwerk kennenlernen",
-    "introHint": "Kurze geführte Touren, je etwa eine Minute.",
-    "hideIntro": "Bis zum nächsten Start ausblenden",
+    "introHint": "Geführte Tour, etwa eine Minute",
     "start": "Starten",
     "dontShowAgain": "Nicht mehr anzeigen",
     "cancelled": "abgebrochen",

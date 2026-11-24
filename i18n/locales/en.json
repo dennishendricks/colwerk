@@ -916,9 +916,7 @@
       "connections": "Connections",
       "mcp": "AI Assistants"
     },
-    "introTitle": "Get to know Colwerk",
-    "introHint": "Short guided tours, a minute each.",
-    "hideIntro": "Hide until next start",
+    "introHint": "Guided tour, about a minute",
     "start": "Start",
     "dontShowAgain": "Don't show again",
     "cancelled": "cancelled",

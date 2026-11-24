@@ -48,9 +48,9 @@ with sample data, so you can try everything without your own data. Colwerk adds 
 connections once you no longer need them. The demo data is created anew after every restart; changes you make in a tour
 may stay until then.
 
-A card in the bottom right corner offers the tutorials you have not finished yet, the most important first. **Start**
-begins one, the eye button hides a tutorial for good, and the close button hides the card until the next start. All
-tutorials are under **Help → Tutorials**, grouped by topic (in the browser behind the graduation cap in the tab bar).
+On start, notifications in the bottom right corner offer the three most important tutorials you have not finished yet.
+**Start** begins one, **Don't show again** hides it for good, and the close button hides it until the next start; other
+tutorials are offered from the next start on. All tutorials are under **Help → Tutorials**, grouped by topic (in the browser behind the graduation cap in the tab bar).
 Colwerk remembers which tutorials you have completed in `tours.json` in the
 [data directory](/docs/reference/data-directory/).
 
