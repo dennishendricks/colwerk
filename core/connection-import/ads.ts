@@ -62,7 +62,9 @@ export function parseAds(settings: unknown): ImportResult {
       const [host, instanceName] = server!.split('\\')
       const port = serverPort ?? o.port
       const encrypt = String(o.encrypt).toLowerCase()
-      const ssl = ['true', 'mandatory', 'strict'].includes(encrypt)
+      const trust = o.trustServerCertificate === true || o.trustServerCertificate === 'True'
+      // Trusting the certificate only matters with encryption, which the server may enforce without `encrypt`.
+      const ssl = ['true', 'mandatory', 'strict'].includes(encrypt) || trust
       config = {
         name,
         dialect: 'mssql',
@@ -73,7 +75,7 @@ export function parseAds(settings: unknown): ImportResult {
         user: str(o.user),
         ssl,
         sslStrict: encrypt === 'strict',
-        sslInsecure: ssl && (o.trustServerCertificate === true || o.trustServerCertificate === 'True'),
+        sslInsecure: trust,
         sslServerName: str(o.hostNameInCertificate),
         readOnlyIntent: o.applicationIntent === 'ReadOnly',
         multiSubnetFailover: o.multiSubnetFailover === true || o.multiSubnetFailover === 'True',

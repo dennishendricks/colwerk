@@ -17,6 +17,7 @@ import {
   mcpLoginAuths,
   parseSecretRef,
   type SshAuth,
+  splitMssqlBackslashes,
   sshAuths,
   Workbench,
 } from '#core'
@@ -89,7 +90,8 @@ export function parseSources(value: unknown): string[] | undefined {
 }
 
 export function parseConnection(body: unknown): ConnectionInput {
-  const b = (body ?? {}) as Record<string, unknown>
+  const raw = (body ?? {}) as Record<string, unknown>
+  const b = raw.dialect === 'mssql' ? splitMssqlBackslashes(raw) : raw
   const str = (k: string) => (typeof b[k] === 'string' && b[k] !== '' ? (b[k] as string) : undefined)
   const dialect = b.dialect as Dialect
   const driver = drivers.find((d) => d.dialect === dialect)

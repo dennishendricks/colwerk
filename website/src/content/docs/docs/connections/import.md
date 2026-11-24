@@ -37,7 +37,9 @@ The app data folder is `~/Library/Application Support` on macOS, `%APPDATA%` on 
 - **dbt**: every output of a profile becomes a connection named "profile (output)" (postgres, sqlserver, fabric, mysql,
   mariadb, clickhouse, duckdb). Values from `env_var()` are not filled in but marked, so you can enter them afterwards.
 
-Client certificates are not imported.
+Client certificates are not imported. A SQL Server connection with **Trust Server Certificate** but without encryption
+turned on (Beekeeper Studio, Azure Data Studio) is imported with **Use TLS** and **Don't verify certificate**: the
+setting only has an effect when the server enforces encryption, and in Colwerk it requires TLS.
 
 ## Preview
 

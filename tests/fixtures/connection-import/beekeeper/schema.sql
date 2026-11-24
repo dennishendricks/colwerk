@@ -35,7 +35,7 @@ CREATE TABLE saved_connection (
 INSERT INTO connection_folder (id, name, parentId) VALUES (1, 'Work', NULL), (2, 'Databases', 1);
 INSERT INTO saved_connection (id, name, connectionType, host, port, username, defaultDatabase, ssl, sshEnabled, sshMode, sshHost, sshPort, sshUsername, sshKeyfile, sshBastionHost, labelColor, connectionFolderId, readOnlyMode)
   VALUES (1, 'PG via key', 'postgresql', 'pg.example.com', 5432, 'bkuser', 'shop', 1, 1, 'keyfile', 'jump.example.com', 22, 'ssh-user', '/home/u/.ssh/id_ed25519', 'bastion.example.com', 'green', 2, 1);
-INSERT INTO saved_connection (id, name, connectionType, host, port, username, windowsAuthEnabled, domain)
-  VALUES (2, 'SQL Server Windows', 'sqlserver', 'sql.example.com', 1433, 'svc', 1, 'CORP');
+INSERT INTO saved_connection (id, name, connectionType, host, port, username, windowsAuthEnabled, domain, ssl, trustServerCertificate)
+  VALUES (2, 'SQL Server Windows', 'sqlserver', 'sql.example.com', 1433, 'svc', 1, 'CORP', 0, 1);
 INSERT INTO saved_connection (id, name, connectionType, defaultDatabase) VALUES (3, 'Local file', 'sqlite', '/data/local.db');
 INSERT INTO saved_connection (id, name, connectionType, host) VALUES (4, 'Redshift', 'redshift', 'rs.example.com');

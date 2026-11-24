@@ -53,6 +53,12 @@ login, a **Client ID** of your own app registration.
 
 ### SQL Server
 
+You can enter the host and user the way SQL Server tools write them. On **Test** and **Save**, Colwerk splits them into
+its own fields:
+
+- `10.0.0.5\SQLERP` in **Host** becomes host `10.0.0.5` and named instance `SQLERP`.
+- `CORP\jdoe` in **User** becomes user `jdoe` and domain `CORP`, and the login switches to **Windows (NTLM)**.
+
 Under More options:
 
 - **Named instance**, e.g. `SQLEXPRESS`: found through the SQL Server Browser (UDP 1434), replaces the port.

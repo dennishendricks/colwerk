@@ -40,7 +40,8 @@ Turn on **Use TLS** to encrypt the connection. Under More options:
 
 - **CA certificate**: a PEM file, e.g. for self-signed servers. Empty: the system's certificate authorities.
 - **Don't verify certificate**: encrypted, but without protection against man-in-the-middle attacks. Use it only for
-  testing.
+  testing, or in a trusted network for a server with a self-signed certificate. SQL Server tools call this **Trust
+  Server Certificate**; a CA certificate is the safer choice.
 
 SQL Server also offers:
 
