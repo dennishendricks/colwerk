@@ -1,14 +1,16 @@
 <script setup lang="ts">
-// Runs the guided tour chosen in useTours(): the popover of the current step (useTour) over the spotlight
-import type { TourStep } from '~/utils/tour'
+// Runs a guided tour: the popover of the current step (useTour) over the spotlight. Mounted (and loaded) only while
+// the tour runs, one instance per tour (app.vue).
+import type { Tour, TourStep } from '~/utils/tour'
+
+const props = defineProps<{ definition: Tour }>()
 
 const { t } = useI18n()
 const toast = useToast()
 const { running, setStatus } = useTours()
 
-// Once here, so the tours' steps can use composables.
-const prepared = Object.fromEntries(tours.map((tour) => [tour.id, tour.steps()]))
-const steps = computed<TourStep[]>(() => (running.value ? (prepared[running.value] ?? []) : []))
+// Here, so the steps can use composables.
+const steps = props.definition.steps()
 const tour = useTour(steps)
 const busy = ref(false)
 
@@ -19,7 +21,7 @@ async function waitForTarget(step: TourStep) {
 }
 
 async function show(index: number) {
-  const step = steps.value[index]
+  const step = steps[index]
   if (!step) return
   busy.value = true
   try {
@@ -36,17 +38,16 @@ async function show(index: number) {
 }
 
 function end(status: 'completed' | 'cancelled') {
-  const id = running.value
   tour.finish()
   running.value = undefined
-  if (id) setStatus(id, status).catch(() => {})
+  setStatus(props.definition.id, status).catch(() => {})
 }
 
 const next = () => (tour.hasNext.value ? show(tour.index.value + 1) : end('completed'))
 
-watch(running, (id) => id && show(0))
+onMounted(() => show(0))
 
-const key = computed(() => `tours.${running.value}.${tour.current.value?.key}`)
+const key = computed(() => `tours.${props.definition.id}.${tour.current.value?.key}`)
 </script>
 
 <template>

@@ -11,11 +11,11 @@ const colorModeLabel = computed(() =>
   colorMode.preference !== 'system' ? t('app.systemDesign') : isDark.value ? t('app.lightDesign') : t('app.darkDesign'),
 )
 
-const { start } = useTours()
+const { groups, start } = useTours()
 const tutorialItems = computed(() =>
-  tourGroups().map(({ category, tours }) => ({
+  groups.value.map(({ category, tours }) => ({
     label: t(`tours.categories.${category}`),
-    children: tours.map((tour) => ({ label: t(`tours.${tour.id}.title`), onSelect: () => start(tour.id) })),
+    children: tours.map((tour) => ({ label: t(`tours.${tour.id}.title`), onSelect: () => start(tour) })),
   })),
 )
 </script>

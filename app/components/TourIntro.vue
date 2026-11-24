@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Small card in the corner offering the most important tours not completed yet (INTRO_TOURS of them)
+// Small card in the corner offering the most important tours not completed yet (INTRO_TOURS of them); app.vue
+// mounts (and loads) it only while it has something to offer
 const { t } = useI18n()
-const { running, introHidden, suggested, statusOf, setStatus, start } = useTours()
+const { introHidden, suggested, statusOf, setStatus, start } = useTours()
 const toast = useToast()
 
 // "Don't show again" counts as completed, so the next tour moves up.
@@ -19,7 +20,6 @@ function dismiss(id: string) {
 
 <template>
   <div
-    v-if="!introHidden && !running && suggested.length"
     role="dialog"
     :aria-label="t('tours.introTitle')"
     class="motion-enter fixed right-4 bottom-4 z-40 w-80 rounded-lg bg-default p-4 shadow-lg ring ring-default"
@@ -58,7 +58,7 @@ function dismiss(id: string) {
           :aria-label="t('tours.dontShowAgain')"
           @click="dismiss(tour.id)"
         />
-        <UButton icon="i-lucide-play" size="xs" variant="soft" :label="t('tours.start')" @click="start(tour.id)" />
+        <UButton icon="i-lucide-play" size="xs" variant="soft" :label="t('tours.start')" @click="start(tour)" />
       </li>
     </ul>
   </div>

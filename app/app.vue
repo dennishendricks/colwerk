@@ -27,6 +27,7 @@ const {
 } = useTabs()
 const { t, locale } = useI18n()
 const { openPaths } = useDataFiles()
+const { running: runningTour, introShown } = useTours()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -362,8 +363,8 @@ useApplicationMenu({
     <LazyAuditModal v-model:open="auditOpen" @select="(e) => openInNewTab(e.connectionId!, e.sql!)" />
     <LazyDataImportModal />
     <CloseTabsModal />
-    <TourHost />
-    <TourIntro v-if="windowLabel === 'main'" />
+    <LazyTourHost v-if="runningTour" :key="runningTour.id" :definition="runningTour" />
+    <LazyTourIntro v-if="windowLabel === 'main' && introShown" />
     <UModal
       v-model:open="confirmingDisconnect"
       :title="t('app.disconnectTitle')"
