@@ -308,6 +308,14 @@ const status = computed(() => {
             "
             :insert-target="insertTarget"
           />
+          <!-- Statements without a result set (DML, DDL): the status bar has the affected rows. -->
+          <div
+            v-else-if="!busy && tab.result"
+            class="flex h-full flex-col items-center justify-center gap-2 p-3 text-sm text-muted"
+          >
+            <UIcon name="i-lucide-circle-check" class="size-6" />
+            <span>{{ t('query.noResultSet') }}</span>
+          </div>
           <EmptyState
             v-else-if="!busy && !tab.sql.trim()"
             :connection-id="tab.connectionId"

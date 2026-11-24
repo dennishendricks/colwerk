@@ -543,6 +543,7 @@
     "running": "Läuft …",
     "exporting": "Export läuft …",
     "notRun": "Noch nicht ausgeführt",
+    "noResultSet": "Die Anweisung hat keine Ergebnismenge zurückgegeben.",
     "filter": "Ergebnis filtern …",
     "clearFilter": "Filter leeren",
     "export": "Export",

@@ -543,6 +543,7 @@
     "running": "Running …",
     "exporting": "Exporting …",
     "notRun": "Not run yet",
+    "noResultSet": "The statement returned no result set.",
     "filter": "Filter result …",
     "clearFilter": "Clear filter",
     "export": "Export",
