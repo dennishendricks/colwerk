@@ -26,5 +26,7 @@ tauri-plugin-window-state = "2.4"
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
+# Not "abort": wry catches the Objective-C exceptions of WebKit (e.g. answering a custom protocol request whose page
+# was navigated away from) with objc2::exception::catch, which cannot catch them with panic=abort; the app aborted.
+panic = "unwind"
 strip = true
