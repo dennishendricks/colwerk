@@ -96,8 +96,8 @@ website/    colwerk.app and the documentation (Astro Starlight)
   its stdin. Every `/api/*` request needs a random per-start token, foreign `Host`/`Origin` headers are rejected.
 - **Drivers** implement `Driver` in `core/drivers/<name>.ts`, are registered in `core/registry.ts` and added to
   `tests/drivers.test.ts`. `connect()` opens exactly one connection, `cancel()` works during `execute()`.
-- **Native addons** (DuckDB) are downloaded from npm on first use and verified by hash; DuckDB extensions install on
-  first use.
+- **Native addons** (DuckDB) are embedded in the build (`scripts/duckdb-archive.ts`, verified by hash, platform and a
+  test load) and unpacked at the first start; DuckDB extensions install on first use.
 
 ## License
 

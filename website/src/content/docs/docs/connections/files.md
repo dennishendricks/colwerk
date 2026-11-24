@@ -19,8 +19,8 @@ Supported formats: CSV, TSV (`.tsv`, `.tab`), Parquet, JSON, NDJSON (`.ndjson`, 
   (`https://`).
 
 Each file opens in a new tab with `select * from "<view>"`, which runs right away. Colwerk adds the files to the files
-connection of the current tab, otherwise to the first files connection, otherwise to a new one named **Files**. The
-first time, Colwerk asks to download the [DuckDB driver](/docs/connections/databases/#the-duckdb-driver).
+connection of the current tab, otherwise to the first files connection, otherwise to a new one named **Files**. Files
+are read with the included [DuckDB driver](/docs/connections/databases/#the-duckdb-driver).
 
 The view name is the file name without extension, in lower case, with other characters replaced by `_` (a leading
 digit gets the prefix `t_`, duplicates get `_2`, `_3` …).

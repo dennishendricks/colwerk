@@ -10,9 +10,6 @@ const {
   filePath,
   format,
   browse,
-  duckdb,
-  installing,
-  install,
   sourceConnectionId,
   connectionItems,
   sourceSchema,
@@ -47,21 +44,6 @@ const {
     </div>
     <p v-if="filePath.trim() && !format" class="text-sm text-error">{{ t('dataImport.unsupportedFile') }}</p>
     <UBadge v-else-if="format" :label="format" color="neutral" variant="subtle" class="self-start" />
-    <UAlert v-if="duckdb && !duckdb.installed" color="info" variant="subtle" :description="t('dataImport.needsDuckdb')">
-      <template #actions>
-        <UProgress
-          v-if="installing"
-          :model-value="duckdb.installProgress === undefined ? null : Math.round(duckdb.installProgress * 100)"
-          class="w-40 self-center"
-        />
-        <UButton
-          icon="i-lucide-download"
-          :label="t('connection.installDriver')"
-          :loading="installing"
-          @click="install"
-        />
-      </template>
-    </UAlert>
   </template>
   <template v-else>
     <USelect

@@ -23,7 +23,7 @@ sidebar:
 | `history.json`            | The last 50 queries.                                                                                          |
 | `mcp-audit.jsonl`         | The [MCP audit log](/docs/mcp/audit-log/); `mcp-audit-settings.json` its retention.                           |
 | `instance.json`           | Port of the running app, for the MCP bridge; removed on exit.                                                 |
-| `drivers/`                | The downloaded DuckDB library.                                                                                |
+| `drivers/`                | DuckDB's library, unpacked from the app at the first start of a version.                                      |
 | `logs/`                   | Logs of the desktop app (5 MB each, the last three are kept).                                                 |
 | `secret.key`, `mcp-token` | Only without a usable keychain: the encryption key and the MCP token.                                         |
 

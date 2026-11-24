@@ -10,7 +10,7 @@ export type DataImport = ReturnType<typeof useDataImport>
 
 export function useDataImport() {
   const { t } = useI18n()
-  const { connections, drivers, driverOf, installDriver, connectionOf, connectionItems } = useConnections()
+  const { connections, connectionOf, connectionItems } = useConnections()
   const { state, keyOf, loadTables, loadColumns, defaultSchema } = useSchema()
   const { schemaItems, tableItems, loadLevels } = useSchemaLevels()
   const { addTab } = useTabs()
@@ -71,7 +71,7 @@ export function useDataImport() {
 
   const targetItems = computed(() =>
     connections.value
-      .filter((c) => !isLakehouse(c.dialect) && !c.readOnly && driverOf(c.id)?.installed)
+      .filter((c) => !isLakehouse(c.dialect) && !c.readOnly)
       .map((c) => ({ label: c.name, value: c.id })),
   )
   const targetColumns = computed(() =>
@@ -80,21 +80,7 @@ export function useDataImport() {
       : [],
   )
 
-  // DuckDB reads the files; its driver is downloaded on first use.
-  const duckdb = computed(() => drivers.value.find((d) => d.dialect === 'duckdb'))
-  const installing = ref(false)
   const format = computed(() => (filePath.value.trim() ? fileFormat(filePath.value.trim()) : undefined))
-  async function install() {
-    installing.value = true
-    error.value = undefined
-    try {
-      await installDriver('duckdb')
-    } catch (e) {
-      error.value = errorMessage(e)
-    } finally {
-      installing.value = false
-    }
-  }
 
   async function browse() {
     try {
@@ -116,7 +102,7 @@ export function useDataImport() {
     const [schema, table] = [sourceSchema.value, sourceTable.value]
     return schema && table ? { kind: 'table', connectionId, database, schema, table } : undefined
   })
-  const sourceReady = computed(() => !!source.value && (sourceKind.value === 'connection' || !!duckdb.value?.installed))
+  const sourceReady = computed(() => !!source.value)
 
   watch(
     importRequest,
@@ -366,10 +352,7 @@ export function useDataImport() {
     schemaItems,
     tableItems,
     targetColumns,
-    duckdb,
-    installing,
     format,
-    install,
     browse,
     sourceReady,
     toTarget,

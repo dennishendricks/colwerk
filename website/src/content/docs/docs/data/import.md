@@ -12,8 +12,7 @@ or **Copy to connection …** (from this table).
 ## 1. Source
 
 - **File**: a local file. Supported: CSV, TSV (`.tsv`, `.tab`), JSON, NDJSON (`.ndjson`, `.jsonl`), Excel (`.xlsx`) and
-  Parquet; text formats may be compressed with `.gz` or `.zst`. Files are read with DuckDB, whose driver is downloaded
-  once.
+  Parquet; text formats may be compressed with `.gz` or `.zst`. Files are read with the included DuckDB.
 - **Table or query of a connection**: a table, or a single read-only `SELECT` or `WITH` query. A table keeps its
   declared column types.
 

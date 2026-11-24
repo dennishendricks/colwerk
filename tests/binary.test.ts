@@ -1,5 +1,6 @@
 // Smoke test of the compiled binary (`bun run compile`), which runs the server with its dependencies bundled by
-// Rollup: bundling breaks CommonJS packages only at runtime, so every driver is loaded and queried once.
+// Rollup: bundling breaks CommonJS packages only at runtime, so every driver is loaded and queried once. DuckDB's
+// embedded library is unpacked into the temporary data directory at the start.
 // Skipped without a build; the test of a database is skipped when it is not reachable.
 import { afterAll, beforeAll, describe, test } from 'bun:test'
 import { stat } from 'node:fs/promises'
@@ -61,8 +62,6 @@ describe.skipIf(!built)('binary: every driver connects and queries', () => {
 
   configs.forEach((config, i) => {
     test.skipIf(!up[i])(config.dialect, async () => {
-      // Downloads DuckDB's native library into the temporary data directory.
-      if (config.dialect === 'duckdb') await call('/api/drivers/duckdb/install', {})
       const saved = await call('/api/connections', { ...config, id: undefined })
       await call(`/api/connections/${saved.id}/introspect`, { request: { kind: 'schemas' } })
       const { resultSets } = await call(`/api/tabs/${config.dialect}/execute`, {

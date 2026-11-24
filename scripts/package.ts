@@ -5,7 +5,7 @@
 // sidecar of the Tauri app (src-tauri) and writes the app's packages to `dist/`.
 import { copyFile, mkdir, readdir, rename } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { duckdbManifest } from './duckdb-manifest.ts'
+import { duckdbArchive } from './duckdb-archive.ts'
 import { writeThirdPartyLicenses } from './licenses.ts'
 
 const mode = process.argv[2]
@@ -28,16 +28,19 @@ async function exec(cmd: string[], cwd?: string) {
 
 await exec([process.execPath, '--bun', 'nuxt', 'build'])
 
-// License texts: embedded in every build and placed next to the packages in `dist` for the release. DuckDB is
-// not part of them, since it is downloaded at runtime and not distributed.
-await writeThirdPartyLicenses('.output/THIRD_PARTY_LICENSES.txt', { cargo: mode === 'desktop' })
+// DuckDB's native addon comes in one npm package per platform: the host's package is embedded, zstd-compressed,
+// and unpacked at the first start (launcher/native.ts).
+const duckdbFile = resolve('.output/duckdb.tar.zst')
+const { license: duckdbLicense, ...duckdb } = await duckdbArchive(duckdbFile)
+
+// License texts: embedded in every build and placed next to the packages in `dist` for the release.
+await writeThirdPartyLicenses('.output/THIRD_PARTY_LICENSES.txt', {
+  cargo: mode === 'desktop',
+  extra: [{ name: 'DuckDB', version: duckdb.version, license: 'MIT', text: duckdbLicense }],
+})
 await mkdir('dist', { recursive: true })
 await copyFile('LICENSE', 'dist/LICENSE')
 await copyFile('.output/THIRD_PARTY_LICENSES.txt', 'dist/THIRD_PARTY_LICENSES.txt')
-
-// DuckDB's native addon comes in one npm package per platform. It is not embedded but downloaded on demand
-// (launcher/native.ts); the manifest tells the build where to get its platform's package.
-const duckdb = await duckdbManifest()
 
 // The sidecar is named after the Rust target triple of the host, as Tauri expects.
 const target = mode === 'desktop' ? (await Bun.$`rustc --print host-tuple`.text()).trim() : ''
@@ -56,6 +59,12 @@ const result = await Bun.build({
       name: 'nitro-output',
       setup(b) {
         b.onResolve({ filter: /\/server\/index\.mjs$/ }, () => ({ path: resolve('.output/server/index.mjs') }))
+        // The import of launcher/main.ts that gives the embedded archive's path.
+        b.onResolve({ filter: /^colwerk:duckdb-archive$/ }, () => ({ path: 'duckdb-archive', namespace: 'colwerk' }))
+        b.onLoad({ filter: /.*/, namespace: 'colwerk' }, () => ({
+          contents: `import file from ${JSON.stringify(duckdbFile)} with { type: 'file' }\nexport default file`,
+          loader: 'js',
+        }))
       },
     },
   ],

@@ -65,7 +65,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # The DuckDB download on every system (e2e.yml): a release whose driver download fails is not drafted.
+  # The embedded DuckDB library on every system (e2e.yml): a release whose DuckDB does not load is not drafted.
   e2e:
     uses: ./.github/workflows/e2e.yml
 

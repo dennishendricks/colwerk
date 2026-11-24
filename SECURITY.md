@@ -15,8 +15,8 @@ Once a fix is released, the advisory is published.
 ## Security model
 
 Colwerk runs entirely on your machine. It has no telemetry, no analytics and no account. It only connects to the
-databases you configure, to GitHub to check for updates, and to npm and DuckDB's extension repository when DuckDB or one
-of its extensions is installed on first use.
+databases you configure, to GitHub to check for updates, and to DuckDB's extension repository when one of its
+extensions is installed on first use.
 
 - **Local server.** The server binds to `127.0.0.1` on a random port.
 - **Session token.** Every `/api/*` request needs a random token created at each start (`x-colwerk-token`, compared in
@@ -27,8 +27,8 @@ of its extensions is installed on first use.
   or in `mcp-token` (mode 0600) in the data directory. MCP tools only run read-only queries.
 - **Credentials.** Passwords are stored encrypted with AES-256-GCM. The key lives in the OS keychain, or in `secret.key`
   (mode 0600) when no keychain is available or `COLWERK_KEYCHAIN=off`.
-- **Native code.** DuckDB's native addon is downloaded from npm on first use and checked against the integrity hash
-  fixed at build time.
+- **Native code.** DuckDB's native addon is embedded in the build, after checking it against the npm registry's
+  integrity hash, and unpacked into the data directory at the first start.
 - **Releases.** Release files come with SHA-256 checksums (`SHA256SUMS.txt`) and build provenance attestations.
 
 Out of scope: attackers who already run code as your user, or can read your data directory or the process environment
