@@ -1,6 +1,6 @@
 // Collects the license texts of everything the packaged app contains: the npm packages bundled into the client
-// and server (recorded during `nuxt build`, see nuxt.config.ts), the Bun runtime of the single executable and,
-// for the desktop app, the Rust crates of its shell (src-tauri).
+// and server (recorded during `nuxt build`, see nuxt.config.ts), the Bun runtime of the single executable, DuckDB's
+// native library and, for the desktop app, the Rust crates of its shell (src-tauri).
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -64,7 +64,10 @@ async function cargoPackages(): Promise<Package[]> {
 }
 
 /** Writes `THIRD_PARTY_LICENSES.txt` to `file`. */
-export async function writeThirdPartyLicenses(file: string, { cargo }: { cargo: boolean }): Promise<void> {
+export async function writeThirdPartyLicenses(
+  file: string,
+  { cargo, extra }: { cargo: boolean; extra: Package[] },
+): Promise<void> {
   const bundled: string[] = await Bun.file('.nuxt/bundled-packages.json').json()
   const packages = new Map<string, Package>()
   for (const dir of bundled) {
@@ -75,6 +78,7 @@ export async function writeThirdPartyLicenses(file: string, { cargo }: { cargo: 
   if (cargo) {
     for (const pkg of await cargoPackages()) packages.set(`${pkg.name}@${pkg.version}`, pkg)
   }
+  for (const pkg of extra) packages.set(`${pkg.name}@${pkg.version}`, pkg)
   const sorted = [...packages.values()].sort((a, b) => a.name.localeCompare(b.name))
   // Bun's license file covers the libraries linked into it, among them JavaScriptCore (LGPL-2).
   const license = await fetch(`https://raw.githubusercontent.com/oven-sh/bun/bun-v${Bun.version}/LICENSE.md`)

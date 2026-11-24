@@ -56,7 +56,7 @@
 - `components/VariablesModal.vue`
 - `composables/connection-form.ts`: State of the connection dialog: the form, which fields the dialect and login show, and the payload to save
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
-- `composables/data-files.ts`: exports duckdbPrompt, urlPromptOpen, dropActive, useDataFiles
+- `composables/data-files.ts`: exports urlPromptOpen, dropActive, useDataFiles
 - `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
 - `composables/editor-schema.ts`: Schema of a query tab's connection for the editor's autocomplete, preloaded for the tables the SQL refers to
 - `composables/execution.ts`: exports variablePrompt, useExecution

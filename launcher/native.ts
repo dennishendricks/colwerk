@@ -1,27 +1,25 @@
-// DuckDB's native addon in packaged builds. It is not embedded: scripts/package.ts only embeds a manifest of
-// the build target's npm package (`@duckdb/node-bindings-<platform>`). On request (`installDriver()` in
-// core/registry.ts) the package is downloaded from the npm registry, checked against the integrity hash fixed at
-// build time, and its `duckdb.node` with the DuckDB library next to it is unpacked into the data directory.
+// DuckDB's native addon in packaged builds. scripts/package.ts embeds the npm package of the build target
+// (`@duckdb/node-bindings-<platform>`) as a zstd-compressed tar (scripts/duckdb-archive.ts). At the first start of a
+// build (launcher/main.ts) its `duckdb.node` with the DuckDB library next to it is unpacked into the data directory,
+// as the addon cannot be loaded from inside the executable.
 // core/drivers/duckdb-native.ts loads it from the path in `globalThis.colwerkDuckdbLibrary`.
 import { mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { gunzipSync } from 'node:zlib'
+import process from 'node:process'
 import { defaultDataDir } from '../core/data-dir.ts'
 
-export interface DuckdbManifest {
+export interface DuckdbArchive {
+  /** Version of `@duckdb/node-bindings`. */
   version: string
   /** Platform suffix of the npm package, e.g. `darwin-arm64`. */
   platform: string
-  tarball: string
-  /** Subresource integrity of the tarball from the registry (`sha512-<base64>`). */
-  integrity: string
 }
 
 /** The addon and the shared library it links (`libduckdb.dylib`, `libduckdb.so`, `duckdb.dll`). */
 const NATIVE = /\.(node|dylib|so|dll)$/
 
 /** Regular files of a tar archive (ustar; npm tarballs need neither long names nor pax headers here). */
-function* tarFiles(tar: Uint8Array): Generator<{ name: string; data: Uint8Array }> {
+export function* tarFiles(tar: Uint8Array): Generator<{ name: string; data: Uint8Array }> {
   const decoder = new TextDecoder()
   const field = (o: number, length: number) => decoder.decode(tar.subarray(o, o + length)).replace(/\0.*$/s, '')
   for (let o = 0; o + 512 <= tar.length;) {
@@ -32,6 +30,15 @@ function* tarFiles(tar: Uint8Array): Generator<{ name: string; data: Uint8Array 
     if (type === '0' || type === '') yield { name, data: tar.subarray(o + 512, o + 512 + size) }
     o += 512 + Math.ceil(size / 512) * 512
   }
+}
+
+/** The native files of the npm package's tar, by file name; `duckdb.node` comes last. */
+export function nativeFiles(tar: Uint8Array) {
+  const files = [...tarFiles(tar)]
+    .filter((f) => NATIVE.test(f.name))
+    .map((f) => ({ name: basename(f.name), data: f.data }))
+  if (!files.some((f) => f.name === 'duckdb.node')) throw new Error('duckdb.node missing in the DuckDB package')
+  return files.sort((a, b) => Number(a.name === 'duckdb.node') - Number(b.name === 'duckdb.node'))
 }
 
 /**
@@ -50,10 +57,10 @@ async function renameRetrying(from: string, to: string) {
   }
 }
 
-/** The globals the server reads. */
-export function duckdbGlobals(manifest: DuckdbManifest) {
+/** The globals the server reads; `file` is the embedded archive. */
+export function duckdbGlobals(archive: DuckdbArchive, file: string) {
   const root = join(defaultDataDir(), 'drivers')
-  const dir = join(root, `duckdb-${manifest.version}-${manifest.platform}`)
+  const dir = join(root, `duckdb-${archive.version}-${archive.platform}`)
   const library = join(dir, 'duckdb.node')
   const installed = () =>
     stat(library).then(
@@ -61,32 +68,20 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
       () => false,
     )
 
-  async function install(onProgress: (fraction: number) => void) {
-    const res = await fetch(manifest.tarball)
-    if (!res.ok || !res.body) throw new Error(`${manifest.tarball}: HTTP ${res.status}`)
-    const total = Number(res.headers.get('content-length'))
-    let received = 0
-    const counted = res.body.pipeThrough(
-      new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-          received += chunk.length
-          if (total) onProgress(received / total)
-          controller.enqueue(chunk)
-        },
-      }),
-    )
-    const tgz = await new Response(counted).bytes()
-    const hash = new Uint8Array(await crypto.subtle.digest('SHA-512', tgz))
-    if (`sha512-${btoa(String.fromCharCode(...hash))}` !== manifest.integrity) throw new Error('checksum mismatch')
+  async function unpack() {
+    // Guards against a build whose executable and DuckDB library were made for different systems.
+    const platform = `${process.platform}-${process.arch}`
+    if (archive.platform !== platform) {
+      throw new Error(`the build contains DuckDB for ${archive.platform}, not ${platform}`)
+    }
+    const tar = await Bun.zstdDecompress(await Bun.file(file).bytes())
 
     // Each file is written under a temporary name and renamed into place; `duckdb.node` comes last, as its presence
     // marks a complete install (`installed()`). Files are renamed one by one rather than the whole directory, because
     // Windows refuses to rename a directory while a virus scanner holds any file inside it open.
     await mkdir(dir, { recursive: true })
-    const files = [...tarFiles(gunzipSync(tgz))].filter((f) => NATIVE.test(f.name))
-    files.sort((a, b) => Number(a.name.endsWith('.node')) - Number(b.name.endsWith('.node')))
-    for (const { name, data } of files) {
-      const target = join(dir, basename(name))
+    for (const { name, data } of nativeFiles(tar)) {
+      const target = join(dir, name)
       const tmp = `${target}.${crypto.randomUUID()}.tmp`
       await writeFile(tmp, data, { mode: 0o755 })
       await renameRetrying(tmp, target).catch(async (e) => {
@@ -101,6 +96,13 @@ export function duckdbGlobals(manifest: DuckdbManifest) {
       }
     }
   }
+
+  // Started by the launcher and awaited by DuckDB's first use (core/registry.ts), which share one run.
+  let running: Promise<void> | undefined
+  const install = () =>
+    (running ??= installed()
+      .then((done) => (done ? undefined : unpack()))
+      .finally(() => (running = undefined)))
 
   return { colwerkDuckdbLibrary: library, colwerkDuckdb: { installed, install } }
 }

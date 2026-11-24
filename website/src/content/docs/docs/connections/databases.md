@@ -105,8 +105,6 @@ Colwerk selects the existing connection to that file or creates a new one named 
 
 ## The DuckDB driver
 
-The installers do not include DuckDB's native library. The first time you use DuckDB, a lakehouse or a files
-connection, the connection dialog shows **Load database driver** instead of Test and Save. Colwerk then downloads the
-library once from the npm registry, verifies it against a hash fixed at build time and keeps it in the
-[data directory](/docs/reference/data-directory/). DuckDB installs its extensions (for Excel, HTTP, S3 and the lakehouse
-formats) itself on first use.
+Colwerk includes DuckDB's native library, compressed. At the first start after an installation or update, Colwerk
+unpacks it into the [data directory](/docs/reference/data-directory/); no download is needed. DuckDB installs its
+extensions (for Excel, HTTP, S3 and the lakehouse formats) itself on first use.

@@ -6,8 +6,8 @@ sidebar:
 ---
 
 Colwerk reads lakehouses through DuckDB. Each lakehouse connection is an in-memory DuckDB database with the extensions
-of its format; queries are written in DuckDB's SQL. The first connection of a kind downloads the
-[DuckDB driver](/docs/connections/databases/#the-duckdb-driver) and the extensions it needs.
+of its format; queries are written in DuckDB's SQL. The first connection of a kind downloads the extensions it needs
+for the included [DuckDB driver](/docs/connections/databases/#the-duckdb-driver).
 
 Lakehouse connections have no TLS switch: the URL decides (`https://`). Writing statements depend on what the format
 and catalog allow; mark the connection read-only to have Colwerk refuse them.

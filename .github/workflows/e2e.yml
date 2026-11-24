@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  duckdb-download:
+  duckdb-archive:
     strategy:
       fail-fast: false
       matrix:
@@ -21,7 +21,7 @@ jobs:
         with:
           bun-version: 1.4.5
       - run: bun install --frozen-lockfile
-      - run: bun test --timeout 300000 ./tests/duckdb-download.test.ts
+      - run: bun test --timeout 300000 ./tests/duckdb-archive.test.ts
         env:
           COLWERK_E2E: '1'
           COLWERK_KEYCHAIN: 'off'

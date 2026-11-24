@@ -4,8 +4,6 @@ import { forgetSchemas } from './schema'
 // Data files (CSV, TSV, Parquet, JSON, Excel) and URLs: each becomes a view of a files connection (DuckDB), queried
 // in a new tab. Module-level state like `variablePrompt`; the modals are in FileQueryModals.vue.
 
-/** Open prompt to download the DuckDB driver: resolves with whether it is installed now. */
-export const duckdbPrompt = ref<{ done: (ok: boolean) => void }>()
 export const urlPromptOpen = ref(false)
 /** Files are dragged over the window. */
 export const dropActive = ref(false)
@@ -20,7 +18,7 @@ interface QueryResponse {
 }
 
 export function useDataFiles() {
-  const { drivers, activeConnectionId, activeDatabase, load, openDatabaseFile, connectionOf } = useConnections()
+  const { activeConnectionId, activeDatabase, load, openDatabaseFile, connectionOf } = useConnections()
   const { activeTab, addTab, openFile } = useTabs()
   const { run } = useExecution()
   const { t, te } = useI18n()
@@ -29,15 +27,9 @@ export function useDataFiles() {
   const error = (title: string, description: string) =>
     toast.add({ title, description, color: 'error', icon: 'i-lucide-circle-alert' })
 
-  /** Whether the DuckDB driver is installed; if not, offers the download first. */
-  function ensureDuckdb(): Promise<boolean> {
-    if (drivers.value.find((d) => d.dialect === 'files')?.installed) return Promise.resolve(true)
-    return new Promise((done) => (duckdbPrompt.value = { done }))
-  }
-
   /** Adds the sources to the active tab's files connection (else the first, else a new one) and queries each. */
   async function queryFiles(sources: string[]) {
-    if (!sources.length || !(await ensureDuckdb())) return
+    if (!sources.length) return
     const tabConnection = connectionOf(activeTab.value?.connectionId)
     try {
       const { connectionId, added, failed } = await api<QueryResponse>('/api/files/query', {
@@ -100,5 +92,5 @@ export function useDataFiles() {
 
   const queryUrl = (url: string) => queryFiles([url.trim()])
 
-  return { ensureDuckdb, queryFiles, openPaths, pickAndQuery, queryUrl }
+  return { queryFiles, openPaths, pickAndQuery, queryUrl }
 }

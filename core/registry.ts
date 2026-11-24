@@ -77,7 +77,7 @@ const registry: Record<Dialect, RegistryEntry> = {
       sessionActions: [],
     },
     load: () =>
-      prepareDuckdb()
+      installDuckdb()
         .then(() => import('./drivers/duckdb.ts'))
         .then((m) => m.duckdbDriver),
   },
@@ -153,34 +153,23 @@ function lakehouse(
     auths,
     capabilities: { ...capabilities, supportsCancel: true, locksDatabase: false, sessionActions: [] },
     load: () =>
-      prepareDuckdb()
+      installDuckdb()
         .then(() => import('./drivers/lakehouse.ts'))
         .then((m) => m.lakehouseDriver(dialect)),
   }
 }
 
 /**
- * Packaged builds do not embed DuckDB's native library: the launcher downloads it on request (launcher/native.ts)
- * and offers this hook through globalThis, because the bundled server does not share module instances with it.
- * Without the hook (running from source) the library comes from node_modules.
+ * Packaged builds embed DuckDB's native library, which the launcher unpacks at the first start of a build
+ * (launcher/native.ts); it offers this hook through globalThis, because the bundled server does not share module
+ * instances with it. Without the hook (running from source) the library comes from node_modules.
  */
 interface DuckdbHook {
   installed(): Promise<boolean>
-  install(onProgress: (fraction: number) => void): Promise<void>
+  install(): Promise<void>
 }
 
 const duckdbHook = () => (globalThis as { colwerkDuckdb?: DuckdbHook }).colwerkDuckdb
-
-/** Fails unless DuckDB's native library is in place. Call before importing the driver. */
-async function prepareDuckdb(): Promise<void> {
-  if ((await duckdbHook()?.installed()) === false) {
-    throw new AppError(
-      'driverMissing',
-      'The DuckDB driver is not installed. Open the connection in Colwerk and choose "Load database driver".',
-      { code: 'ENODRIVER' },
-    )
-  }
-}
 
 export const drivers: DriverInfo[] = Object.values(registry).map(({ load: _, ...info }) => info)
 
@@ -200,33 +189,32 @@ export function loadDriver(dialect: Dialect): Promise<Driver> {
 
 /** Adds data files or URLs to a files connection as views (see lakehouse.ts). */
 export async function addFileSources(config: ConnectionConfig, sources: string[]) {
-  await prepareDuckdb()
+  await installDuckdb()
   return (await import('./drivers/lakehouse.ts')).addFileSources(config, sources)
 }
 
-let installing: { progress?: number; done: Promise<void> } | undefined
+let installing: Promise<void> | undefined
 const installingExtensions = new Map<LakehouseDialect, Promise<void>>()
 
 export async function driverStatus(): Promise<DriverStatus[]> {
+  // DuckDB itself is always available; installed extensions can only be looked up once its library is unpacked.
   const duckdb = (await duckdbHook()?.installed()) ?? true
-  // Extensions can only be looked up with DuckDB's library in place.
-  const extensions = duckdb ? await import('./drivers/lakehouse.ts') : undefined
+  const lakehouse = await import('./drivers/lakehouse.ts')
   return Promise.all(
     drivers.map(async (d): Promise<DriverStatus> => {
-      if (d.dialect !== 'duckdb' && !isLakehouse(d.dialect)) return { ...d, installed: true }
+      if (!isLakehouse(d.dialect) || !lakehouse.EXTENSIONS[d.dialect].length) return { ...d, installed: true }
       const installed =
         duckdb &&
-        (!isLakehouse(d.dialect) ||
-          (!installingExtensions.has(d.dialect) &&
-            !(await extensions!.missingExtensions(d.dialect).catch(() => [d.dialect])).length))
-      return { ...d, installed, installProgress: installing?.progress }
+        !installingExtensions.has(d.dialect) &&
+        !(await lakehouse.missingExtensions(d.dialect).catch(() => [d.dialect])).length
+      return { ...d, installed }
     }),
   )
 }
 
 /**
- * Downloads the native library of a driver that is not installed yet, and for lakehouses the DuckDB extensions
- * they need; concurrent calls share the download.
+ * Unpacks DuckDB's native library unless it is in place, and for lakehouses downloads the DuckDB extensions they
+ * need; concurrent calls share the work.
  */
 export async function installDriver(dialect: Dialect): Promise<void> {
   if (dialect !== 'duckdb' && !isLakehouse(dialect)) return
@@ -242,23 +230,20 @@ export async function installDriver(dialect: Dialect): Promise<void> {
   await done
 }
 
+/** Waits until DuckDB's native library is in place, unpacking it if needed. Call before importing the driver. */
 function installDuckdb(): Promise<void> {
   const hook = duckdbHook()
   if (!hook) return Promise.resolve()
-  if (!installing) {
-    const state: { progress?: number } = {}
-    const done = hook
-      .installed()
-      .then(async (installed) => {
-        if (!installed) await hook.install((fraction) => (state.progress = fraction))
+  installing ??= hook
+    .installed()
+    .then(async (installed) => {
+      if (!installed) await hook.install()
+    })
+    .catch((e) => {
+      throw new AppError('driverUnpackFailed', `Unpacking the DuckDB driver failed: ${(e as Error).message}`, {
+        params: { detail: (e as Error).message },
       })
-      .catch((e) => {
-        throw new AppError('driverDownloadFailed', `Download of the DuckDB driver failed: ${(e as Error).message}`, {
-          params: { detail: (e as Error).message },
-        })
-      })
-      .finally(() => (installing = undefined))
-    installing = Object.assign(state, { done })
-  }
-  return installing.done
+    })
+    .finally(() => (installing = undefined))
+  return installing
 }

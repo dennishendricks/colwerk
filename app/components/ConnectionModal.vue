@@ -314,13 +314,9 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
           :loading="busy === 'delete'"
           @click="act('delete', () => removeConnection(connection!.id), t('connection.deleted'))"
         />
-        <!-- DuckDB's native library is downloaded on first use; testing and saving need it. -->
+        <!-- A lakehouse needs its DuckDB extensions, downloaded on first use; testing and saving need them. -->
         <template v-if="driver && !driver.installed">
-          <UProgress
-            v-if="busy === 'install'"
-            :model-value="driver.installProgress === undefined ? null : Math.round(driver.installProgress * 100)"
-            class="ml-auto w-40 self-center"
-          />
+          <UProgress v-if="busy === 'install'" :model-value="null" class="ml-auto w-40 self-center" />
           <UButton
             :class="busy === 'install' ? undefined : 'ml-auto'"
             icon="i-lucide-download"

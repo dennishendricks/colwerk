@@ -24,10 +24,18 @@ if (desktop) process.stdin.on('close', () => process.exit(0)).resume()
 const token = createToken()
 process.env.COLWERK_TOKEN = token
 
-// DuckDB's native addon is downloaded on demand (native.ts). The manifest is embedded by scripts/package.ts;
-// without it (running from source) the addon comes from node_modules.
+// DuckDB's native addon is embedded and unpacked into the data directory at the first start of a build (native.ts),
+// in the background; DuckDB's first use waits for it. scripts/package.ts defines its version and platform and
+// resolves the import of the archive; without them (running from source) the addon comes from node_modules.
 declare const COLWERK_DUCKDB: string | undefined
-if (typeof COLWERK_DUCKDB !== 'undefined') Object.assign(globalThis, duckdbGlobals(JSON.parse(COLWERK_DUCKDB)))
+if (typeof COLWERK_DUCKDB !== 'undefined') {
+  // @ts-expect-error -- the module only exists in the bundler's resolution
+  const { default: file } = (await import('colwerk:duckdb-archive')) as { default: string }
+  const globals = duckdbGlobals(JSON.parse(COLWERK_DUCKDB), file)
+  Object.assign(globalThis, globals)
+  // A failure is reported again on DuckDB's first use, which retries.
+  globals.colwerkDuckdb.install().catch((e) => console.error(`DuckDB not unpacked: ${(e as Error).message}`))
+}
 
 // Dynamic import so the environment above is set before Nitro reads it. scripts/package.ts resolves this path
 // to the Nitro build (preset `node-listener`).
