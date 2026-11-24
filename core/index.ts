@@ -1,6 +1,7 @@
 export * from './types.ts'
 export { addFileSources, drivers, driverStatus, installDriver, loadDriver } from './registry.ts'
 export { type ConnectionInput, ConnectionStore, type ConnectionSummary } from './store.ts'
+export { splitMssqlBackslashes } from './mssql-address.ts'
 export { defaultDataDir } from './data-dir.ts'
 export { addToHistory, type HistoryEntry } from './history.ts'
 export * from './audit.ts'
