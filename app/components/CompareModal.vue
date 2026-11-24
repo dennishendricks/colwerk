@@ -13,7 +13,7 @@ const items = computed(() => [
   <UModal v-model:open="open" fullscreen :title="t('compare.title')" :description="t('compare.description')">
     <template #body>
       <div class="mx-auto max-w-5xl space-y-4">
-        <UTabs v-model="tab" :items="items" :content="false" />
+        <UTabs v-model="tab" :items="items" :content="false" data-tour="compare-kind" />
         <!-- Both stay mounted, so that switching keeps the choices and the result. -->
         <CompareSchema v-show="tab === 'schema'" @close="open = false" />
         <CompareData v-show="tab === 'data'" @close="open = false" />

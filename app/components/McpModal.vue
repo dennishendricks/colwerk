@@ -36,7 +36,7 @@ const toml = computed(
           :title="$t('mcp.injectionTitle')"
           :description="$t('mcp.injectionNotice')"
         />
-        <section class="space-y-1">
+        <section class="space-y-1" data-tour="mcp-config">
           <h3 class="font-medium">Claude Desktop</h3>
           <i18n-t keypath="mcp.claudeDesktop" tag="p" class="text-muted">
             <template #file><code>claude_desktop_config.json</code></template>
@@ -64,6 +64,7 @@ codex mcp add colwerk -- {{ cli }}</pre>
     <template #footer>
       <div class="flex w-full justify-end">
         <UButton
+          data-tour="mcp-audit"
           :label="$t('mcp.openAudit')"
           icon="i-lucide-scroll-text"
           color="neutral"

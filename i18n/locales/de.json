@@ -906,5 +906,405 @@
     "expressionWidth": "Ausdrucksbreite",
     "expressionWidthHint": "Zeichen",
     "bangNotEqual": "<> als != schreiben"
+  },
+  "tours": {
+    "menu": "Tutorials",
+    "categories": {
+      "start": "Erste Schritte",
+      "editor": "Abfrage-Editor",
+      "data": "Ergebnisse und Daten",
+      "connections": "Verbindungen",
+      "mcp": "KI-Assistenten"
+    },
+    "introTitle": "Colwerk kennenlernen",
+    "introHint": "Kurze geführte Touren, je etwa eine Minute.",
+    "hideIntro": "Bis zum nächsten Start ausblenden",
+    "start": "Starten",
+    "dontShowAgain": "Nicht mehr anzeigen",
+    "cancelled": "abgebrochen",
+    "cancel": "Tour beenden",
+    "back": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "failed": "Die Tour konnte nicht fortgesetzt werden",
+    "demoTab": "Tutorial",
+    "window": {
+      "title": "Das Colwerk-Fenster",
+      "welcome": {
+        "title": "Willkommen bei Colwerk",
+        "body": "Diese Tour zeigt in unter einer Minute die Bereiche des Fensters. Du kannst sie jederzeit beenden und findest sie unter Hilfe → Tutorials wieder."
+      },
+      "connections": {
+        "title": "Verbindungen",
+        "body": "Hier wählst du eine Verbindung oder legst eine neue an, darunter die Datenbank. ⌘B blendet die Seitenleiste ein und aus."
+      },
+      "schema": {
+        "title": "Schemabaum",
+        "body": "Schemas, Tabellen, Views und ihre Spalten. Ein Doppelklick fragt eine Tabelle ab; ⌘P findet jede Tabelle über ihren Namen."
+      },
+      "tabs": {
+        "title": "Tabs",
+        "body": "Jeder Tab hat seine eigene Datenbanksitzung. ⌘T öffnet einen neuen; die Buttons rechts öffnen Vergleich, Verlauf, Darstellung und die Tastenkürzel."
+      },
+      "toolbar": {
+        "title": "Werkzeugleiste",
+        "body": "Die Verbindung des Tabs, die Buttons Ausführen, Formatieren und Abbrechen, rechts Zeilenlimit und Timeout."
+      },
+      "editor": {
+        "title": "Editor",
+        "body": "Hier schreibst du SQL, mit Vervollständigung für deine Tabellen und Spalten. ⌘Enter führt die Anweisung unter dem Cursor oder die Auswahl aus."
+      },
+      "results": {
+        "title": "Ergebnisse",
+        "body": "Das Ergebnisgrid zeigt, was die Abfrage geliefert hat. Auch Fehler, Ausführungspläne und die Zeilenzahl erscheinen hier."
+      },
+      "help": {
+        "title": "Das war's",
+        "body": "Mit ? siehst du alle Tastenkürzel. Weitere Tutorials findest du unter Hilfe → Tutorials."
+      }
+    },
+    "first-query": {
+      "title": "Die erste Abfrage ausführen",
+      "editor": {
+        "title": "Eine Demo-Datenbank",
+        "body": "Dieser Tab nutzt „Colwerk Demo“, eine DuckDB-Datenbank im Arbeitsspeicher mit Beispielkunden, -produkten und -bestellungen. Du brauchst also keine eigenen Daten."
+      },
+      "run": {
+        "title": "Ausführen",
+        "body": "Ausführen startet die Anweisung unter dem Cursor oder die Auswahl; im Editor geht das auch mit ⌘Enter. Weiter führt die Abfrage für dich aus."
+      },
+      "results": {
+        "title": "Das Ergebnis",
+        "body": "Über dem Grid stehen Zeilenzahl, Dauer und Zeitpunkt. Die Abfrage lief in der eigenen Sitzung dieses Tabs."
+      },
+      "limits": {
+        "title": "Zeilenlimit und Timeout",
+        "body": "Neue Tabs holen höchstens 200 Zeilen und brechen nach 60 Sekunden ab, damit eine große Abfrage den Server nicht belastet. Beides lässt sich je Tab ändern."
+      },
+      "history": {
+        "title": "Verlauf",
+        "body": "Jede ausgeführte Abfrage landet hier. Du kannst darin suchen und eine frühere Abfrage in einem neuen Tab öffnen."
+      }
+    },
+    "result-grid": {
+      "title": "Mit Ergebnissen arbeiten",
+      "grid": {
+        "title": "Das Ergebnisgrid",
+        "body": "Auf der In-Memory-Datenbank lief eine Demo-Abfrage. Ein Doppelklick auf eine Zelle zeigt ihren vollen Wert oder bearbeitet sie, wenn die Tabelle das erlaubt."
+      },
+      "columns": {
+        "title": "Spalten sortieren und anordnen",
+        "body": "Ein Klick auf den Kopf sortiert, am Rand ziehen ändert die Breite. Das Spaltenmenü fixiert, verbirgt oder filtert eine Spalte."
+      },
+      "filter": {
+        "title": "Schnellfilter",
+        "body": "Zeigt nur Zeilen, die den Text in irgendeiner Spalte enthalten. ⌘F im Grid springt hierher."
+      },
+      "export": {
+        "title": "Exportieren und kopieren",
+        "body": "Speichere das Ergebnis als CSV, JSON, Excel, Parquet, Markdown oder INSERT-Anweisungen, oder kopiere es in einem dieser Formate in die Zwischenablage."
+      }
+    },
+    "new-connection": {
+      "title": "Eigene Datenbank verbinden",
+      "list": {
+        "title": "Deine Verbindungen",
+        "body": "Öffne die Verbindungsliste und klicke auf Neu, oder nutze Datei → Neue Verbindung …. Auch die Demo-Verbindungen der Tutorials stehen hier; lösche sie, wenn du sie nicht mehr brauchst."
+      },
+      "engine": {
+        "title": "Datenbanksystem",
+        "body": "PostgreSQL, MySQL, SQL Server, ClickHouse, DuckDB, SQLite oder ein Lakehouse. Die Felder darunter passen sich an."
+      },
+      "details": {
+        "title": "Verbindungsdaten",
+        "body": "Server-Datenbanken brauchen Host, Port, Datenbank, Benutzer und Passwort, DuckDB und SQLite eine Datei. Name und Ordner sortieren die Verbindung in der Liste; Passwörter können auch aus einem Passwortmanager kommen."
+      },
+      "options": {
+        "title": "Weitere Optionen",
+        "body": "SSH-Tunnel und TLS, eine Farbe für die Verbindung, Nur-Lese-Zugriff und Schutz vor unbeabsichtigtem Schreiben."
+      },
+      "save": {
+        "title": "Testen und speichern",
+        "body": "Testen prüft die Verbindung, ohne sie zu speichern. Speichern nimmt sie in die Liste auf."
+      },
+      "import": {
+        "title": "Oder importieren",
+        "body": "Du nutzt schon DBeaver, Beekeeper Studio, Azure Data Studio, eine .pgpass-Datei oder dbt? Datei → Verbindungen importieren … übernimmt deine Verbindungen."
+      }
+    },
+    "schema-tree": {
+      "title": "Tabellen im Schemabaum finden",
+      "tree": {
+        "title": "Der Schemabaum",
+        "body": "Schemas, Tabellen und Views der oben gewählten Verbindung, hier der Demo-Datenbank."
+      },
+      "table": {
+        "title": "Tabellen und Views",
+        "body": "Wo die Datenbank sie kennt, steht neben einer Tabelle ihre geschätzte Zeilenzahl, ohne COUNT(*). Ein Klick zeigt die Spalten."
+      },
+      "columns": {
+        "title": "Spalten und Schlüssel",
+        "body": "Typen, NOT NULL und Badges für Primärschlüssel (PK), Fremdschlüssel (FK → Tabelle) und Indizes (IDX)."
+      },
+      "query": {
+        "title": "Tabelle abfragen",
+        "body": "Ein Doppelklick fragt alle Spalten der Tabelle im aktuellen Tab ab."
+      },
+      "menu": {
+        "title": "Kontextmenü",
+        "body": "Ein Rechtsklick auf eine Tabelle bietet SQL erzeugen, DDL anzeigen, Zeilen zählen, das ER-Diagramm und mehr."
+      },
+      "quick-open": {
+        "title": "Zur Tabelle springen",
+        "body": "⌘P findet jede Tabelle und View über den Namen und fragt sie ab, wie ein Doppelklick im Baum."
+      }
+    },
+    "guard-rails": {
+      "title": "Sicher auf Produktion arbeiten",
+      "color": {
+        "title": "Eine Produktionsverbindung",
+        "body": "„Colwerk Demo (Production)“ ist eine zweite Demo-Verbindung mit aktivierten Schutzfunktionen. Ihre Farbe markiert Werkzeugleiste, Tabs und Verbindungsliste, damit du immer siehst, wo du arbeitest."
+      },
+      "lint": {
+        "title": "Warnungen beim Tippen",
+        "body": "Der Editor unterstreicht UPDATE und DELETE ohne WHERE, bevor du sie ausführst. Weiter versucht, dieses DELETE auszuführen."
+      },
+      "unfiltered": {
+        "title": "Gestoppt ohne WHERE",
+        "body": "Eine Anweisung, die alle Zeilen ändern würde, hält hier an und läuft erst nach ausdrücklicher Bestätigung. Weiter bricht sie ab."
+      },
+      "confirm": {
+        "title": "Schreiben bestätigen, Probelauf",
+        "body": "Auf dieser Verbindung fragt jede Anweisung, die schreiben kann, vorher nach. Der Probelauf führt sie in einer Transaktion aus, die zurückgerollt wird, und zeigt, wie viele Zeilen sie ändern würde."
+      },
+      "more": {
+        "title": "Weitere Schutzfunktionen",
+        "body": "Nur-Lese-Verbindungen lehnen jedes Schreiben ab. Auf PostgreSQL, MySQL, SQL Server und ClickHouse warnt zusätzlich eine Planprüfung, bevor eine Abfrage eine große Tabelle komplett liest. Alles findest du unter Weitere Optionen einer Verbindung."
+      }
+    },
+    "edit-rows": {
+      "title": "Zeilen im Grid bearbeiten",
+      "editable": {
+        "title": "Ein bearbeitbares Ergebnis",
+        "body": "Diese Abfrage liest eine einzelne Tabelle mit Primärschlüssel, deshalb kann das Grid ihre Zeilen ändern. Geschrieben wird erst beim Speichern."
+      },
+      "cell": {
+        "title": "Werte ändern",
+        "body": "Ein Doppelklick auf eine Zelle bearbeitet sie. Geänderte Zellen werden markiert."
+      },
+      "rows": {
+        "title": "Zeilen hinzufügen, klonen, löschen",
+        "body": "Zeile hinzufügen hängt eine leere Zeile an; das Menü einer Zeile klont oder löscht sie."
+      },
+      "review": {
+        "title": "Prüfen und speichern",
+        "body": "Sobald es Änderungen gibt, zeigt Prüfen die INSERT-, UPDATE- und DELETE-Anweisungen und führt sie in einer Transaktion aus. Verwerfen nimmt alle Änderungen zurück."
+      },
+      "read-only": {
+        "title": "Wenn ein Ergebnis nur lesbar ist",
+        "body": "Joins, Aggregate oder Tabellen ohne Primärschlüssel lassen sich nicht bearbeiten; ein Schloss in dieser Leiste nennt den Grund."
+      }
+    },
+    "transactions": {
+      "title": "Transaktionen und Sitzungen",
+      "session": {
+        "title": "Eine Sitzung pro Tab",
+        "body": "Jeder Tab hat seine eigene Datenbanksitzung. Dieses Skript startet eine Transaktion und ändert eine Zeile; Weiter führt es aus."
+      },
+      "open": {
+        "title": "Transaktion offen",
+        "body": "Das Badge zeigt, dass die Transaktion noch offen ist. Andere Tabs sehen die Änderung erst nach dem Commit."
+      },
+      "tab": {
+        "title": "Markierter Tab",
+        "body": "Auch der Tab zeigt eine Warnung, damit eine offene Transaktion beim Wechseln nicht vergessen wird."
+      },
+      "end": {
+        "title": "Commit oder Rollback",
+        "body": "Commit behält die Änderung, Rollback macht sie rückgängig. Eine fehlgeschlagene Transaktion lässt sich nur zurückrollen."
+      },
+      "closing": {
+        "title": "Nichts bleibt offen",
+        "body": "Die Tour hat zurückgerollt, was noch offen war. Auch Tab schließen oder Verbindung wechseln fragt erst nach und rollt dann zurück."
+      }
+    },
+    "editor-power": {
+      "title": "Schneller SQL schreiben",
+      "complete": {
+        "title": "Vervollständigung",
+        "body": "Tippe oder drücke ⌃Leertaste: Der Editor schlägt Tabellen, Spalten und Funktionen vor. Nach join bietet er die verknüpfte Tabelle samt ON-Bedingung aus dem Fremdschlüssel an."
+      },
+      "lint": {
+        "title": "Fehler beim Tippen",
+        "body": "id gibt es in beiden Tabellen, deshalb unterstreicht der Editor sie als mehrdeutig. Auf den meisten Datenbanken markiert er auch unbekannte Tabellen und Spalten."
+      },
+      "format": {
+        "title": "Formatieren",
+        "body": "Formatieren (⇧⌘F) hat die Abfrage umgebrochen. Groß- und Kleinschreibung, Einrückung und mehr stellst du in den Einstellungen ein."
+      },
+      "keys": {
+        "title": "Bearbeiten",
+        "body": "⌘F sucht und ersetzt, ⌥⌘↑/↓ setzt weitere Cursor, ⌥-Ziehen markiert einen Block. Mit ? siehst du alle Tastenkürzel."
+      }
+    },
+    "results-advanced": {
+      "title": "Skripte, Ergebnisse und Pins",
+      "script": {
+        "title": "Ein Skript",
+        "body": "Dieses Skript hat zwei Anweisungen. Ausführen startet die unter dem Cursor oder die Auswahl; Weiter führt beide aus."
+      },
+      "switch": {
+        "title": "Mehrere Ergebnisse",
+        "body": "Jede Anweisung mit Ergebnis bekommt hier einen Button, um zwischen ihnen zu wechseln."
+      },
+      "pin": {
+        "title": "Anheften und vergleichen",
+        "body": "Ergebnis anheften behält das gezeigte Ergebnis, während du die Abfrage änderst und erneut ausführst. Vergleichen zeigt dann beide nebeneinander, mit gemeinsamem Filter."
+      },
+      "detail": {
+        "title": "Volle Werte",
+        "body": "Ein Doppelklick auf eine Zelle eines nur lesbaren Ergebnisses zeigt ihren vollen Wert, etwa langen Text oder JSON, zum Kopieren."
+      }
+    },
+    "query-files": {
+      "title": "Dateien mit SQL abfragen",
+      "drop": {
+        "title": "Dateien ohne Datenbank",
+        "body": "Zieh CSV-, TSV-, Parquet-, JSON- oder Excel-Dateien aufs Fenster: Colwerk fragt sie mit DuckDB ab, eine eigene Datenbank brauchst du nicht."
+      },
+      "buttons": {
+        "title": "Datendatei abfragen",
+        "body": "Ein leerer Tab bietet Datendatei abfragen … und URL abfragen …; beides gibt es auch im Menü Datei."
+      },
+      "url": {
+        "title": "Entfernte Dateien",
+        "body": "Dateien auf https, S3 oder Google Cloud Storage fragst du über ihre URL ab, z. B. s3://bucket/data.parquet."
+      },
+      "connection": {
+        "title": "Die Verbindung „Files“",
+        "body": "Jede Datei wird zu einer View der Verbindung „Files“ und öffnet sich in einem neuen Tab. Tabellen, die du dort anlegst, leben nur im Arbeitsspeicher."
+      }
+    },
+    "variables": {
+      "title": "Abfragen mit Variablen",
+      "syntax": {
+        "title": "Variablen",
+        "body": "{'${city}'} ist eine Variable: Colwerk fragt bei jeder Ausführung nach ihrem Wert. Weiter führt die Abfrage aus."
+      },
+      "prompt": {
+        "title": "Werte eingeben",
+        "body": "Gib eine Stadt wie Berlin ein und klicke auf Ausführen. Der Tab merkt sich die Werte und füllt sie beim nächsten Mal vor."
+      },
+      "quotes": {
+        "title": "Anführungszeichen",
+        "body": "Werte werden so eingesetzt, wie du sie eingibst. Setze Anführungszeichen um Text deshalb selbst, wie in '{'${city}'}'."
+      }
+    },
+    "tabs-files": {
+      "title": "Tabs, Dateien und Fenster",
+      "rename": {
+        "title": "Umbenennen",
+        "body": "Doppelklick auf den Titel eines Tabs, oder F2 auf dem Tab, benennt ihn um."
+      },
+      "duplicate": {
+        "title": "Duplizieren",
+        "body": "⇧⌘D dupliziert den Tab mit Abfrage, Zeilenlimit und Timeout."
+      },
+      "menu": {
+        "title": "Tab-Menü",
+        "body": "In der Desktop-App schließt ein Rechtsklick auf einen Tab die anderen oder verschiebt ihn in ein eigenes Fenster."
+      },
+      "files": {
+        "title": "Abfragedateien",
+        "body": "⌘S speichert die Abfrage eines Tabs als .sql-Datei, ⌘O öffnet eine."
+      },
+      "restore": {
+        "title": "Immer da",
+        "body": "Colwerk behält deine Tabs samt Abfragen und stellt sie beim nächsten Start wieder her."
+      }
+    },
+    "mcp-setup": {
+      "title": "KI-Assistenten anbinden",
+      "intro": {
+        "title": "KI-Assistenten und MCP",
+        "body": "Über MCP lesen Assistenten wie Claude die Struktur deiner Verbindungen und führen nur lesende Abfragen darauf aus. Colwerk muss dafür laufen."
+      },
+      "config": {
+        "title": "Einrichtung",
+        "body": "Kopiere die Konfiguration für deinen Client: Claude Desktop, Claude Code oder Codex. Andere MCP-Clients nutzen denselben Befehl."
+      },
+      "audit": {
+        "title": "Audit-Log",
+        "body": "Jeder Aufruf eines Assistenten wird protokolliert, ohne Ergebnisdaten. Eine protokollierte Abfrage öffnet sich in einem neuen Tab."
+      },
+      "login": {
+        "title": "Eine eigene Anmeldung",
+        "body": "Unter Weitere Optionen einer Verbindung kannst du KI-Assistenten eine eigene Anmeldung geben, z. B. eine Datenbankrolle, die nur lesen darf."
+      }
+    },
+    "execution-plans": {
+      "title": "Ausführungspläne lesen",
+      "explain": {
+        "title": "Plan anzeigen",
+        "body": "⌘E oder Plan im Menü neben Ausführen zeigt, wie die Datenbank die Anweisung unter dem Cursor ausführt. Analyze führt sie zusätzlich aus und misst jeden Schritt."
+      },
+      "plan": {
+        "title": "Der Plan",
+        "body": "Der Plan ersetzt das Ergebnis: Scans, Joins und Aggregationen mit ihren geschätzten Zeilen."
+      },
+      "copy": {
+        "title": "Kopieren",
+        "body": "Kopiere den Plan, um ihn zu teilen oder in einen Plan-Visualizer einzufügen."
+      },
+      "graphical": {
+        "title": "SQL Server",
+        "body": "Pläne von SQL Server erscheinen als grafischer Baum mit Kosten und fehlenden Indizes; gespeicherte .sqlplan-Dateien öffnen sich dort auch."
+      }
+    },
+    "import-data": {
+      "title": "Daten in eine Tabelle importieren",
+      "open": {
+        "title": "Import starten",
+        "body": "Dieser Button, Datei → Daten importieren … oder das Kontextmenü einer Tabelle öffnen den Import-Assistenten."
+      },
+      "source": {
+        "title": "Quelle",
+        "body": "Dateien, Tabellen oder eine Abfrage beliebiger Verbindungen. Hier ist die Quelle eine Abfrage auf den Demo-Tabellen; Weiter lädt eine Vorschau."
+      },
+      "steps": {
+        "title": "Ziel und Laden",
+        "body": "Wähle eine neue oder bestehende Tabelle, prüfe Spaltentypen und CREATE TABLE, dann wie geladen wird. Probier es aus: Die Tabelle landet in der Demo-Datenbank."
+      }
+    },
+    "er-diagram": {
+      "title": "Beziehungen sehen",
+      "open": {
+        "title": "Aus dem Schemabaum",
+        "body": "Rechtsklick auf ein Schema oder eine Tabelle, dann ER-Diagramm."
+      },
+      "diagram": {
+        "title": "Das Diagramm",
+        "body": "Tabellen mit ihren Spalten, verbunden über Fremdschlüssel. Ein Doppelklick auf eine Tabelle zeigt nur sie und ihre Nachbarn."
+      },
+      "toolbar": {
+        "title": "Ansichten und Export",
+        "body": "Nur Schlüssel blendet die übrigen Spalten aus, die Buttons zoomen und passen ein. Mermaid und DBML zeigen das Modell als Text zum Kopieren oder Speichern."
+      }
+    },
+    "data-compare": {
+      "title": "Schemas und Daten vergleichen",
+      "open": {
+        "title": "Vergleichen",
+        "body": "Dieser Button vergleicht zwei Verbindungen oder zwei Tabellen."
+      },
+      "kind": {
+        "title": "Schema oder Daten",
+        "body": "Schema vergleicht Tabellen, Spalten, Schlüssel und Views von PostgreSQL, MySQL oder SQL Server. Daten vergleicht die Zeilen zweier Tabellen über ihre Schlüsselspalten."
+      },
+      "sync": {
+        "title": "Von Unterschieden zum Skript",
+        "body": "Wähle Quelle und Ziel. Das Ergebnis listet die Unterschiede, und das Skript zum Angleichen öffnet sich in einem neuen Tab, damit du es prüfst und ausführst."
+      }
+    }
   }
 }

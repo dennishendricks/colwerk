@@ -40,6 +40,20 @@ the server. Both can be changed in the toolbar of each tab.
 
 Press **?** for all keyboard shortcuts, or see the [shortcut reference](/docs/reference/shortcuts/).
 
+## Tutorials
+
+Short guided tours show Colwerk one feature at a time. Many of them use a demo database, a DuckDB database in memory
+with sample data, so you can try everything without your own data. Colwerk adds it as a connection named
+**Colwerk Demo** (some tours add variants of it) when a tour needs it, also again after you deleted it. Delete these
+connections once you no longer need them. The demo data is created anew after every restart; changes you make in a tour
+may stay until then.
+
+A card in the bottom right corner offers the tutorials you have not finished yet, the most important first. **Start**
+begins one, the eye button hides a tutorial for good, and the close button hides the card until the next start. All
+tutorials are under **Help → Tutorials**, grouped by topic (in the browser behind the graduation cap in the tab bar).
+Colwerk remembers which tutorials you have completed in `tours.json` in the
+[data directory](/docs/reference/data-directory/).
+
 ## Language and appearance
 
 Colwerk is available in English and German. It follows the system language; **View** in the menu switches it. The

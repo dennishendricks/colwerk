@@ -182,6 +182,14 @@ const menuTarget = shallowRef<
 // ER diagram of a schema, or of a table and its neighbors.
 const er = ref<{ schema: string; table?: string }>()
 const openEr = (schema: string, table?: string) => (er.value = { schema, table })
+// Guided tours (runMenuAction): the ER diagram of the first schema, as from its context menu.
+defineMenuHandlers(() => ({
+  'er-diagram': () => {
+    const schema = shownSchemas.value?.[0]
+    if (schema) openEr(schema.name)
+  },
+  'close-dialogs': () => (er.value = undefined),
+}))
 
 const menuItems = computed((): ContextMenuItem[][] => {
   const target = menuTarget.value
@@ -337,6 +345,7 @@ function fkTitle(c: ColumnInfo) {
       <span class="flex items-center">
         <UButton
           icon="i-lucide-import"
+          data-tour="import-data"
           size="xs"
           variant="ghost"
           color="neutral"
@@ -388,6 +397,8 @@ function fkTitle(c: ColumnInfo) {
           <button
             v-if="!flatSchema"
             class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
+            :data-tour="`schema-${schema.name}`"
+            :aria-expanded="schemaOpen(schema.name)"
             @click="toggleSchema(schema.name)"
             @contextmenu="menuTarget = { schema: schema.name }"
           >
@@ -413,6 +424,8 @@ function fkTitle(c: ColumnInfo) {
               <button
                 class="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-elevated"
                 :title="tableTitle(table)"
+                :data-tour="`table-${table.name}`"
+                :aria-expanded="tableOpen(schema.name, table.name)"
                 @click="toggleTable(schema.name, table.name)"
                 @dblclick="selectTable(schema.name, table.name)"
                 @contextmenu="menuTarget = { schema: schema.name, table }"
@@ -440,7 +453,11 @@ function fkTitle(c: ColumnInfo) {
                 </span>
               </button>
 
-              <div v-if="tableOpen(schema.name, table.name)" class="motion-expand pl-9 pr-2">
+              <div
+                v-if="tableOpen(schema.name, table.name)"
+                class="motion-expand pl-9 pr-2"
+                :data-tour="`columns-${table.name}`"
+              >
                 <p v-if="s.errors[keyOf(schema.name, table.name)]" class="py-1 text-xs text-error">
                   {{ s.errors[keyOf(schema.name, table.name)] }}
                 </p>

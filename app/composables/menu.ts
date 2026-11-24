@@ -34,6 +34,7 @@ export function useApplicationMenu(view: MenuViewActions) {
   const { zoomIn, zoomOut, resetZoom } = useZoom()
   const { openImport } = useImport()
   const { pickAndQuery } = useDataFiles()
+  const { tours, groups: tourGroups, start: startTour } = useTours()
 
   watchEffect(() => {
     if (!isDesktop) return
@@ -138,6 +139,15 @@ export function useApplicationMenu(view: MenuViewActions) {
       submenu(t('menu.help'), [
         item(t('menu.docs'), 'docs'),
         item(t('menu.shortcuts'), 'shortcuts'),
+        submenu(
+          t('tours.menu'),
+          tourGroups.value.map(({ category, tours }) =>
+            submenu(
+              t(`tours.categories.${category}`),
+              tours.map((tour) => item(t(`tours.${tour.id}.title`), `tour-${tour.id}`)),
+            ),
+          ),
+        ),
         item(t('menu.releaseNotes'), 'release-notes'),
         'separator',
         item(t('menu.privacy'), 'privacy'),
@@ -194,4 +204,6 @@ export function useApplicationMenu(view: MenuViewActions) {
     about: view.openAbout,
     settings: view.openSettings,
   })
+  // The tours are loaded after the menu is first built.
+  defineMenuHandlers(() => Object.fromEntries(tours.value.map((tour) => [`tour-${tour.id}`, () => startTour(tour)])))
 }

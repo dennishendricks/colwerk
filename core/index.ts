@@ -23,6 +23,8 @@ export {
   sqlIndents,
   sqlLogicalNewlines,
 } from './settings.ts'
+export { DEMO_SETUP_SQL, demoConnection, type DemoVariant, demoVariants } from './demo.ts'
+export { parseTourStates, type TourStates, type TourStatus, tourStatuses, withTourStatus } from './tours.ts'
 export { csvDelimiters, csvEncodings, csvEscapes, type CsvOptions, csvQuotes, defaultCsvOptions } from './values.ts'
 export { type CliRunner, createSecrets, parseSecretRef, runCli, secrets } from './secrets.ts'
 export { decodeText } from './text-file.ts'

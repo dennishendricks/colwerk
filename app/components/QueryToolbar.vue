@@ -64,6 +64,7 @@ async function confirmConnection() {
 <template>
   <!-- Below @4xl the buttons show icons only; scrolling remains as fallback. -->
   <div
+    data-tour="toolbar"
     class="flex items-center gap-2 overflow-x-auto border-b border-default px-3 py-2"
     :class="connection?.color && ['border-l-4', connectionColorClasses[connection.color].borderLeft]"
   >
@@ -77,7 +78,7 @@ async function confirmConnection() {
       class="min-w-32 max-w-56 flex-1"
       @update:model-value="selectConnection"
     />
-    <UFieldGroup size="sm" class="shrink-0">
+    <UFieldGroup size="sm" class="shrink-0" data-tour="run">
       <UButton
         icon="i-lucide-play"
         :label="t('common.run')"
@@ -110,6 +111,7 @@ async function confirmConnection() {
     />
     <UButton
       icon="i-lucide-wand-sparkles"
+      data-tour="format"
       size="sm"
       color="neutral"
       variant="ghost"
@@ -132,6 +134,7 @@ async function confirmConnection() {
     />
     <template v-if="tab.transaction">
       <UBadge
+        data-tour="transaction"
         :label="tab.transaction === 'failed' ? t('common.transactionFailed') : t('common.transactionOpen')"
         :color="tab.transaction === 'failed' ? 'error' : 'warning'"
         variant="subtle"
@@ -152,6 +155,7 @@ async function confirmConnection() {
         @click="run(tab, 'COMMIT')"
       />
       <UButton
+        data-tour="rollback"
         size="sm"
         color="neutral"
         variant="soft"
@@ -161,7 +165,7 @@ async function confirmConnection() {
         @click="run(tab, 'ROLLBACK')"
       />
     </template>
-    <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted">
+    <div class="ml-auto flex shrink-0 items-center gap-2 text-sm text-muted" data-tour="limits">
       <span>{{ t('query.limit') }}</span>
       <UInputNumber
         v-model="tab.rowLimit"

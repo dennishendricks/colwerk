@@ -61,6 +61,7 @@ const { t, locale } = useI18n()
         <UButton :label="t('common.cancel')" color="neutral" variant="ghost" @click="pending = undefined" />
         <UButton
           v-if="canDryRun"
+          data-tour="dry-run"
           :label="t('query.dryRun')"
           icon="i-lucide-flask-conical"
           color="neutral"

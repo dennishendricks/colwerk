@@ -230,7 +230,7 @@ const review = useTemplateRef('review')
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <div class="flex h-full flex-col" data-tour="grid">
     <UTable
       ref="table"
       v-model:sorting="sorting"
@@ -258,7 +258,11 @@ const review = useTemplateRef('review')
       }"
       @dblclick="onDblclick"
     />
-    <div v-if="edit" class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
+    <div
+      v-if="edit"
+      class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted"
+      data-tour="grid-edit"
+    >
       <span class="truncate">{{ t('grid.editHint') }}</span>
       <UButton
         icon="i-lucide-plus"

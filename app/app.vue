@@ -27,6 +27,7 @@ const {
 } = useTabs()
 const { t, locale } = useI18n()
 const { openPaths } = useDataFiles()
+const { running: runningTour, introShown } = useTours()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -188,6 +189,14 @@ useApplicationMenu({
   toggleSidebar,
   openQuickOpen,
 })
+// Not in the menu, for the guided tours (runMenuAction): opening the compare and closing what a tour opened.
+defineMenuHandlers({
+  compare: () => (compareOpen.value = true),
+  'close-dialogs': () => {
+    for (const open of [modalOpen, importOpen, shortcutsOpen, mcpOpen, auditOpen, historyOpen, compareOpen, quickOpen])
+      open.value = false
+  },
+})
 </script>
 
 <template>
@@ -220,7 +229,7 @@ useApplicationMenu({
         collapsible
         class="motion-panel flex flex-col bg-muted/40"
       >
-        <div class="space-y-1 p-2">
+        <div class="space-y-1 p-2" data-tour="connections">
           <div class="flex gap-1">
             <div class="min-w-0 flex-1">
               <ConnectionPicker @edit="openModal" @import="importOpen = true" />
@@ -251,7 +260,7 @@ useApplicationMenu({
           </div>
           <DatabasePicker />
         </div>
-        <div class="min-h-0 flex-1 overflow-auto pb-4">
+        <div class="min-h-0 flex-1 overflow-auto pb-4" data-tour="schema">
           <p v-if="activeConnection?.disconnected" class="px-3 py-2 text-sm text-muted">
             {{ t('app.disconnected') }}
           </p>
@@ -278,7 +287,7 @@ useApplicationMenu({
       <SplitterResizeHandle class="w-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary" />
 
       <SplitterPanel as="main" class="flex min-w-0 flex-col">
-        <div class="flex items-center gap-1 overflow-x-auto border-b border-default px-2 pt-1">
+        <div class="flex items-center gap-1 overflow-x-auto border-b border-default px-2 pt-1" data-tour="tab-bar">
           <UButton
             :icon="sidebar?.isCollapsed ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close'"
             size="xs"
@@ -362,6 +371,8 @@ useApplicationMenu({
     <LazyAuditModal v-model:open="auditOpen" @select="(e) => openInNewTab(e.connectionId!, e.sql!)" />
     <LazyDataImportModal />
     <CloseTabsModal />
+    <LazyTourHost v-if="runningTour" :key="runningTour.id" :definition="runningTour" />
+    <LazyTourIntro v-if="windowLabel === 'main' && introShown" />
     <UModal
       v-model:open="confirmingDisconnect"
       :title="t('app.disconnectTitle')"

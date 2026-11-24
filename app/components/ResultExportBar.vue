@@ -31,7 +31,7 @@ const formatItems = [
 </script>
 
 <template>
-  <div class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted">
+  <div class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted" data-tour="export">
     <span>{{ t('query.export') }}</span>
     <USelect v-model="format" :items="formatItems" :aria-label="t('query.exportFormat')" size="xs" class="w-36" />
     <USelect

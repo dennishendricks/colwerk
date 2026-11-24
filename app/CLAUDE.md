@@ -44,7 +44,7 @@
 - `components/ResultExportBar.vue`
 - `components/ResultGrid.vue`
 - `components/ResultSwitcher.vue`
-- `components/SchemaTree.vue`: **24 KB: grep, then read in parts**
+- `components/SchemaTree.vue`: **25 KB: grep, then read in parts**
 - `components/SecretInput.vue`
 - `components/SessionMonitorModal.vue`
 - `components/SettingsModal.vue`
@@ -52,12 +52,16 @@
 - `components/SqlEditor.vue`
 - `components/StoredPasswordField.vue`
 - `components/TabBarActions.vue`
+- `components/TourHost.vue`
+- `components/TourIntro.vue`
+- `components/TourSpotlight.vue`
 - `components/UnlockModal.vue`
 - `components/VariablesModal.vue`
 - `composables/connection-form.ts`: State of the connection dialog: the form, which fields the dialect and login show, and the payload to save
 - `composables/connections.ts`: exports useConnections, useConnectionToggle
 - `composables/data-files.ts`: exports urlPromptOpen, dropActive, useDataFiles
 - `composables/data-import.ts`: State and actions of the data import wizard (DataImportModal and its step components), one instance per modal
+- `composables/demo.ts`: Demo database of the guided tours (core/demo.ts): prepared by the server on every tour start, so a deleted demo connection comes back; each tour gets one tab on it
 - `composables/editor-schema.ts`: Schema of a query tab's connection for the editor's autocomplete, preloaded for the tables the SQL refers to
 - `composables/execution.ts`: exports variablePrompt, useExecution
 - `composables/grid-columns.ts`: Column definitions of the result grid: header menus, resize handles, row menus, cell rendering, column filter
@@ -73,10 +77,29 @@
 - `composables/schema.ts`: exports SchemaTarget, forgetSchemas, useSchema
 - `composables/settings.ts`: Settings of the settings dialog, loaded once from the server (settings.json in the data directory) and shared
 - `composables/tabs.ts`: exports PinnedResult, QueryTab, ReturnedTab, hasOpenTransaction, forgetTransactions, useTabs
+- `composables/tours.ts`: Guided tours (app/tours): the ones that exist, each one's status for the user (tours.json via /api/tours) and the one running (TourHost.vue)
 - `composables/window-keys.ts`: Window-wide keys that defineShortcuts cannot match: zooming (⌘+ / ⌘- / ⌘0) and switching tabs (⇧⌘[ / ⇧⌘])
 - `composables/zoom.ts`: exports useZoom
 - `plugins/locale.ts`: Applies the language chosen in the application menu; without one, the detected system language stays
 - `plugins/motion.client.ts`: Lets modals grow from the element that opened them (`.modal-motion` in main.css): the last pointer press is recorded and forgotten on any key, so modals opened by shortcut scale in place
+- `tours/data-compare.ts`: Tour: compare schemas and data of two connections (docs: data/compare)
+- `tours/edit-rows.ts`: Tour: edit rows in the result grid, on the demo table `orders` (docs: data/editing)
+- `tours/editor-power.ts`: Tour: write SQL faster: completion, join suggestions, lint and formatting, on the demo tables (docs: editor/index)
+- `tours/er-diagram.ts`: Tour: the ER diagram of the demo tables (docs: data/er-diagrams)
+- `tours/execution-plans.ts`: Tour: execution plans, on the demo query (docs: editor/plans)
+- `tours/first-query.ts`: Tour: run a query, on the demo database (docs: start/first-steps, editor/running-queries)
+- `tours/guard-rails.ts`: Tour: guard rails of a production connection, on a second demo connection that has them (docs: editor/safety)
+- `tours/import-data.ts`: Tour: load data into a table with the import wizard, from a query on the demo tables (docs: data/import)
+- `tours/mcp-setup.ts`: Tour: connect an AI assistant through MCP; shown only, it needs an MCP client (docs: mcp/index, mcp/audit-log)
+- `tours/new-connection.ts`: Tour: connect your own database (docs: connections/index, connections/databases, connections/import)
+- `tours/query-files.ts`: Tour: query CSV, Parquet, JSON and Excel files with SQL; shown only, a tour has no files (docs: connections/files)
+- `tours/result-grid.ts`: Tour: sort, filter and export a result, on the in-memory demo database (docs: data/result-grid, data/export)
+- `tours/results-advanced.ts`: Tour: scripts with several results, pinning and comparing them, on the demo tables (docs: editor/running-queries, data/result-grid)
+- `tours/schema-tree.ts`: Tour: find tables and generate SQL in the schema tree, on the demo tables (docs: data/schema-tree, editor/tabs)
+- `tours/tabs-files.ts`: Tour: tabs, query files and windows (docs: editor/tabs)
+- `tours/transactions.ts`: Tour: one session per tab and its transactions, on the demo database (docs: editor/transactions)
+- `tours/variables.ts`: Tour: queries with `${variables}`, on the demo tables (docs: editor/running-queries#variables)
+- `tours/window.ts`: Tour: the parts of the window (docs: start/first-steps, "The window")
 - `utils/api.ts`: exports sessionToken, vaultToUnlock, api, errorMessage, subscribe
 - `utils/application-menu.ts`: Desktop app only: the native application menu (menu bar on macOS, window menu on Windows and Linux)
 - `utils/blocking.ts`: exports BlockingNode, blockers, blockingChains
@@ -107,4 +130,5 @@
 - `utils/sql-tables.ts`: Lives in core (the dry run checks the tables of a statement); re-exported for the app's auto-imports
 - `utils/sql-variables.ts`: exports VariableUse, findVariables, variableNames, substituteVariables, originalOffset
 - `utils/table-edit.ts`: The editing logic lives in core (the server checks the dialect too); re-exported for the app's auto-imports
+- `utils/tour.ts`: Definition of a guided tour; each tour is one file in app/tours, collected by composables/tours.ts
 - `utils/update.ts`: exports checkForUpdate

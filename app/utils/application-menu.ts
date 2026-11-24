@@ -19,6 +19,11 @@ export function defineMenuHandlers(handlers: MaybeRefOrGetter<Partial<Record<str
   onBeforeUnmount(() => sources.delete(get))
 }
 
+/** Calls the handlers of a menu item id, as clicking the item would (also used by the guided tours). */
+export function runMenuAction(id: string) {
+  for (const get of sources) get()[id]?.()
+}
+
 let shown: ApplicationMenuItem[] = []
 let current = ''
 let queue = Promise.resolve()
@@ -37,7 +42,7 @@ function withActions(entry: ApplicationMenuItem): MenuEntry {
   return {
     ...item,
     action: () => {
-      for (const get of sources) get()[id]?.()
+      runMenuAction(id)
       // A check item toggles itself when clicked, also when its handler changes nothing: the menu is set again,
       // showing the state the handler left.
       if (entry.checked !== undefined) setApplicationMenu(shown, true)

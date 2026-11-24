@@ -906,5 +906,405 @@
     "expressionWidth": "Expression width",
     "expressionWidthHint": "Characters",
     "bangNotEqual": "Write <> as !="
+  },
+  "tours": {
+    "menu": "Tutorials",
+    "categories": {
+      "start": "Getting Started",
+      "editor": "Query Editor",
+      "data": "Results and Data",
+      "connections": "Connections",
+      "mcp": "AI Assistants"
+    },
+    "introTitle": "Get to know Colwerk",
+    "introHint": "Short guided tours, a minute each.",
+    "hideIntro": "Hide until next start",
+    "start": "Start",
+    "dontShowAgain": "Don't show again",
+    "cancelled": "cancelled",
+    "cancel": "End tour",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "failed": "The tour could not continue",
+    "demoTab": "Tutorial",
+    "window": {
+      "title": "The Colwerk window",
+      "welcome": {
+        "title": "Welcome to Colwerk",
+        "body": "This tour shows the parts of the window in under a minute. You can end it at any time and find it again under Help → Tutorials."
+      },
+      "connections": {
+        "title": "Connections",
+        "body": "Pick a connection here or add a new one. Below it you choose the database. ⌘B shows or hides the sidebar."
+      },
+      "schema": {
+        "title": "Schema tree",
+        "body": "Schemas, tables, views and their columns. Double-click a table to query it; ⌘P finds any table by name."
+      },
+      "tabs": {
+        "title": "Tabs",
+        "body": "Each tab has its own database session. ⌘T opens a new one; the buttons on the right open compare, history, appearance and the shortcut overview."
+      },
+      "toolbar": {
+        "title": "Toolbar",
+        "body": "The tab's connection, the Run, Format and Cancel buttons, and on the right the row limit and timeout."
+      },
+      "editor": {
+        "title": "Editor",
+        "body": "Write SQL here, with completion for your tables and columns. ⌘Enter runs the statement under the cursor or the selection."
+      },
+      "results": {
+        "title": "Results",
+        "body": "The result grid shows what the query returned. Errors, execution plans and the row count also appear here."
+      },
+      "help": {
+        "title": "That's it",
+        "body": "Press ? for all keyboard shortcuts. More tutorials are under Help → Tutorials."
+      }
+    },
+    "first-query": {
+      "title": "Run your first query",
+      "editor": {
+        "title": "A demo database",
+        "body": "This tab uses \"Colwerk Demo\", a DuckDB database in memory with sample customers, products and orders, so you can try everything without your own data."
+      },
+      "run": {
+        "title": "Run",
+        "body": "Run executes the statement under the cursor, or the selection; ⌘Enter does the same from the editor. Next runs the query for you."
+      },
+      "results": {
+        "title": "The result",
+        "body": "Above the grid: row count, duration and time of the run. The query ran in this tab's own session."
+      },
+      "limits": {
+        "title": "Row limit and timeout",
+        "body": "New tabs fetch at most 200 rows and stop after 60 seconds, so a large query cannot strain the server. Change both per tab."
+      },
+      "history": {
+        "title": "History",
+        "body": "Every query you run is kept here. Search it and open an earlier query in a new tab."
+      }
+    },
+    "result-grid": {
+      "title": "Work with results",
+      "grid": {
+        "title": "The result grid",
+        "body": "A demo query has run on the in-memory database. Double-click a cell to see its full value, or to edit it when the table allows."
+      },
+      "columns": {
+        "title": "Sort and arrange columns",
+        "body": "Click a header to sort, drag its edge to resize. The column menu pins, hides or filters a column."
+      },
+      "filter": {
+        "title": "Quick filter",
+        "body": "Type to show only rows containing the text, in any column. ⌘F in the grid jumps here."
+      },
+      "export": {
+        "title": "Export and copy",
+        "body": "Save the result as CSV, JSON, Excel, Parquet, Markdown or INSERT statements, or copy it to the clipboard in one of these formats."
+      }
+    },
+    "new-connection": {
+      "title": "Connect your own database",
+      "list": {
+        "title": "Your connections",
+        "body": "Open the connection list and click New, or use File → New Connection …. The demo connections of the tutorials are listed here too; delete them once you no longer need them."
+      },
+      "engine": {
+        "title": "Database system",
+        "body": "PostgreSQL, MySQL, SQL Server, ClickHouse, DuckDB, SQLite or a lakehouse. The fields below adapt to your choice."
+      },
+      "details": {
+        "title": "Connection details",
+        "body": "Server databases need host, port, database, user and password, DuckDB and SQLite a file. Name and folder sort the connection in the list; passwords can also come from a password manager."
+      },
+      "options": {
+        "title": "More options",
+        "body": "SSH tunnel and TLS, a color for the connection, read-only access and guard rails against unintended writes."
+      },
+      "save": {
+        "title": "Test and save",
+        "body": "Test checks the connection without saving it. Save adds it to the list."
+      },
+      "import": {
+        "title": "Or import them",
+        "body": "Already using DBeaver, Beekeeper Studio, Azure Data Studio, a .pgpass file or dbt? File → Import Connections … takes your connections over."
+      }
+    },
+    "schema-tree": {
+      "title": "Find tables in the schema tree",
+      "tree": {
+        "title": "The schema tree",
+        "body": "The schemas, tables and views of the connection selected above, here the demo database."
+      },
+      "table": {
+        "title": "Tables and views",
+        "body": "Where the database knows it, the number next to a table is its estimated row count, without a COUNT(*). Click a table to show its columns."
+      },
+      "columns": {
+        "title": "Columns and keys",
+        "body": "Types, NOT NULL and badges for primary keys (PK), foreign keys (FK → table) and indexes (IDX)."
+      },
+      "query": {
+        "title": "Query a table",
+        "body": "Double-click a table to query all its columns in the current tab."
+      },
+      "menu": {
+        "title": "Context menu",
+        "body": "Right-click a table for Generate SQL, Show DDL, Count rows, the ER diagram and more."
+      },
+      "quick-open": {
+        "title": "Go to table",
+        "body": "⌘P finds any table or view by name and queries it, like a double-click in the tree."
+      }
+    },
+    "guard-rails": {
+      "title": "Work safely on production",
+      "color": {
+        "title": "A production connection",
+        "body": "\"Colwerk Demo (Production)\" is a second demo connection with guard rails turned on. Its color marks the toolbar, its tabs and the connection list, so you always see where you are."
+      },
+      "lint": {
+        "title": "Warnings while typing",
+        "body": "The editor underlines UPDATE and DELETE without WHERE before you run them. Next tries to run this DELETE."
+      },
+      "unfiltered": {
+        "title": "Stopped without WHERE",
+        "body": "A statement that would change every row stops here and only runs after an explicit confirmation. Next cancels it."
+      },
+      "confirm": {
+        "title": "Confirm writes, try a dry run",
+        "body": "On this connection every statement that may write asks first. Dry run executes it in a transaction that is rolled back and tells you how many rows it would change."
+      },
+      "more": {
+        "title": "More guard rails",
+        "body": "Read-only connections refuse writes altogether. On PostgreSQL, MySQL, SQL Server and ClickHouse a plan check also warns before a query reads a large table completely. All of it is under More options of a connection."
+      }
+    },
+    "edit-rows": {
+      "title": "Edit rows in the grid",
+      "editable": {
+        "title": "An editable result",
+        "body": "This query reads a single table with a primary key, so the grid can change its rows. Nothing is written until you save."
+      },
+      "cell": {
+        "title": "Change values",
+        "body": "Double-click a cell to edit it. Changed cells are marked."
+      },
+      "rows": {
+        "title": "Add, clone and delete rows",
+        "body": "Add row appends an empty row; the menu of a row clones or deletes it."
+      },
+      "review": {
+        "title": "Review and save",
+        "body": "Once there are changes, Review shows the INSERT, UPDATE and DELETE statements and runs them in one transaction. Discard drops all changes."
+      },
+      "read-only": {
+        "title": "When a result is read-only",
+        "body": "Joins, aggregates or tables without a primary key cannot be edited; a lock in this bar tells you why."
+      }
+    },
+    "transactions": {
+      "title": "Transactions and sessions",
+      "session": {
+        "title": "One session per tab",
+        "body": "Each tab has a database session of its own. This script starts a transaction and changes a row; Next runs it."
+      },
+      "open": {
+        "title": "Transaction open",
+        "body": "The badge shows that the transaction is still open. Other tabs do not see the change until you commit it."
+      },
+      "tab": {
+        "title": "Marked tab",
+        "body": "The tab shows a warning too, so an open transaction is not forgotten when you switch tabs."
+      },
+      "end": {
+        "title": "Commit or roll back",
+        "body": "Commit keeps the change, Rollback undoes it. A failed transaction can only be rolled back."
+      },
+      "closing": {
+        "title": "Nothing left open",
+        "body": "The tour rolled back what was still open. Closing a tab or switching its connection asks first and then rolls back too."
+      }
+    },
+    "editor-power": {
+      "title": "Write SQL faster",
+      "complete": {
+        "title": "Completion",
+        "body": "Type, or press ⌃Space: the editor suggests tables, columns and functions. After join it proposes the related table with its ON condition from the foreign key."
+      },
+      "lint": {
+        "title": "Mistakes while typing",
+        "body": "id exists in both tables, so the editor underlines it as ambiguous. On most databases it also marks unknown tables and columns."
+      },
+      "format": {
+        "title": "Format",
+        "body": "Format (⇧⌘F) has laid out the query. Keyword case, indentation and more are in the settings."
+      },
+      "keys": {
+        "title": "Editing",
+        "body": "⌘F searches and replaces, ⌥⌘↑/↓ adds cursors, ⌥-drag selects a block. Press ? for all shortcuts."
+      }
+    },
+    "results-advanced": {
+      "title": "Scripts, results and pins",
+      "script": {
+        "title": "A script",
+        "body": "This script has two statements. Run executes the one under the cursor or the selection; Next runs both."
+      },
+      "switch": {
+        "title": "Several results",
+        "body": "Each statement with a result gets a button here to switch between them."
+      },
+      "pin": {
+        "title": "Pin and compare",
+        "body": "Pin result keeps the shown result while you change the query and run it again. Compare then shows both side by side, with a shared filter."
+      },
+      "detail": {
+        "title": "Full values",
+        "body": "Double-click a cell of a read-only result to see its full value, e.g. long text or JSON, and copy it."
+      }
+    },
+    "query-files": {
+      "title": "Query files with SQL",
+      "drop": {
+        "title": "Files without a database",
+        "body": "Drop CSV, TSV, Parquet, JSON or Excel files onto the window: Colwerk queries them with DuckDB, no database of your own needed."
+      },
+      "buttons": {
+        "title": "Query a data file",
+        "body": "An empty tab offers Query data file … and Query URL …; the File menu has both too."
+      },
+      "url": {
+        "title": "Remote files",
+        "body": "Files on https, S3 or Google Cloud Storage are queried by URL, e.g. s3://bucket/data.parquet."
+      },
+      "connection": {
+        "title": "The Files connection",
+        "body": "Each file becomes a view of the connection \"Files\" and opens in a new tab. Tables you create there live in memory only."
+      }
+    },
+    "variables": {
+      "title": "Queries with variables",
+      "syntax": {
+        "title": "Variables",
+        "body": "{'${city}'} is a variable: Colwerk asks for its value each time the query runs. Next runs it."
+      },
+      "prompt": {
+        "title": "Enter the values",
+        "body": "Type a city such as Berlin and click Run. The tab keeps the values and fills them in next time."
+      },
+      "quotes": {
+        "title": "Quoting",
+        "body": "Values are inserted as typed, so put quotes around text yourself, as in '{'${city}'}'."
+      }
+    },
+    "tabs-files": {
+      "title": "Tabs, files and windows",
+      "rename": {
+        "title": "Rename",
+        "body": "Double-click a tab's title, or press F2 on the tab, to rename it."
+      },
+      "duplicate": {
+        "title": "Duplicate",
+        "body": "⇧⌘D duplicates the tab with its query, row limit and timeout."
+      },
+      "menu": {
+        "title": "Tab menu",
+        "body": "In the desktop app, right-click a tab to close the others or move it to a window of its own."
+      },
+      "files": {
+        "title": "Query files",
+        "body": "⌘S saves a tab's query as a .sql file, ⌘O opens one."
+      },
+      "restore": {
+        "title": "Always there",
+        "body": "Colwerk keeps your tabs with their queries and restores them on the next start."
+      }
+    },
+    "mcp-setup": {
+      "title": "Connect an AI assistant",
+      "intro": {
+        "title": "AI assistants and MCP",
+        "body": "Through MCP, assistants such as Claude read the structure of your connections and run read-only queries on them. Colwerk has to be running."
+      },
+      "config": {
+        "title": "Setup",
+        "body": "Copy the configuration for your client: Claude Desktop, Claude Code or Codex. Other MCP clients use the same command."
+      },
+      "audit": {
+        "title": "Audit log",
+        "body": "Every call of an assistant is logged, without result data. A logged query opens in a new tab."
+      },
+      "login": {
+        "title": "A login of its own",
+        "body": "Under More options of a connection you can give AI assistants a separate login, e.g. a database role that may only read."
+      }
+    },
+    "execution-plans": {
+      "title": "Read execution plans",
+      "explain": {
+        "title": "Show the plan",
+        "body": "⌘E or Plan in the menu next to Run shows how the database executes the statement under the cursor. Analyze also runs it and measures each step."
+      },
+      "plan": {
+        "title": "The plan",
+        "body": "The plan replaces the result: scans, joins and aggregations with their estimated rows."
+      },
+      "copy": {
+        "title": "Copy",
+        "body": "Copy the plan to share it or to paste it into a plan visualizer."
+      },
+      "graphical": {
+        "title": "SQL Server",
+        "body": "Plans of SQL Server appear as a graphical tree with costs and missing indexes; saved .sqlplan files open there too."
+      }
+    },
+    "import-data": {
+      "title": "Import data into a table",
+      "open": {
+        "title": "Start an import",
+        "body": "This button, File → Import Data … or the context menu of a table open the import wizard."
+      },
+      "source": {
+        "title": "Source",
+        "body": "Files, tables or a query of any connection. Here the source is a query on the demo tables; Next loads a preview."
+      },
+      "steps": {
+        "title": "Target and load",
+        "body": "Choose a new or existing table, check the column types and the CREATE TABLE, then how to load. Try it: the table lands in the demo database."
+      }
+    },
+    "er-diagram": {
+      "title": "See relationships",
+      "open": {
+        "title": "From the schema tree",
+        "body": "Right-click a schema or a table and choose ER diagram."
+      },
+      "diagram": {
+        "title": "The diagram",
+        "body": "Tables with their columns, linked by foreign keys. Double-click a table to show it with its neighbors only."
+      },
+      "toolbar": {
+        "title": "Views and export",
+        "body": "Keys only hides the other columns, the buttons zoom and fit. Mermaid and DBML show the model as text to copy or save."
+      }
+    },
+    "data-compare": {
+      "title": "Compare schemas and data",
+      "open": {
+        "title": "Compare",
+        "body": "This button compares two connections, or two tables."
+      },
+      "kind": {
+        "title": "Schema or data",
+        "body": "Schema compares tables, columns, keys and views of PostgreSQL, MySQL or SQL Server. Data compares the rows of two tables by their key columns."
+      },
+      "sync": {
+        "title": "From differences to a script",
+        "body": "Pick source and target. The result lists the differences, and the script to align them opens in a new tab for you to review and run."
+      }
+    }
   }
 }

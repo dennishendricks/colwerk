@@ -21,6 +21,7 @@ sidebar:
 | `workspace.json`          | Open tabs per window, restored on the next start.                                                             |
 | `settings.json`           | The settings: [CSV format](/docs/data/export/#csv-settings), [SQL formatting](/docs/editor/#format-settings). |
 | `history.json`            | The last 50 queries.                                                                                          |
+| `tours.json`              | Which [tutorials](/docs/start/first-steps/#tutorials) you have completed or cancelled.                        |
 | `mcp-audit.jsonl`         | The [MCP audit log](/docs/mcp/audit-log/); `mcp-audit-settings.json` its retention.                           |
 | `instance.json`           | Port of the running app, for the MCP bridge; removed on exit.                                                 |
 | `drivers/`                | DuckDB's library, unpacked from the app at the first start of a version.                                      |

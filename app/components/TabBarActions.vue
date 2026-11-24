@@ -10,11 +10,20 @@ const isDark = computed(() => colorMode.value === 'dark')
 const colorModeLabel = computed(() =>
   colorMode.preference !== 'system' ? t('app.systemDesign') : isDark.value ? t('app.lightDesign') : t('app.darkDesign'),
 )
+
+const { groups, start } = useTours()
+const tutorialItems = computed(() =>
+  groups.value.map(({ category, tours }) => ({
+    label: t(`tours.categories.${category}`),
+    children: tours.map((tour) => ({ label: t(`tours.${tour.id}.title`), onSelect: () => start(tour) })),
+  })),
+)
 </script>
 
 <template>
   <UButton
     icon="i-lucide-git-compare"
+    data-tour="compare"
     size="xs"
     variant="ghost"
     color="neutral"
@@ -25,6 +34,7 @@ const colorModeLabel = computed(() =>
   />
   <UButton
     icon="i-lucide-history"
+    data-tour="history"
     size="xs"
     variant="ghost"
     color="neutral"
@@ -61,6 +71,17 @@ const colorModeLabel = computed(() =>
     :aria-label="t('app.shortcuts')"
     @click="emit('shortcuts')"
   />
+  <!-- In the desktop app it is in the application menu (Help → Tutorials). -->
+  <UDropdownMenu v-if="!isDesktop" :items="tutorialItems">
+    <UButton
+      icon="i-lucide-graduation-cap"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      :title="t('tours.menu')"
+      :aria-label="t('tours.menu')"
+    />
+  </UDropdownMenu>
   <!-- In the desktop app it is in the application menu. -->
   <UButton
     v-if="!isDesktop"

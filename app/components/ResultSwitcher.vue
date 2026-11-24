@@ -24,7 +24,7 @@ function pinLabel(pin: PinnedResult) {
 </script>
 
 <template>
-  <span class="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto">
+  <span class="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto" data-tour="result-switcher">
     <UButton
       v-for="item in items"
       :key="item.value"

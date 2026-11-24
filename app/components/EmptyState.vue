@@ -57,6 +57,7 @@ const recent = computed(() => {
       />
       <UButton
         icon="i-lucide-file-spreadsheet"
+        data-tour="query-file"
         :label="t('empty.queryFile')"
         color="neutral"
         variant="soft"

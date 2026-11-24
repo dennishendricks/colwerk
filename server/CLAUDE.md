@@ -18,6 +18,7 @@
 - `api/connections/index.get.ts`: GET /api/connections
 - `api/connections/index.post.ts`: POST /api/connections
 - `api/connections/test.post.ts`: POST /api/connections/test
+- `api/demo.post.ts`: POST /api/demo; Prepares the demo database of a guided tour (see core/demo.ts): saves the connection again if it was deleted and creates its tables; answers with the connection's id
 - `api/dialog.post.ts`: POST /api/dialog
 - `api/drivers.get.ts`: GET /api/drivers
 - `api/drivers/[dialect]/install.post.ts`: POST /api/drivers/:dialect/install
@@ -45,6 +46,8 @@
 - `api/tabs/[id]/explain.post.ts`: POST /api/tabs/:id/explain
 - `api/tabs/[id]/export.post.ts`: POST /api/tabs/:id/export
 - `api/tabs/[id]/plan-check.post.ts`: POST /api/tabs/:id/plan-check
+- `api/tours.get.ts`: GET /api/tours; Status of the guided tours (see server/utils/tours.ts)
+- `api/tours.post.ts`: POST /api/tours; Sets the status of one guided tour; answers with the states of all tours
 - `api/vaults/unlock.post.ts`: POST /api/vaults/unlock
 - `api/workspace.get.ts`: GET /api/workspace; Open editor tabs per window, restored on the next start (see server/utils/workspace.ts)
 - `api/workspace.post.ts`: POST /api/workspace; Saves the open tabs of one window (see server/utils/workspace.ts)
@@ -67,4 +70,5 @@
 - `utils/imports.ts`: exports startJob, progressOf, cancelJob, finishJob, parseSource, sourceDialect
 - `utils/mcp.ts`: exports mcpRequest, connectionOf, sessionId, audited, databasesOf, tableOf, quoteIdent, readQuery
 - `utils/settings.ts`: Settings of the settings dialog in `settings.json` in the data directory (see core/settings.ts)
+- `utils/tours.ts`: Progress of the guided tours in `tours.json` in the data directory (see core/tours.ts)
 - `utils/workspace.ts`: exports Workspace, getWorkspace, saveWindowWorkspace

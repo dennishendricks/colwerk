@@ -113,6 +113,7 @@ function commitRename(tab: QueryTab) {
       :key="tab.id"
       role="tab"
       :aria-selected="tab.id === activeTabId"
+      :data-tour="tab.id === activeTabId ? 'active-tab' : undefined"
       :aria-controls="`panel-${tab.id}`"
       :tabindex="tab.id === activeTabId ? 0 : -1"
       class="flex cursor-pointer items-center gap-1 rounded-t border border-b-0 px-3 py-1 text-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
