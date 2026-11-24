@@ -179,7 +179,7 @@ const status = computed(() => {
     />
 
     <SplitterGroup direction="vertical" auto-save-id="colwerk-query-panel" class="min-h-0 flex-1">
-      <SplitterPanel :default-size="40" :min-size="10" class="overflow-hidden">
+      <SplitterPanel :default-size="40" :min-size="10" class="overflow-hidden" data-tour="editor">
         <LazySqlEditor
           ref="editor"
           v-model="tab.sql"
@@ -195,7 +195,7 @@ const status = computed(() => {
       </SplitterPanel>
       <SplitterResizeHandle class="h-px bg-(--ui-border) data-[state=drag]:bg-primary data-[state=hover]:bg-primary" />
 
-      <SplitterPanel :min-size="15" class="flex flex-col">
+      <SplitterPanel :min-size="15" class="flex flex-col" data-tour="results">
         <div class="flex items-center gap-2 border-b border-default px-3 py-1.5 text-xs text-muted">
           <!-- Announced by screen readers, so running a query (⌘Enter) gets feedback without looking. -->
           <span role="status" class="flex min-w-0 items-center gap-2">
@@ -222,6 +222,7 @@ const status = computed(() => {
             v-if="!tab.error && shown?.columns.length"
             ref="filterInput"
             v-model="filter"
+            data-tour="filter"
             :placeholder="t('query.filter')"
             :aria-label="t('query.filter')"
             icon="i-lucide-search"

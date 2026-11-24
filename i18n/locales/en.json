@@ -906,5 +906,102 @@
     "expressionWidth": "Expression width",
     "expressionWidthHint": "Characters",
     "bangNotEqual": "Write <> as !="
+  },
+  "tours": {
+    "menu": "Tutorials",
+    "categories": {
+      "start": "Getting Started",
+      "editor": "Query Editor",
+      "data": "Results and Data"
+    },
+    "introTitle": "Get to know Colwerk",
+    "introHint": "Short guided tours, a minute each.",
+    "hideIntro": "Hide until next start",
+    "start": "Start",
+    "dontShowAgain": "Don't show again",
+    "cancelled": "cancelled",
+    "cancel": "End tour",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "failed": "The tour could not continue",
+    "demoTab": "Tutorial",
+    "window": {
+      "title": "The Colwerk window",
+      "welcome": {
+        "title": "Welcome to Colwerk",
+        "body": "This tour shows the parts of the window in under a minute. You can end it at any time and find it again under Help → Tutorials."
+      },
+      "connections": {
+        "title": "Connections",
+        "body": "Pick a connection here or add a new one. Below it you choose the database. ⌘B shows or hides the sidebar."
+      },
+      "schema": {
+        "title": "Schema tree",
+        "body": "Schemas, tables, views and their columns. Double-click a table to query it; ⌘P finds any table by name."
+      },
+      "tabs": {
+        "title": "Tabs",
+        "body": "Each tab has its own database session. ⌘T opens a new one; the buttons on the right open compare, history, appearance and the shortcut overview."
+      },
+      "toolbar": {
+        "title": "Toolbar",
+        "body": "The tab's connection, the Run, Format and Cancel buttons, and on the right the row limit and timeout."
+      },
+      "editor": {
+        "title": "Editor",
+        "body": "Write SQL here, with completion for your tables and columns. ⌘Enter runs the statement under the cursor or the selection."
+      },
+      "results": {
+        "title": "Results",
+        "body": "The result grid shows what the query returned. Errors, execution plans and the row count also appear here."
+      },
+      "help": {
+        "title": "That's it",
+        "body": "Press ? for all keyboard shortcuts. More tutorials are under Help → Tutorials."
+      }
+    },
+    "first-query": {
+      "title": "Run your first query",
+      "editor": {
+        "title": "A demo database",
+        "body": "This tab uses \"Colwerk Demo\", a DuckDB database in memory. The query generates 200 sample orders, so you can try everything without your own data."
+      },
+      "run": {
+        "title": "Run",
+        "body": "Run executes the statement under the cursor, or the selection; ⌘Enter does the same from the editor. Next runs the query for you."
+      },
+      "results": {
+        "title": "The result",
+        "body": "Above the grid: row count, duration and time of the run. The query ran in this tab's own session."
+      },
+      "limits": {
+        "title": "Row limit and timeout",
+        "body": "New tabs fetch at most 200 rows and stop after 60 seconds, so a large query cannot strain the server. Change both per tab."
+      },
+      "history": {
+        "title": "History",
+        "body": "Every query you run is kept here. Search it and open an earlier query in a new tab."
+      }
+    },
+    "result-grid": {
+      "title": "Work with results",
+      "grid": {
+        "title": "The result grid",
+        "body": "A demo query has run on the in-memory database. Double-click a cell to see its full value, or to edit it when the table allows."
+      },
+      "columns": {
+        "title": "Sort and arrange columns",
+        "body": "Click a header to sort, drag its edge to resize. The column menu pins, hides or filters a column."
+      },
+      "filter": {
+        "title": "Quick filter",
+        "body": "Type to show only rows containing the text, in any column. ⌘F in the grid jumps here."
+      },
+      "export": {
+        "title": "Export and copy",
+        "body": "Save the result as CSV, JSON, Excel, Parquet, Markdown or INSERT statements, or copy it to the clipboard in one of these formats."
+      }
+    }
   }
 }

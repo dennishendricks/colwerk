@@ -34,6 +34,7 @@ export function useApplicationMenu(view: MenuViewActions) {
   const { zoomIn, zoomOut, resetZoom } = useZoom()
   const { openImport } = useImport()
   const { pickAndQuery } = useDataFiles()
+  const { start: startTour } = useTours()
 
   watchEffect(() => {
     if (!isDesktop) return
@@ -138,6 +139,15 @@ export function useApplicationMenu(view: MenuViewActions) {
       submenu(t('menu.help'), [
         item(t('menu.docs'), 'docs'),
         item(t('menu.shortcuts'), 'shortcuts'),
+        submenu(
+          t('tours.menu'),
+          tourGroups().map(({ category, tours }) =>
+            submenu(
+              t(`tours.categories.${category}`),
+              tours.map((tour) => item(t(`tours.${tour.id}.title`), `tour-${tour.id}`)),
+            ),
+          ),
+        ),
         item(t('menu.releaseNotes'), 'release-notes'),
         'separator',
         item(t('menu.privacy'), 'privacy'),
@@ -190,6 +200,7 @@ export function useApplicationMenu(view: MenuViewActions) {
     'previous-tab': () => cycleTab(-1),
     'next-tab': () => cycleTab(1),
     ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`tab-${i + 1}`, () => selectTab(i)])),
+    ...Object.fromEntries(tours.map((tour) => [`tour-${tour.id}`, () => startTour(tour.id)])),
     shortcuts: view.openShortcuts,
     about: view.openAbout,
     settings: view.openSettings,

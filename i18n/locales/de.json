@@ -906,5 +906,102 @@
     "expressionWidth": "Ausdrucksbreite",
     "expressionWidthHint": "Zeichen",
     "bangNotEqual": "<> als != schreiben"
+  },
+  "tours": {
+    "menu": "Tutorials",
+    "categories": {
+      "start": "Erste Schritte",
+      "editor": "Abfrage-Editor",
+      "data": "Ergebnisse und Daten"
+    },
+    "introTitle": "Colwerk kennenlernen",
+    "introHint": "Kurze geführte Touren, je etwa eine Minute.",
+    "hideIntro": "Bis zum nächsten Start ausblenden",
+    "start": "Starten",
+    "dontShowAgain": "Nicht mehr anzeigen",
+    "cancelled": "abgebrochen",
+    "cancel": "Tour beenden",
+    "back": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "failed": "Die Tour konnte nicht fortgesetzt werden",
+    "demoTab": "Tutorial",
+    "window": {
+      "title": "Das Colwerk-Fenster",
+      "welcome": {
+        "title": "Willkommen bei Colwerk",
+        "body": "Diese Tour zeigt in unter einer Minute die Bereiche des Fensters. Du kannst sie jederzeit beenden und findest sie unter Hilfe → Tutorials wieder."
+      },
+      "connections": {
+        "title": "Verbindungen",
+        "body": "Hier wählst du eine Verbindung oder legst eine neue an, darunter die Datenbank. ⌘B blendet die Seitenleiste ein und aus."
+      },
+      "schema": {
+        "title": "Schemabaum",
+        "body": "Schemas, Tabellen, Views und ihre Spalten. Ein Doppelklick fragt eine Tabelle ab; ⌘P findet jede Tabelle über ihren Namen."
+      },
+      "tabs": {
+        "title": "Tabs",
+        "body": "Jeder Tab hat seine eigene Datenbanksitzung. ⌘T öffnet einen neuen; die Buttons rechts öffnen Vergleich, Verlauf, Darstellung und die Tastenkürzel."
+      },
+      "toolbar": {
+        "title": "Werkzeugleiste",
+        "body": "Die Verbindung des Tabs, die Buttons Ausführen, Formatieren und Abbrechen, rechts Zeilenlimit und Timeout."
+      },
+      "editor": {
+        "title": "Editor",
+        "body": "Hier schreibst du SQL, mit Vervollständigung für deine Tabellen und Spalten. ⌘Enter führt die Anweisung unter dem Cursor oder die Auswahl aus."
+      },
+      "results": {
+        "title": "Ergebnisse",
+        "body": "Das Ergebnisgrid zeigt, was die Abfrage geliefert hat. Auch Fehler, Ausführungspläne und die Zeilenzahl erscheinen hier."
+      },
+      "help": {
+        "title": "Das war's",
+        "body": "Mit ? siehst du alle Tastenkürzel. Weitere Tutorials findest du unter Hilfe → Tutorials."
+      }
+    },
+    "first-query": {
+      "title": "Die erste Abfrage ausführen",
+      "editor": {
+        "title": "Eine Demo-Datenbank",
+        "body": "Dieser Tab nutzt „Colwerk Demo“, eine DuckDB-Datenbank im Arbeitsspeicher. Die Abfrage erzeugt 200 Beispielbestellungen, du brauchst also keine eigenen Daten."
+      },
+      "run": {
+        "title": "Ausführen",
+        "body": "Ausführen startet die Anweisung unter dem Cursor oder die Auswahl; im Editor geht das auch mit ⌘Enter. Weiter führt die Abfrage für dich aus."
+      },
+      "results": {
+        "title": "Das Ergebnis",
+        "body": "Über dem Grid stehen Zeilenzahl, Dauer und Zeitpunkt. Die Abfrage lief in der eigenen Sitzung dieses Tabs."
+      },
+      "limits": {
+        "title": "Zeilenlimit und Timeout",
+        "body": "Neue Tabs holen höchstens 200 Zeilen und brechen nach 60 Sekunden ab, damit eine große Abfrage den Server nicht belastet. Beides lässt sich je Tab ändern."
+      },
+      "history": {
+        "title": "Verlauf",
+        "body": "Jede ausgeführte Abfrage landet hier. Du kannst darin suchen und eine frühere Abfrage in einem neuen Tab öffnen."
+      }
+    },
+    "result-grid": {
+      "title": "Mit Ergebnissen arbeiten",
+      "grid": {
+        "title": "Das Ergebnisgrid",
+        "body": "Auf der In-Memory-Datenbank lief eine Demo-Abfrage. Ein Doppelklick auf eine Zelle zeigt ihren vollen Wert oder bearbeitet sie, wenn die Tabelle das erlaubt."
+      },
+      "columns": {
+        "title": "Spalten sortieren und anordnen",
+        "body": "Ein Klick auf den Kopf sortiert, am Rand ziehen ändert die Breite. Das Spaltenmenü fixiert, verbirgt oder filtert eine Spalte."
+      },
+      "filter": {
+        "title": "Schnellfilter",
+        "body": "Zeigt nur Zeilen, die den Text in irgendeiner Spalte enthalten. ⌘F im Grid springt hierher."
+      },
+      "export": {
+        "title": "Exportieren und kopieren",
+        "body": "Speichere das Ergebnis als CSV, JSON, Excel, Parquet, Markdown oder INSERT-Anweisungen, oder kopiere es in einem dieser Formate in die Zwischenablage."
+      }
+    }
   }
 }

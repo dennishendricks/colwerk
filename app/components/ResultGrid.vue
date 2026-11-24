@@ -230,7 +230,7 @@ const review = useTemplateRef('review')
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <div class="flex h-full flex-col" data-tour="grid">
     <UTable
       ref="table"
       v-model:sorting="sorting"

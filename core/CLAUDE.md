@@ -46,7 +46,7 @@
 - `history.ts`: exports HistoryEntry, HISTORY_LIMIT, addToHistory
 - `import-sql.ts`: SQL of data imports per target dialect: column types translated from the source, CREATE TABLE, the load strategies and transactions
 - `import.ts`: Data import: one session reads the source and another writes the target
-- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./mssql-address.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./settings.ts, ./values.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
+- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./mssql-address.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./settings.ts, ./tours.ts, ./values.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
 - `keychain.ts`: Stores secrets per data directory in the OS keychain through the platform's command line tools: macOS `security`, Linux `secret-tool` (libsecret), Windows PowerShell with the Credential Manager API
 - `login.ts`: exports withoutLogin, isLoginForbidden
 - `mcp-session.ts`: exports ownMcpSessions, mcpConfig
@@ -67,6 +67,7 @@
 - `store.ts`: exports ConnectionSummary, ConnectionInput, ConnectionStore
 - `table-edit.ts`: exports editDialects, editBlocker, singleTableSource, EditColumn, EditTarget, EditBlock, buildEditTarget, EditValue, Changes, canUpdateToDefault, +3 more
 - `text-file.ts`: exports decodeText
+- `tours.ts`: Progress of the guided tours (app/tours), stored in `tours.json` in the data directory
 - `types.ts`: Runtime-agnostic contracts shared by drivers, the server layer and (type-only) the UI
 - `values.ts`: exports STREAM_BATCH, toHex, sqlTimestampToIso, normalizeValue, cellText, csvDelimiters, csvQuotes, csvEscapes, csvEncodings, CsvOptions, +8 more
 - `workbench.ts`: exports Workbench; **21 KB: grep, then read in parts**
