@@ -57,6 +57,15 @@ body {
   backdrop-filter: blur(12px);
 }
 
+/* shortcuts in macOS or Windows/Linux notation (src/keys.ts), Head.astro marks Apple devices */
+.kbd {
+  white-space: nowrap;
+}
+:root[data-platform='mac'] .kbd .other,
+:root:not([data-platform='mac']) .kbd .mac {
+  display: none;
+}
+
 /* shared by the landing page sections */
 .cw-section {
   padding-block: 4rem;

@@ -21,6 +21,8 @@ file). Use it instead of listing directories or opening files to find your way.
   Pages in `website/src/content/docs/docs/`; a user-facing change updates them (`.github/workflows/docs.yml` fails
   otherwise, unless the PR has the label `no_docs`). Engines, shortcuts (`app/utils/shortcuts.ts`), limits and MCP
   tools reach the reference pages through `website/src/data/reference.json`, written by `bun run docs-data`.
+  Write shortcuts as `:kbd[meta+shift+D]` (key names of `app/utils/shortcuts.ts`), never as `⌘⇧D`: the page shows
+  macOS or Windows/Linux notation (`website/src/keys.ts`); `{other="Ctrl+Y"}` where Windows/Linux differ.
 - `i18n/locales/{en,de}.json`: UI strings, about 45 KB each. Never read them whole: grep for the key, read around the
   line number, and add every key to both files.
 

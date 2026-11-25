@@ -1,9 +1,11 @@
 // Website and documentation of Colwerk (Astro Starlight). Deployed only from the commit of the latest published
 // release (.github/workflows/website.yml), so the docs never describe unreleased changes.
 import { defineConfig, envField } from 'astro/config'
+import { satteri } from '@astrojs/markdown-satteri'
 import starlight from '@astrojs/starlight'
 import starlightLinksValidator from 'starlight-links-validator'
 import { docsSidebar, repo } from './src/config'
+import { kbdPlugin } from './src/keys'
 
 const site = 'https://colwerk.app'
 
@@ -17,6 +19,9 @@ export default defineConfig({
   },
 
   image: { dangerouslyProcessSVG: true },
+
+  // `:kbd[meta+T]` in the docs (src/keys.ts). Starlight adds its own plugins (asides) to this processor.
+  markdown: { processor: satteri({ features: { directive: true }, mdastPlugins: [kbdPlugin] }) },
 
   // Without a fixed tsconfig, Vite looks for one upwards from each file that website/tsconfig.json does not cover and
   // reaches the app's tsconfig.json, whose references into .nuxt/ do not exist in CI. Loading this config has the same

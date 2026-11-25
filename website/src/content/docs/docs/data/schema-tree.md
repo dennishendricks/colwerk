@@ -19,7 +19,7 @@ when you open it, a table's columns when you open the table.
 - **Indexes** of a table with their columns, primary and unique indexes marked.
 - **Functions** and procedures of a schema.
 
-**Reload** in the header clears the cache. ⌘F in the tree searches the objects that are loaded so far and opens the
+**Reload** in the header clears the cache. :kbd[meta+F] in the tree searches the objects that are loaded so far and opens the
 branches with hits.
 
 ## Double-click

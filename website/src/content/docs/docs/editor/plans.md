@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-Press ⌘E in the editor (or **Query → Execution Plan**) to show the estimated plan of the statement under the cursor.
+Press :kbd[meta+E] in the editor (or **Query → Execution Plan**) to show the estimated plan of the statement under the cursor.
 The menu next to **Run** offers **Plan** (estimated) and **Analyze** (actual).
 
 **Analyze** runs the statement to measure it, so it is only offered for read-only statements. Plans work for one

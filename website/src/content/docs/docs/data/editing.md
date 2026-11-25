@@ -25,7 +25,7 @@ cannot be edited.
 ## Changing values
 
 Double-click a cell, or choose **Edit value …** in its context menu. The editor fits the column: a true/false choice
-for booleans, a date picker for dates, a text area for long text and JSON (⌘Enter applies). **NULL** and **DEFAULT**
+for booleans, a date picker for dates, a text area for long text and JSON (:kbd[meta+Enter] applies). **NULL** and **DEFAULT**
 set those values; both are also in the context menu. `DEFAULT` on an existing row works on PostgreSQL, MySQL and SQL
 Server.
 

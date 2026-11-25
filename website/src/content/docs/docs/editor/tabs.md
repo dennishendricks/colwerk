@@ -7,13 +7,13 @@ sidebar:
 
 ## Tabs
 
-⌘T opens a new tab on the connection and database selected in the sidebar. Each tab has its own
+:kbd[meta+T] opens a new tab on the connection and database selected in the sidebar. Each tab has its own
 [session](/docs/editor/transactions/), connection, SQL, row limit, timeout and variables.
 
 - **Rename**: double-click the title, or press F2 while the tab is focused.
-- **Duplicate**: ⌘⇧D copies SQL, limit, timeout and variables into a new tab.
-- **Switch**: ⌘1 to ⌘9, or ⇧⌘[ and ⇧⌘] for the previous and next tab.
-- **Close**: ⌘W. Colwerk asks if the tab contains a query or an open transaction. Right-click a tab to close the
+- **Duplicate**: :kbd[meta+shift+D] copies SQL, limit, timeout and variables into a new tab.
+- **Switch**: :kbd[meta+1] to :kbd[meta+9], or :kbd[shift+meta+\[] and :kbd[shift+meta+\]] for the previous and next tab.
+- **Close**: :kbd[meta+W]. Colwerk asks if the tab contains a query or an open transaction. Right-click a tab to close the
   others, or those to its left or right.
 
 A tab shows a spinner while it runs, a warning icon with an open transaction and the color of its connection.
@@ -29,7 +29,7 @@ or a running query cannot be moved to a new window.
 
 ## Go to table
 
-⌘P (**View → Go to Table …**) searches the tables and views of all schemas of the selected connection; type part of the
+:kbd[meta+P] (**View → Go to Table …**) searches the tables and views of all schemas of the selected connection; type part of the
 schema name too, e.g. `sales.ord`. Enter queries all columns of the selection, like a double-click in the schema tree.
 
 ## Query history
@@ -41,9 +41,9 @@ recent queries of its connection.
 
 ## Files
 
-- **Open** (⌘O): opens a `.sql` file in a new tab, titled with the file name. If it is already open, Colwerk switches to
+- **Open** (:kbd[meta+O]): opens a `.sql` file in a new tab, titled with the file name. If it is already open, Colwerk switches to
   its tab.
-- **Save** (⌘S) writes the tab to its file, or asks for a name. **Save As …** (⌘⇧S) always asks.
+- **Save** (:kbd[meta+S]) writes the tab to its file, or asks for a name. **Save As …** (:kbd[meta+shift+S]) always asks.
 - Double-click a `.sql` file in your file manager to open it in Colwerk.
 
 Dropping files onto the window opens them too: `.sql` and `.sqlplan` files in a tab, DuckDB and SQLite files as a

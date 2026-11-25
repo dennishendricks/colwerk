@@ -36,5 +36,3 @@ Cloud Storage or the web. The [feature matrix](/docs/reference/features/) shows 
 - [AI assistants (MCP)](/docs/mcp/): connect Claude, Codex or another MCP client.
 - [Reference](/docs/reference/shortcuts/): keyboard shortcuts, feature matrix, data directory, security and known
   limitations.
-
-Shortcuts are written for macOS with ⌘; on Windows and Linux use Ctrl instead.
