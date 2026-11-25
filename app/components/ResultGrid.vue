@@ -255,6 +255,8 @@ const review = useTemplateRef('review')
         tbody: '[&>tr:hover>td]:bg-[color-mix(in_oklab,var(--ui-primary)_12%,var(--ui-bg))]',
         th: 'px-2 py-1.5 whitespace-nowrap overflow-hidden bg-elevated',
         td: 'px-2 py-1 whitespace-nowrap truncate',
+        // The empty row spans all columns; centred, it ends up out of view when there are many.
+        empty: 'text-start',
       }"
       @dblclick="onDblclick"
     />
