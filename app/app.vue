@@ -201,7 +201,7 @@ defineMenuHandlers({
 </script>
 
 <template>
-  <UApp :locale="locale === 'de' ? de : en">
+  <UApp :locale="locale === 'de' ? de : en" :toaster="{ expand: false }">
     <div
       v-if="dropActive"
       class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center border-2 border-dashed border-primary bg-default/80 text-lg"
