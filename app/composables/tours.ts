@@ -64,8 +64,8 @@ export function useTours() {
             title: t(`tours.${tour.id}.title`),
             description:
               statusOf(tour.id) === 'cancelled'
-                ? `${t('tours.introHint')} · ${t('tours.cancelled')}`
-                : t('tours.introHint'),
+                ? `${t(`tours.${tour.id}.description`)} · ${t('tours.cancelled')}`
+                : t(`tours.${tour.id}.description`),
             icon: 'i-lucide-graduation-cap',
             duration: 0,
             actions: [
