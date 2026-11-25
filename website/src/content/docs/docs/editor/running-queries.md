@@ -7,13 +7,13 @@ sidebar:
 
 ## What runs
 
-Press ⌘Enter or click **Run**:
+Press :kbd[meta+Enter] or click **Run**:
 
 - With a **selection**, Colwerk runs the selection.
 - Without one, it runs the **statement under the cursor** and selects it, so you see what ran. If the cursor is between
   statements, it takes the one before.
 
-To run a whole script, select all (⌘A) and run. Colwerk splits it into statements the way the engine's own client does:
+To run a whole script, select all (:kbd[meta+A]) and run. Colwerk splits it into statements the way the engine's own client does:
 it knows strings, comments, PostgreSQL dollar quoting, MySQL `DELIMITER`, routine and trigger bodies, and SQL Server
 `GO`. The statements run one after another; the first error stops the script and names the statement.
 
@@ -38,7 +38,7 @@ Both are saved with the tab and copied when you duplicate it.
 
 ## Cancel
 
-Click **Cancel**, choose **Query → Cancel** or press Ctrl+C (on Windows and Linux only when no text is selected).
+Click **Cancel**, choose **Query → Cancel** or press :kbd[ctrl+C] (on Windows and Linux only when no text is selected).
 Every engine supports cancelling. Closing a tab cancels its running statement first.
 
 ## Variables

@@ -8,4 +8,9 @@ const appleTouchIcon = await getImage({ src: appleTouchIconSvg, format: 'png', w
 ---
 
 <Default />
+<!-- Shortcuts in macOS notation on Apple devices (src/keys.ts), before the page renders -->
+<script is:inline>
+  if (/mac|iphone|ipad|ipod/i.test(navigator.userAgentData?.platform ?? navigator.platform))
+    document.documentElement.dataset.platform = 'mac'
+</script>
 <link rel="apple-touch-icon" href={appleTouchIcon.src} />

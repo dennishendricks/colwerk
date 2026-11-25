@@ -23,7 +23,7 @@ result arrives.
 
 ## Filter
 
-**Filter result …** in the status bar (⌘F while the result has focus) keeps the rows that contain the text in any
+**Filter result …** in the status bar (:kbd[meta+F] while the result has focus) keeps the rows that contain the text in any
 visible column, ignoring case.
 
 ## Values

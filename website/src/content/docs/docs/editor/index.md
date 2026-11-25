@@ -10,7 +10,7 @@ automatic indentation.
 
 ## Autocomplete
 
-Suggestions appear while you type; ⌃Space opens them. Colwerk knows:
+Suggestions appear while you type; :kbd[ctrl+Space] opens them. Colwerk knows:
 
 - **tables and columns** of the connection. Columns load shortly after you name a table, for up to 20 tables of the
   query.
@@ -38,7 +38,7 @@ When the database reports an error with a position, Colwerk marks the place in t
 
 ## Formatting
 
-**Format** in the toolbar or ⌘⇧F formats the whole query in the connection's dialect, one clause per line. ⌘Z undoes it.
+**Format** in the toolbar or :kbd[meta+shift+F] formats the whole query in the connection's dialect, one clause per line. :kbd[meta+Z] undoes it.
 
 ### Format settings
 
@@ -69,17 +69,17 @@ placeholder style of the engine (`$1`, `?`, `@p1`, `{p1:String}`), and `UPDATE` 
 
 ## Multiple cursors and selection
 
-| Keys      | Action                       |
-| --------- | ---------------------------- |
-| ⌘⌥↑ / ⌘⌥↓ | Add a cursor above / below   |
-| ⌘D        | Select the next occurrence   |
-| ⌘⇧L       | Select all occurrences       |
-| ⌥ + drag  | Block selection across lines |
-| Esc       | Back to a single cursor      |
+| Keys                                | Action                       |
+| ----------------------------------- | ---------------------------- |
+| :kbd[meta+alt+↑] / :kbd[meta+alt+↓] | Add a cursor above / below   |
+| :kbd[meta+D]                        | Select the next occurrence   |
+| :kbd[meta+shift+L]                  | Select all occurrences       |
+| :kbd[alt+drag]                      | Block selection across lines |
+| Esc                                 | Back to a single cursor      |
 
 ## Search and replace
 
-⌘F opens search and replace with options for case, regular expressions and whole words. F3 or ⌘G jumps to the next
-match (with ⇧ to the previous one), ⌘⌥G goes to a line.
+:kbd[meta+F] opens search and replace with options for case, regular expressions and whole words. F3 or :kbd[meta+G] jumps to the next
+match (with :kbd[shift] to the previous one), :kbd[meta+alt+G] goes to a line.
 
 More editing keys (comment lines, move lines, indent) are in the [shortcut reference](/docs/reference/shortcuts/).

@@ -19,17 +19,17 @@ To open a DuckDB or SQLite file, double-click it or drop it onto the window.
 ## Run a query
 
 1. Select the connection in the sidebar. The schema tree below it shows its schemas and tables.
-2. Press ⌘T for a new tab. It uses the selected connection and database.
-3. Type a query and press ⌘Enter. Colwerk runs the statement under the cursor, or the selection.
+2. Press :kbd[meta+T] for a new tab. It uses the selected connection and database.
+3. Type a query and press :kbd[meta+Enter]. Colwerk runs the statement under the cursor, or the selection.
 
-Double-click a table in the schema tree to query all its columns. ⌘P finds any table or view by name.
+Double-click a table in the schema tree to query all its columns. :kbd[meta+P] finds any table or view by name.
 
 New tabs start with a limit of 200 rows and a timeout of 60 seconds, enough to see your data and too little to strain
 the server. Both can be changed in the toolbar of each tab.
 
 ## The window
 
-- **Sidebar:** the connection list, the database picker and the [schema tree](/docs/data/schema-tree/). ⌘B shows or
+- **Sidebar:** the connection list, the database picker and the [schema tree](/docs/data/schema-tree/). :kbd[meta+B] shows or
   hides it.
 - **Tab bar:** one tab per query, each with its own database session. The buttons on the right open the
   [compare](/docs/data/compare/), the [history](/docs/editor/tabs/#query-history), the appearance switch and the
@@ -57,5 +57,5 @@ Colwerk remembers which tutorials you have completed in `tours.json` in the
 ## Language and appearance
 
 Colwerk is available in English and German. It follows the system language; **View** in the menu switches it. The
-appearance (system, light or dark) is in the same menu and behind the sun/moon button in the tab bar. ⌘+ and ⌘−
-change the font size of editor and grid, ⌘0 resets it.
+appearance (system, light or dark) is in the same menu and behind the sun/moon button in the tab bar. :kbd[meta++] and :kbd[meta+−]
+change the font size of editor and grid, :kbd[meta+0] resets it.
