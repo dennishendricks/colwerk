@@ -923,7 +923,7 @@
     "expressionWidthHint": "Zeichen",
     "bangNotEqual": "<> als != schreiben",
     "masking": "PII-Maskierung",
-    "maskingHint": "Spalten, deren Name auf ein Muster passt, werden in Exporten (wenn „PII maskieren“ gewählt ist) und in den Antworten an KI-Assistenten (MCP) maskiert. Muster sind reguläre Ausdrücke auf den Spaltennamen in Kleinbuchstaben, camelCase als snake_case; eigene Muster werden zuerst geprüft.",
+    "maskingHint": "Spalten, deren Name auf ein Muster passt, werden in Exporten (wenn „PII maskieren“ gewählt ist) und in den Antworten an KI-Assistenten (MCP) maskiert. Muster sind reguläre Ausdrücke auf den Spaltennamen in Kleinbuchstaben, camelCase und andere Trennzeichen als snake_case (E-Mail → e_mail); eigene Muster werden zuerst geprüft.",
     "maskEnabled": "Aktiv",
     "maskMethod": "Maskierung",
     "maskPattern": "Muster",
@@ -941,14 +941,16 @@
       "email": "E-Mail-Adresse",
       "phone": "Telefonnummer",
       "personName": "Vor- und Nachname",
-      "ip": "IP-Adresse",
+      "ip": "IP- und Geräteadressen",
       "address": "Straße und Adresse",
       "postalCode": "Postleitzahl",
       "birthDate": "Geburtsdatum",
       "bankAccount": "Bank-, Karten- und Kreditdaten",
       "nationalId": "Ausweis-, Steuer- und Sozialversicherungsnummern",
       "credentials": "Passwörter, Tokens und Schlüssel",
-      "name": "Spalte „name“"
+      "name": "Spalte „name“",
+      "sensitive": "Geschlecht, Religion, Gesundheit und Herkunft",
+      "location": "Koordinaten (Breite, Länge)"
     }
   },
   "tours": {

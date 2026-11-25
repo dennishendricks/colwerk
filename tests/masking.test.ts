@@ -52,6 +52,46 @@ test('masking: built-in patterns match common PII column names and leave others 
   assertEquals(normalizeName('firstName'), 'first_name')
 })
 
+test('masking: German and abbreviated column names', () => {
+  const rules = defaultMaskRules.map((r) => ({ ...r, enabled: true }))
+  const rule = (name: string) => rules.find((r) => maskMethodOf(name, { rules: [r] }))?.id
+  const expected: Record<string, string> = {
+    Geburtsdatum: 'birthDate',
+    geb_dat: 'birthDate',
+    gebtag: 'birthDate',
+    geb: 'birthDate',
+    bday: 'birthDate',
+    'E-Mail': 'email',
+    mail: 'email',
+    telnr: 'phone',
+    mobilnummer: 'phone',
+    fon: 'phone',
+    familienname: 'personName',
+    kontoinhaber: 'personName',
+    adresszusatz: 'address',
+    hausnr: 'address',
+    postleitzahl: 'postalCode',
+    blz: 'bankAccount',
+    cvv: 'bankAccount',
+    steuernummer: 'nationalId',
+    versichertennummer: 'nationalId',
+    kfz_kennzeichen: 'nationalId',
+    geschlecht: 'sensitive',
+    konfession: 'sensitive',
+    staatsangehörigkeit: 'sensitive',
+    kennwort: 'credentials',
+    pin: 'credentials',
+    mac_address: 'ip',
+    latitude: 'location',
+  }
+  for (const [name, id] of Object.entries(expected)) assertEquals(rule(name), id, name)
+  for (const name of ['gebuehr', 'mail_sent', 'kennzeichen', 'spin', 'structure', 'lateral', 'location_id', 'city']) {
+    assertEquals(rule(name), undefined, name)
+  }
+  // Off by default.
+  assertEquals(maskMethodOf('latitude', { rules: defaultMaskRules }), undefined)
+})
+
 test('masking: column lists override the patterns; qualified exemptions need a known source', () => {
   assertEquals(maskMethodOf('notes', options({ columns: ['notes'] })), 'redact')
   assertEquals(maskMethodOf('notes', options({ columns: ['crm.customers.notes'] })), 'redact')
@@ -78,7 +118,7 @@ test('masking: parseMaskRules keeps built-in patterns, stored choices and valid 
     { id: 'c3', pattern: 'x', method: 'scramble', enabled: true },
   ])
   const email = rules.find((r) => r.id === 'email')!
-  assertEquals([email.pattern, email.method, email.enabled], ['e_?mail', 'hash', false])
+  assertEquals([email.pattern, email.method, email.enabled], ['e_?mail|^mail$', 'hash', false])
   assertEquals(rules.length, defaultMaskRules.length + 1)
   assertEquals(rules.at(-1), { id: 'c1', pattern: 'kunden_?nr', method: 'hash', enabled: true })
   // Custom rules are checked before built-in ones.

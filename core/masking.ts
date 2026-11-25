@@ -25,29 +25,68 @@ const builtin = (id: string, pattern: string, method: MaskMethod, enabled = true
 })
 
 export const defaultMaskRules: MaskRule[] = [
-  builtin('email', 'e_?mail', 'partial'),
-  builtin('phone', 'phone|telefon|(^|_)(tel|mobil|mobile|handy|fax)_?[0-9]*(_|$)', 'partial'),
-  builtin('personName', '(first|last|middle|full|sur|given|family|maiden|vor|nach|geburts)_?name', 'redact'),
-  builtin('ip', '(^|_)ip(_|$)|ip_?addr', 'hash'),
-  builtin('address', 'street|strasse|straße|address|adresse|(^|_)addr(_|$)|house_?(no|number)|hausnummer', 'redact'),
-  builtin('postalCode', '(^|_)(zip|zip_?code|postal_?code|post_?code|plz)(_|$)', 'redact'),
-  builtin('birthDate', 'birth|(^|_)dob(_|$)|geburt', 'redact'),
+  builtin('email', 'e_?mail|^mail$', 'partial'),
+  builtin(
+    'phone',
+    'phone|telefon|telefax|rufnummer|festnetz|(^|_)(tel|mobil|mobile|handy|fax|fon)_?(nr|nummer|no|number)?_?[0-9]*(_|$)',
+    'partial',
+  ),
+  builtin(
+    'personName',
+    '(first|last|middle|full|sur|given|family|maiden|vor|nach|geburts|familien|ruf|zu|user|login|display|nick)_?name' +
+      '|kontoinhaber|account_?holder|ansprechpartner|contact_?person',
+    'redact',
+  ),
+  builtin('ip', '(^|_)ip(_|$)|ip_?addr|(^|_)mac(_|$)|mac_?addr|device_?id|(^|_)imei', 'hash'),
+  builtin(
+    'address',
+    'street|strasse|straße|(^|_)str(_|$)|ad?dress|anschrift|wohnort|(^|_)addr(_|$)|house_?(no|number)|hausnummer' +
+      '|hausnr|(^|_)hnr(_|$)',
+    'redact',
+  ),
+  builtin('postalCode', '(^|_)(zip|zip_?code|postal_?code|post_?code|plz)(_|$)|postleitzahl', 'redact'),
+  builtin(
+    'birthDate',
+    'birth|(^|_)b_?day(_|$)|(^|_)dob(_|$)|geburt|geboren|(^|_)geb_?(dat|tag)|(^|_)geb(_|$)',
+    'redact',
+  ),
   builtin(
     'bankAccount',
-    'iban|(^|_)bic(_|$)|account_?(no|number)|konto_?(nr|nummer)|card_?(no|num|number)|(^|_)(kred|credit)',
+    'iban|(^|_)bic(_|$)|swift|bankverbindung|(^|_)blz(_|$)|bankleitzahl|account_?(no|number)|konto_?(nr|nummer)' +
+      '|card_?(no|num|number)|(^|_)(cvv|cvc)(_|$)|sort_?code|routing_?(no|number)|(^|_)(kred|credit)',
     'partial',
   ),
   builtin(
     'nationalId',
-    'ssn|social_?security|tax_?id|steuer_?id|passport|ausweis|national_?id|sozialversicherung',
+    'ssn|social_?security|tax_?id|steuer_?(id|nr|nummer)|passport|reisepass|ausweis|national_?id' +
+      '|sozialversicherung|(^|_)sv_?(nr|nummer)|(^|_)svnr|versicherten_?(nr|nummer)|(^|_)kv_?nr' +
+      '|identifikationsnummer|(^|_)idnr(_|$)|fuehrerschein|führerschein|driver_?s?_?licen|license_?plate|kfz_?kennzeichen',
     'redact',
   ),
-  builtin('credentials', 'password|passwd|(^|_)pwd(_|$)|secret|(^|_)token(_|$)|api_?key|private_?key', 'null'),
+  builtin(
+    'sensitive',
+    'gender|geschlecht|religion|religious|konfession|ethnic|ethnie|nationality|nationalit|staatsangeh' +
+      '|gesundheit|krankheit|krankenkasse|diagnose|diagnosis|(^|_)icd(_|$)|disability|behinderung|sexual|sexuell',
+    'redact',
+  ),
+  builtin(
+    'credentials',
+    'password|passwd|passwort|kennwort|(^|_)pwd(_|$)|(^|_)pin(_|$)|secret|(^|_)token(_|$)|api_?key|private_?key',
+    'null',
+  ),
+  builtin('location', 'latitude|longitude|(^|_)(lat|lng|lon)(_|$)|geo_?loc|koordinate', 'redact', false),
   builtin('name', '^name$', 'redact', false),
 ]
 
-/** Column name as the patterns see it: camelCase split by `_`, lower case (`firstName` → `first_name`). */
-export const normalizeName = (name: string) => name.replace(/(\p{Ll})(\p{Lu})/gu, '$1_$2').toLowerCase()
+/**
+ * Column name as the patterns see it: camelCase split by `_`, other characters than letters and digits as `_`, lower
+ * case (`firstName` → `first_name`, `E-Mail` → `e_mail`).
+ */
+export const normalizeName = (name: string) =>
+  name
+    .replace(/(\p{Ll})(\p{Lu})/gu, '$1_$2')
+    .replace(/[^\p{L}\p{N}]+/gu, '_')
+    .toLowerCase()
 
 export function isValidPattern(pattern: string): boolean {
   if (!pattern.trim()) return false

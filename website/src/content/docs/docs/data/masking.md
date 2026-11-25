@@ -16,24 +16,27 @@ grid writes the values you type, never a masked value.
 ## Patterns
 
 Which columns are masked depends on their name. Open **Settings → PII masking** to see the patterns. Each pattern is a
-regular expression on the column name in lower case, with camelCase written as snake_case (`firstName` is tested as
-`first_name`). The first matching pattern decides the masking; your own patterns are checked before the built-in ones.
+regular expression on the column name in lower case, with camelCase and other separators written as snake_case
+(`firstName` is tested as `first_name`, `E-Mail` as `e_mail`). The first matching pattern decides the masking; your own patterns are checked before the built-in ones.
 
-| Built-in pattern                    | Examples                                        | Masking |
-| ----------------------------------- | ----------------------------------------------- | ------- |
-| Email address                       | `email`, `e_mail`, `customerEmail`              | Partly  |
-| Phone number                        | `phone`, `telefon`, `mobil_1`, `fax1`           | Partly  |
-| First and last name                 | `first_name`, `surname`, `nachname`             | Replace |
-| IP address                          | `ip`, `ip_address`                              | Hash    |
-| Street and address                  | `street`, `strasse`, `address`                  | Replace |
-| Postal code                         | `zip`, `postal_code`, `plz`                     | Replace |
-| Date of birth                       | `birth_date`, `dob`, `geburtsdatum`             | Replace |
-| Bank, card and credit data          | `iban`, `card_number`, `kredit`, `credit_limit` | Partly  |
-| ID, tax and social security numbers | `ssn`, `tax_id`, `passport`, `ausweis_nr`       | Replace |
-| Passwords, tokens and keys          | `password`, `api_key`, `token`                  | Empty   |
-| Column `name` (off by default)      | `name`                                          | Replace |
+| Built-in pattern                    | Examples                                                                                | Masking |
+| ----------------------------------- | --------------------------------------------------------------------------------------- | ------- |
+| Email address                       | `email`, `E-Mail`, `customerEmail`, `mail`                                              | Partly  |
+| Phone number                        | `phone`, `telefon`, `telnr`, `mobilnummer`, `mobil_1`, `fax1`                           | Partly  |
+| First and last name                 | `first_name`, `nachname`, `familienname`, `username`, `kontoinhaber`                    | Replace |
+| IP and device addresses             | `ip`, `ip_address`, `mac_address`, `device_id`, `imei`                                  | Hash    |
+| Street and address                  | `street`, `strasse`, `address`, `adresszusatz`, `hausnr`                                | Replace |
+| Postal code                         | `zip`, `postal_code`, `plz`, `postleitzahl`                                             | Replace |
+| Date of birth                       | `birth_date`, `dob`, `geburtsdatum`, `geb_dat`, `gebtag`                                | Replace |
+| Bank, card and credit data          | `iban`, `blz`, `card_number`, `cvv`, `kredit`, `credit_limit`                           | Partly  |
+| ID, tax and social security numbers | `ssn`, `steuernummer`, `svnr`, `versichertennummer`, `fuehrerschein`, `kfz_kennzeichen` | Replace |
+| Gender, religion, health and origin | `geschlecht`, `konfession`, `staatsangehoerigkeit`, `krankenkasse`, `diagnose`          | Replace |
+| Passwords, tokens and keys          | `password`, `kennwort`, `pin`, `api_key`, `token`                                       | Empty   |
+| Coordinates (off by default)        | `latitude`, `lng`, `geo_location`                                                       | Replace |
+| Column `name` (off by default)      | `name`                                                                                  | Replace |
 
-You can switch each pattern off or change its masking. Below the list, add patterns of your own, for example
+Coordinates and the column `name` are off by default because they often describe things rather than people, such as
+the location of a store or the name of a product. You can switch each pattern on or off or change its masking. Below the list, add patterns of your own, for example
 `kunden_?nr` for customer numbers. The patterns are kept in `settings.json` in the
 [data directory](/docs/reference/data-directory/).
 

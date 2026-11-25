@@ -923,7 +923,7 @@
     "expressionWidthHint": "Characters",
     "bangNotEqual": "Write <> as !=",
     "masking": "PII masking",
-    "maskingHint": "Columns whose name matches a pattern are masked in exports (when \"Mask PII\" is chosen) and in the answers to AI assistants (MCP). Patterns are regular expressions on the column name in lower case, with camelCase written as snake_case; your own patterns are checked first.",
+    "maskingHint": "Columns whose name matches a pattern are masked in exports (when \"Mask PII\" is chosen) and in the answers to AI assistants (MCP). Patterns are regular expressions on the column name in lower case, with camelCase and other separators written as snake_case (E-Mail → e_mail); your own patterns are checked first.",
     "maskEnabled": "Active",
     "maskMethod": "Masking",
     "maskPattern": "Pattern",
@@ -941,14 +941,16 @@
       "email": "Email address",
       "phone": "Phone number",
       "personName": "First and last name",
-      "ip": "IP address",
+      "ip": "IP and device addresses",
       "address": "Street and address",
       "postalCode": "Postal code",
       "birthDate": "Date of birth",
       "bankAccount": "Bank, card and credit data",
       "nationalId": "ID, tax and social security numbers",
       "credentials": "Passwords, tokens and keys",
-      "name": "Column \"name\""
+      "name": "Column \"name\"",
+      "sensitive": "Gender, religion, health and origin",
+      "location": "Coordinates (latitude, longitude)"
     }
   },
   "tours": {
