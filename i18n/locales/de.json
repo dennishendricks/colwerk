@@ -916,9 +916,6 @@
       "connections": "Verbindungen",
       "mcp": "KI-Assistenten"
     },
-    "introTitle": "Colwerk kennenlernen",
-    "introHint": "Kurze geführte Touren, je etwa eine Minute.",
-    "hideIntro": "Bis zum nächsten Start ausblenden",
     "start": "Starten",
     "dontShowAgain": "Nicht mehr anzeigen",
     "cancelled": "abgebrochen",
@@ -930,6 +927,7 @@
     "demoTab": "Tutorial",
     "window": {
       "title": "Das Colwerk-Fenster",
+      "description": "Die Bereiche des Fensters im Überblick",
       "welcome": {
         "title": "Willkommen bei Colwerk",
         "body": "Diese Tour zeigt in unter einer Minute die Bereiche des Fensters. Du kannst sie jederzeit beenden und findest sie unter Hilfe → Tutorials wieder."
@@ -965,6 +963,7 @@
     },
     "first-query": {
       "title": "Die erste Abfrage ausführen",
+      "description": "Eine Abfrage auf der Demo-Datenbank schreiben und ausführen",
       "editor": {
         "title": "Eine Demo-Datenbank",
         "body": "Dieser Tab nutzt „Colwerk Demo“, eine DuckDB-Datenbank im Arbeitsspeicher mit Beispielkunden, -produkten und -bestellungen. Du brauchst also keine eigenen Daten."
@@ -988,6 +987,7 @@
     },
     "result-grid": {
       "title": "Mit Ergebnissen arbeiten",
+      "description": "Ergebnisse sortieren, filtern und exportieren",
       "grid": {
         "title": "Das Ergebnisgrid",
         "body": "Auf der In-Memory-Datenbank lief eine Demo-Abfrage. Ein Doppelklick auf eine Zelle zeigt ihren vollen Wert oder bearbeitet sie, wenn die Tabelle das erlaubt."
@@ -1007,6 +1007,7 @@
     },
     "new-connection": {
       "title": "Eigene Datenbank verbinden",
+      "description": "Die eigene Datenbank verbinden",
       "list": {
         "title": "Deine Verbindungen",
         "body": "Öffne die Verbindungsliste und klicke auf Neu, oder nutze Datei → Neue Verbindung …. Auch die Demo-Verbindungen der Tutorials stehen hier; lösche sie, wenn du sie nicht mehr brauchst."
@@ -1034,6 +1035,7 @@
     },
     "schema-tree": {
       "title": "Tabellen im Schemabaum finden",
+      "description": "Tabellen finden und SQL daraus erzeugen",
       "tree": {
         "title": "Der Schemabaum",
         "body": "Schemas, Tabellen und Views der oben gewählten Verbindung, hier der Demo-Datenbank."
@@ -1061,6 +1063,7 @@
     },
     "guard-rails": {
       "title": "Sicher auf Produktion arbeiten",
+      "description": "Wie Colwerk Produktivdatenbanken schützt",
       "color": {
         "title": "Eine Produktionsverbindung",
         "body": "„Colwerk Demo (Production)“ ist eine zweite Demo-Verbindung mit aktivierten Schutzfunktionen. Ihre Farbe markiert Werkzeugleiste, Tabs und Verbindungsliste, damit du immer siehst, wo du arbeitest."
@@ -1084,6 +1087,7 @@
     },
     "edit-rows": {
       "title": "Zeilen im Grid bearbeiten",
+      "description": "Zeilen im Grid ändern, hinzufügen und löschen",
       "editable": {
         "title": "Ein bearbeitbares Ergebnis",
         "body": "Diese Abfrage liest eine einzelne Tabelle mit Primärschlüssel, deshalb kann das Grid ihre Zeilen ändern. Geschrieben wird erst beim Speichern."
@@ -1107,6 +1111,7 @@
     },
     "transactions": {
       "title": "Transaktionen und Sitzungen",
+      "description": "Eine Sitzung pro Tab und ihre Transaktionen",
       "session": {
         "title": "Eine Sitzung pro Tab",
         "body": "Jeder Tab hat seine eigene Datenbanksitzung. Dieses Skript startet eine Transaktion und ändert eine Zeile; Weiter führt es aus."
@@ -1130,6 +1135,7 @@
     },
     "editor-power": {
       "title": "Schneller SQL schreiben",
+      "description": "Vervollständigung, Join-Vorschläge, Lint und Formatierung",
       "complete": {
         "title": "Vervollständigung",
         "body": "Tippe oder drücke ⌃Leertaste: Der Editor schlägt Tabellen, Spalten und Funktionen vor. Nach join bietet er die verknüpfte Tabelle samt ON-Bedingung aus dem Fremdschlüssel an."
@@ -1149,6 +1155,7 @@
     },
     "results-advanced": {
       "title": "Skripte, Ergebnisse und Pins",
+      "description": "Skripte mit mehreren Ergebnissen, anheften und vergleichen",
       "script": {
         "title": "Ein Skript",
         "body": "Dieses Skript hat zwei Anweisungen. Ausführen startet die unter dem Cursor oder die Auswahl; Weiter führt beide aus."
@@ -1168,6 +1175,7 @@
     },
     "query-files": {
       "title": "Dateien mit SQL abfragen",
+      "description": "CSV-, Parquet-, JSON- und Excel-Dateien mit SQL abfragen",
       "drop": {
         "title": "Dateien ohne Datenbank",
         "body": "Zieh CSV-, TSV-, Parquet-, JSON- oder Excel-Dateien aufs Fenster: Colwerk fragt sie mit DuckDB ab, eine eigene Datenbank brauchst du nicht."
@@ -1187,6 +1195,7 @@
     },
     "variables": {
       "title": "Abfragen mit Variablen",
+      "description": "Wiederverwendbare Abfragen mit Variablen",
       "syntax": {
         "title": "Variablen",
         "body": "{'${city}'} ist eine Variable: Colwerk fragt bei jeder Ausführung nach ihrem Wert. Weiter führt die Abfrage aus."
@@ -1202,6 +1211,7 @@
     },
     "tabs-files": {
       "title": "Tabs, Dateien und Fenster",
+      "description": "Tabs, Abfragedateien und Fenster",
       "rename": {
         "title": "Umbenennen",
         "body": "Doppelklick auf den Titel eines Tabs, oder F2 auf dem Tab, benennt ihn um."
@@ -1225,6 +1235,7 @@
     },
     "mcp-setup": {
       "title": "KI-Assistenten anbinden",
+      "description": "Einen KI-Assistenten über MCP anbinden",
       "intro": {
         "title": "KI-Assistenten und MCP",
         "body": "Über MCP lesen Assistenten wie Claude die Struktur deiner Verbindungen und führen nur lesende Abfragen darauf aus. Colwerk muss dafür laufen."
@@ -1244,6 +1255,7 @@
     },
     "execution-plans": {
       "title": "Ausführungspläne lesen",
+      "description": "Sehen, wie die Datenbank eine Abfrage ausführt",
       "explain": {
         "title": "Plan anzeigen",
         "body": "⌘E oder Plan im Menü neben Ausführen zeigt, wie die Datenbank die Anweisung unter dem Cursor ausführt. Analyze führt sie zusätzlich aus und misst jeden Schritt."
@@ -1263,6 +1275,7 @@
     },
     "import-data": {
       "title": "Daten in eine Tabelle importieren",
+      "description": "Daten mit dem Import-Assistenten in eine Tabelle laden",
       "open": {
         "title": "Import starten",
         "body": "Dieser Button, Datei → Daten importieren … oder das Kontextmenü einer Tabelle öffnen den Import-Assistenten."
@@ -1278,6 +1291,7 @@
     },
     "er-diagram": {
       "title": "Beziehungen sehen",
+      "description": "Tabellen und ihre Beziehungen als Diagramm",
       "open": {
         "title": "Aus dem Schemabaum",
         "body": "Rechtsklick auf ein Schema oder eine Tabelle, dann ER-Diagramm."
@@ -1293,6 +1307,7 @@
     },
     "data-compare": {
       "title": "Schemas und Daten vergleichen",
+      "description": "Schemas und Daten zweier Verbindungen vergleichen",
       "open": {
         "title": "Vergleichen",
         "body": "Dieser Button vergleicht zwei Verbindungen oder zwei Tabellen."

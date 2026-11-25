@@ -916,9 +916,6 @@
       "connections": "Connections",
       "mcp": "AI Assistants"
     },
-    "introTitle": "Get to know Colwerk",
-    "introHint": "Short guided tours, a minute each.",
-    "hideIntro": "Hide until next start",
     "start": "Start",
     "dontShowAgain": "Don't show again",
     "cancelled": "cancelled",
@@ -930,6 +927,7 @@
     "demoTab": "Tutorial",
     "window": {
       "title": "The Colwerk window",
+      "description": "The parts of the window at a glance",
       "welcome": {
         "title": "Welcome to Colwerk",
         "body": "This tour shows the parts of the window in under a minute. You can end it at any time and find it again under Help → Tutorials."
@@ -965,6 +963,7 @@
     },
     "first-query": {
       "title": "Run your first query",
+      "description": "Write and run a query on the demo database",
       "editor": {
         "title": "A demo database",
         "body": "This tab uses \"Colwerk Demo\", a DuckDB database in memory with sample customers, products and orders, so you can try everything without your own data."
@@ -988,6 +987,7 @@
     },
     "result-grid": {
       "title": "Work with results",
+      "description": "Sort, filter and export results",
       "grid": {
         "title": "The result grid",
         "body": "A demo query has run on the in-memory database. Double-click a cell to see its full value, or to edit it when the table allows."
@@ -1007,6 +1007,7 @@
     },
     "new-connection": {
       "title": "Connect your own database",
+      "description": "Connect your own database",
       "list": {
         "title": "Your connections",
         "body": "Open the connection list and click New, or use File → New Connection …. The demo connections of the tutorials are listed here too; delete them once you no longer need them."
@@ -1034,6 +1035,7 @@
     },
     "schema-tree": {
       "title": "Find tables in the schema tree",
+      "description": "Find tables and generate SQL from them",
       "tree": {
         "title": "The schema tree",
         "body": "The schemas, tables and views of the connection selected above, here the demo database."
@@ -1061,6 +1063,7 @@
     },
     "guard-rails": {
       "title": "Work safely on production",
+      "description": "How Colwerk protects production databases",
       "color": {
         "title": "A production connection",
         "body": "\"Colwerk Demo (Production)\" is a second demo connection with guard rails turned on. Its color marks the toolbar, its tabs and the connection list, so you always see where you are."
@@ -1084,6 +1087,7 @@
     },
     "edit-rows": {
       "title": "Edit rows in the grid",
+      "description": "Change, add and delete rows in the grid",
       "editable": {
         "title": "An editable result",
         "body": "This query reads a single table with a primary key, so the grid can change its rows. Nothing is written until you save."
@@ -1107,6 +1111,7 @@
     },
     "transactions": {
       "title": "Transactions and sessions",
+      "description": "One session per tab and its transactions",
       "session": {
         "title": "One session per tab",
         "body": "Each tab has a database session of its own. This script starts a transaction and changes a row; Next runs it."
@@ -1130,6 +1135,7 @@
     },
     "editor-power": {
       "title": "Write SQL faster",
+      "description": "Completion, join suggestions, lint and formatting",
       "complete": {
         "title": "Completion",
         "body": "Type, or press ⌃Space: the editor suggests tables, columns and functions. After join it proposes the related table with its ON condition from the foreign key."
@@ -1149,6 +1155,7 @@
     },
     "results-advanced": {
       "title": "Scripts, results and pins",
+      "description": "Scripts with several results, pinning and comparing",
       "script": {
         "title": "A script",
         "body": "This script has two statements. Run executes the one under the cursor or the selection; Next runs both."
@@ -1168,6 +1175,7 @@
     },
     "query-files": {
       "title": "Query files with SQL",
+      "description": "Query CSV, Parquet, JSON and Excel files with SQL",
       "drop": {
         "title": "Files without a database",
         "body": "Drop CSV, TSV, Parquet, JSON or Excel files onto the window: Colwerk queries them with DuckDB, no database of your own needed."
@@ -1187,6 +1195,7 @@
     },
     "variables": {
       "title": "Queries with variables",
+      "description": "Reusable queries with variables",
       "syntax": {
         "title": "Variables",
         "body": "{'${city}'} is a variable: Colwerk asks for its value each time the query runs. Next runs it."
@@ -1202,6 +1211,7 @@
     },
     "tabs-files": {
       "title": "Tabs, files and windows",
+      "description": "Tabs, query files and windows",
       "rename": {
         "title": "Rename",
         "body": "Double-click a tab's title, or press F2 on the tab, to rename it."
@@ -1225,6 +1235,7 @@
     },
     "mcp-setup": {
       "title": "Connect an AI assistant",
+      "description": "Connect an AI assistant through MCP",
       "intro": {
         "title": "AI assistants and MCP",
         "body": "Through MCP, assistants such as Claude read the structure of your connections and run read-only queries on them. Colwerk has to be running."
@@ -1244,6 +1255,7 @@
     },
     "execution-plans": {
       "title": "Read execution plans",
+      "description": "See how the database runs a query",
       "explain": {
         "title": "Show the plan",
         "body": "⌘E or Plan in the menu next to Run shows how the database executes the statement under the cursor. Analyze also runs it and measures each step."
@@ -1263,6 +1275,7 @@
     },
     "import-data": {
       "title": "Import data into a table",
+      "description": "Load data into a table with the import wizard",
       "open": {
         "title": "Start an import",
         "body": "This button, File → Import Data … or the context menu of a table open the import wizard."
@@ -1278,6 +1291,7 @@
     },
     "er-diagram": {
       "title": "See relationships",
+      "description": "Tables and their relations as a diagram",
       "open": {
         "title": "From the schema tree",
         "body": "Right-click a schema or a table and choose ER diagram."
@@ -1293,6 +1307,7 @@
     },
     "data-compare": {
       "title": "Compare schemas and data",
+      "description": "Compare schemas and data of two connections",
       "open": {
         "title": "Compare",
         "body": "This button compares two connections, or two tables."

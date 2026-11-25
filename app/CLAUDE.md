@@ -53,7 +53,6 @@
 - `components/StoredPasswordField.vue`
 - `components/TabBarActions.vue`
 - `components/TourHost.vue`
-- `components/TourIntro.vue`
 - `components/TourSpotlight.vue`
 - `components/UnlockModal.vue`
 - `components/VariablesModal.vue`

@@ -27,7 +27,8 @@ const {
 } = useTabs()
 const { t, locale } = useI18n()
 const { openPaths } = useDataFiles()
-const { running: runningTour, introShown } = useTours()
+const { running: runningTour, offerTours } = useTours()
+if (windowLabel === 'main') offerTours()
 
 const loadError = ref<string>()
 const modalOpen = ref(false)
@@ -200,7 +201,7 @@ defineMenuHandlers({
 </script>
 
 <template>
-  <UApp :locale="locale === 'de' ? de : en">
+  <UApp :locale="locale === 'de' ? de : en" :toaster="{ expand: false }">
     <div
       v-if="dropActive"
       class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center border-2 border-dashed border-primary bg-default/80 text-lg"
@@ -372,7 +373,6 @@ defineMenuHandlers({
     <LazyDataImportModal />
     <CloseTabsModal />
     <LazyTourHost v-if="runningTour" :key="runningTour.id" :definition="runningTour" />
-    <LazyTourIntro v-if="windowLabel === 'main' && introShown" />
     <UModal
       v-model:open="confirmingDisconnect"
       :title="t('app.disconnectTitle')"
