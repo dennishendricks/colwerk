@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
     columns?: ResultColumn[]
     rows?: CellValue[][]
     insert?: { table: string[]; batchSize: number }
+    /** Mask PII columns (core/masking.ts); the connection's column lists apply if `connectionId` is given. */
+    mask?: boolean
   }>(event)
   const format = parseFormat(body.format)
   const { path } = body
@@ -30,9 +32,13 @@ export default defineEventHandler(async (event) => {
   }
   // CSV as chosen in the settings dialog.
   const csv = format === 'csv' ? (await getSettings()).csv : undefined
+  const mask =
+    body.mask === true
+      ? await maskOptions(typeof connectionId === 'string' ? await store.get(connectionId) : undefined)
+      : undefined
   if (Array.isArray(body.rows) && Array.isArray(body.columns)) {
     const { columns, rows } = body
-    await dbCall(() =>
+    const masked = await dbCall(() =>
       writeExport(
         tabId,
         format,
@@ -43,9 +49,10 @@ export default defineEventHandler(async (event) => {
         },
         options,
         csv,
+        mask,
       ),
     )
-    return { ok: true }
+    return { ok: true, masked }
   }
   if (typeof connectionId !== 'string' || typeof sql !== 'string' || !sql.trim()) {
     throw createError({ statusCode: 400, message: 'connectionId and sql, or columns and rows are required' })
@@ -58,7 +65,7 @@ export default defineEventHandler(async (event) => {
     })
   }
   const database = parseDatabase(body.database)
-  await dbCall(() =>
+  const masked = await dbCall(() =>
     writeExport(
       tabId,
       format,
@@ -66,7 +73,8 @@ export default defineEventHandler(async (event) => {
       (sink) => workbench.stream(tabId, connectionId, sql, sink, database),
       options,
       csv,
+      mask,
     ),
   )
-  return { ok: true }
+  return { ok: true, masked }
 })

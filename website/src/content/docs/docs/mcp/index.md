@@ -96,6 +96,12 @@ Every query of an assistant goes through three layers:
 Assistants never start a Microsoft Entra sign-in; they can only use a sign-in that is still valid. A connection you
 disconnected stays disconnected for them too.
 
+### Personal data
+
+By default Colwerk masks columns with personal data, such as email addresses or names, in the answers to assistants,
+and refuses queries that name them. Patterns and exceptions are described in
+[Mask personal data](/docs/data/masking/#ai-assistants).
+
 ### A login of its own
 
 For the strongest protection, give MCP its own database login with read permissions only. In the connection dialog,

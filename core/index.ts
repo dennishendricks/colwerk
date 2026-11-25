@@ -23,6 +23,19 @@ export {
   sqlIndents,
   sqlLogicalNewlines,
 } from './settings.ts'
+export {
+  createMasker,
+  defaultMaskRules,
+  isValidPattern,
+  type MaskMethod,
+  maskMethodOf,
+  maskMethods,
+  type MaskOptions,
+  type MaskRule,
+  maskingSink,
+  maskViolation,
+  parseColumnList,
+} from './masking.ts'
 export { DEMO_SETUP_SQL, demoConnection, type DemoVariant, demoVariants } from './demo.ts'
 export { parseTourStates, type TourStates, type TourStatus, tourStatuses, withTourStatus } from './tours.ts'
 export { csvDelimiters, csvEncodings, csvEscapes, type CsvOptions, csvQuotes, defaultCsvOptions } from './values.ts'

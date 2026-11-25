@@ -1,4 +1,5 @@
 // Settings the user chooses once (settings dialog), stored in `settings.json` in the data directory
+import { type MaskRule, parseMaskRules } from './masking.ts'
 import { csvDelimiters, csvEncodings, csvEscapes, type CsvOptions, csvQuotes, defaultCsvOptions } from './values.ts'
 
 export const sqlCases = ['preserve', 'upper', 'lower'] as const
@@ -37,9 +38,15 @@ export const defaultSqlFormatOptions: SqlFormatOptions = {
 export interface Settings {
   csv: CsvOptions
   sqlFormat: SqlFormatOptions
+  /** PII masking of exports and MCP answers (core/masking.ts). */
+  masking: { rules: readonly MaskRule[] }
 }
 
-export const defaultSettings: Settings = { csv: defaultCsvOptions, sqlFormat: defaultSqlFormatOptions }
+export const defaultSettings: Settings = {
+  csv: defaultCsvOptions,
+  sqlFormat: defaultSqlFormatOptions,
+  masking: { rules: parseMaskRules(undefined) },
+}
 
 const pick = <T>(allowed: readonly T[], value: unknown, fallback: T): T =>
   allowed.includes(value as T) ? (value as T) : fallback
@@ -77,5 +84,6 @@ export function parseSettings(value: unknown): Settings {
       commas: pick(sqlCommas, sql.commas, s.commas),
       bangNotEqual: typeof sql.bangNotEqual === 'boolean' ? sql.bangNotEqual : s.bangNotEqual,
     },
+    masking: { rules: parseMaskRules(section(value, 'masking').rules) },
   }
 }

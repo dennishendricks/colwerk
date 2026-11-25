@@ -55,6 +55,9 @@ export function connectionFormValues(c?: ConnectionSummary): Partial<ConnectionI
     mcpPassword: '',
     mcpExternalAccess: c?.mcpExternalAccess ?? false,
     requireWhere: c?.requireWhere,
+    maskMcp: c?.maskMcp,
+    maskColumns: [...(c?.maskColumns ?? [])],
+    unmaskColumns: [...(c?.unmaskColumns ?? [])],
   }
 }
 
@@ -88,6 +91,9 @@ export function usesAdvancedOptions(c?: ConnectionSummary): boolean {
       c.confirmWrites ||
       c.requireWhere !== undefined ||
       c.checkPlan !== undefined ||
-      c.scanRowThreshold !== undefined)
+      c.scanRowThreshold !== undefined ||
+      c.maskMcp === false ||
+      c.maskColumns?.length ||
+      c.unmaskColumns?.length)
   )
 }

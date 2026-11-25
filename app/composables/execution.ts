@@ -189,7 +189,8 @@ export function useExecution() {
     full: boolean,
     pin?: PinnedResult,
     insert?: { table: string[]; batchSize: number },
-  ): Promise<string | undefined> {
+    mask = false,
+  ): Promise<{ path: string; masked: string[] } | undefined> {
     const shown = pin?.set ?? tab.result?.resultSets[tab.resultIndex]
     const source = pin?.source ?? tab.source
     tab.exporting = 'running'
@@ -204,13 +205,14 @@ export function useExecution() {
         path,
         connectionId: source?.connectionId,
         insert: format === 'insert' ? insert : undefined,
+        mask,
       }
       const body =
         full && source && statement
           ? { ...common, database: source.database, sql: source.sql.slice(statement.from, statement.to) }
           : { ...common, columns: shown?.columns, rows: shown?.rows }
-      await api(`/api/tabs/${tab.id}/export`, { method: 'POST', body })
-      return path
+      const { masked } = await api<{ masked: string[] }>(`/api/tabs/${tab.id}/export`, { method: 'POST', body })
+      return { path, masked }
     } catch (e) {
       if ((tab.exporting as QueryTab['exporting']) === 'cancelled') return undefined
       throw e

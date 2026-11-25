@@ -16,6 +16,7 @@ Each entry holds:
 - the tool and the connection (by the name it had at the time),
 - the SQL, if any,
 - the duration and, for `run-query` and `sample-rows`, the number of rows returned,
+- the columns [masked](/docs/data/masking/) in the answer,
 - the status (ok, error or timeout) and the error message.
 
 Result rows and credentials are never recorded.

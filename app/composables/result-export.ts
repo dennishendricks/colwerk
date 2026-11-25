@@ -18,6 +18,9 @@ export function useResultExport(
 
   const exportFormat = ref<ExportFormat>('csv')
   const exportScope = ref<'shown' | 'full'>('shown')
+  // PII masking of the export (core/masking.ts): the columns it would mask, as a preview next to the checkbox.
+  const exportMask = ref(false)
+  const { isMasked } = useMasking()
   // Target of INSERT statements (export, copy): the only table of the shown statement, else a placeholder.
   const insertTable = ref('')
   const insertBatch = ref(100)
@@ -31,6 +34,10 @@ export function useResultExport(
     return refs.length === 1 ? [refs[0]!.schema, refs[0]!.name].filter(Boolean).join('.') : 'export_table'
   })
   watch(shown, () => (insertTable.value = defaultInsertTable.value), { immediate: true })
+  const maskedColumns = computed(
+    () =>
+      shown.value?.columns.filter((c) => isMasked(shownSource.value?.connectionId, c.name)).map((c) => c.name) ?? [],
+  )
   const tableParts = (text: string) =>
     text
       .split('.')
@@ -71,15 +78,23 @@ export function useResultExport(
       return
     }
     try {
-      const path = await exportResult(
+      const saved = await exportResult(
         tab,
         exportFormat.value,
         exportScope.value === 'full' && canExportFull.value && !!shown.value?.truncated,
         viewedPin.value,
         { table, batchSize: insertBatch.value },
+        exportMask.value,
       )
-      if (path)
-        toast.add({ title: t('query.exportSaved'), description: path, color: 'success', icon: 'i-lucide-check' })
+      if (saved)
+        toast.add({
+          title: t('query.exportSaved'),
+          description: saved.masked.length
+            ? `${saved.path} · ${t('query.exportMasked', { columns: saved.masked.join(', ') })}`
+            : saved.path,
+          color: 'success',
+          icon: 'i-lucide-check',
+        })
       else toast.add({ title: t('query.exportCancelled'), color: 'neutral', icon: 'i-lucide-square' })
     } catch (e) {
       toast.add({
@@ -124,5 +139,16 @@ export function useResultExport(
     { label: 'SQL INSERT', onSelect: () => copyAs('insert') },
   ]
 
-  return { exportFormat, exportScope, insertTable, insertBatch, insertTarget, scopeItems, download, copyItems }
+  return {
+    exportFormat,
+    exportScope,
+    exportMask,
+    maskedColumns,
+    insertTable,
+    insertBatch,
+    insertTarget,
+    scopeItems,
+    download,
+    copyItems,
+  }
 }

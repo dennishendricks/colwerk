@@ -13,6 +13,8 @@ const props = defineProps<{
   insertTarget?: { dialect: SplitDialect; table: string[] }
   /** Set when the result can be edited (see QueryPanel); `save` runs the reviewed statements. */
   edit?: GridEdit
+  /** Connection whose PII masking the headers show and their menus change. */
+  maskConnectionId?: string
 }>()
 // Text of the quick filter, whose input lives in the caller's status bar.
 const filter = defineModel<string>('filter', { default: '' })
@@ -118,11 +120,28 @@ const table = useTemplateRef<{
 }>('table')
 const tableWidth = computed(() => (table.value ? `${table.value.tableApi.getTotalSize()}px` : undefined))
 
+const { isMasked, setMasked } = useMasking()
 const { columns, filtering } = useGridColumns(
   () => props.result,
   editable,
   edits,
   () => table.value?.$el,
+  () => {
+    const id = props.maskConnectionId
+    if (!id) return undefined
+    return {
+      isMasked: (name) => isMasked(id, name),
+      setMasked: (name, masked) =>
+        setMasked(id, name, masked).catch((e) =>
+          toast.add({
+            title: t('grid.maskFailed'),
+            description: errorMessage(e),
+            color: 'error',
+            icon: 'i-lucide-circle-alert',
+          }),
+        ),
+    }
+  },
 )
 const editor = useTemplateRef('editor')
 

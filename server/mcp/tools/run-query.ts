@@ -7,7 +7,9 @@ export default defineMcpTool({
 
 WHEN TO USE: To answer questions from the data.
 Only a single SELECT/WITH statement is accepted; it runs in a transaction that is rolled back.
-The server enforces a statement timeout of 30 s and the row limit. On large tables filter and aggregate
+The server enforces a statement timeout of 30 s and the row limit.
+When the connection masks PII, queries naming columns marked \`masked\` in describe-table are refused, and
+matching result columns are masked; work with the other columns (keys, counts without those columns). On large tables filter and aggregate
 in SQL instead of fetching raw rows. Write SQL in the connection's dialect (see list-connections).
 WHEN NOT TO USE: When the user wants to see, edit or run the query themselves; use open-query.`,
   inputSchema: {

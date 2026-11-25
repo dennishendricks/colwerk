@@ -47,9 +47,10 @@
 - `history.ts`: exports HistoryEntry, HISTORY_LIMIT, addToHistory
 - `import-sql.ts`: SQL of data imports per target dialect: column types translated from the source, CREATE TABLE, the load strategies and transactions
 - `import.ts`: Data import: one session reads the source and another writes the target
-- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./mssql-address.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./settings.ts, ./demo.ts, ./tours.ts, ./values.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
+- `index.ts`: re-exports ./types.ts, ./registry.ts, ./store.ts, ./mssql-address.ts, ./data-dir.ts, ./history.ts, ./audit.ts, ./workbench.ts, ./mcp-session.ts, ./login.ts, ./sql-split.ts, ./export/index.ts, ./dialog.ts, ./settings.ts, ./masking.ts, ./demo.ts, ./tours.ts, ./values.ts, ./secrets.ts, ./text-file.ts, ./connection-import/index.ts, ./import.ts, ./compare/index.ts
 - `keychain.ts`: Stores secrets per data directory in the OS keychain through the platform's command line tools: macOS `security`, Linux `secret-tool` (libsecret), Windows PowerShell with the Credential Manager API
 - `login.ts`: exports withoutLogin, isLoginForbidden
+- `masking.ts`: PII masking of result columns: rules on column names, applied to exports and to the answers of MCP tools
 - `mcp-session.ts`: exports ownMcpSessions, mcpConfig
 - `mcp-token.ts`: exports mcpToken
 - `mssql-address.ts`: SQL Server notation `host\instance` and `DOMAIN\user`, split into the connection's separate fields

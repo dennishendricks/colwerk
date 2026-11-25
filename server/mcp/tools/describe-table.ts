@@ -1,3 +1,4 @@
+import { maskMethodOf } from '#core'
 import { z } from 'zod'
 
 export default defineMcpTool({
@@ -5,7 +6,8 @@ export default defineMcpTool({
   title: 'Describe table',
   description: `Describes the structure of a table or view: columns with data type, nullability, primary key,
 foreign keys (target schema, table and column), indexes and comments; the table's indexes with key columns, uniqueness and primary flag;
-plus partitioning and clustering if present.
+plus partitioning and clustering if present. Columns with \`masked: true\` hold personal data: run-query refuses
+queries naming them.
 
 WHEN TO USE: Before writing a query against a table, to get column names, types and join paths right.`,
   inputSchema: {
@@ -22,6 +24,7 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
         dbCall(() => workbench.introspect(sessionId(connection), { kind: 'columns', schema, table })),
         dbCall(() => workbench.introspect(sessionId(connection), { kind: 'indexes', schema, table })),
       ])
+      const masking = masksMcp(connection) ? await maskOptions(connection, { schema, table }) : undefined
       return {
         schema,
         table,
@@ -38,6 +41,7 @@ WHEN TO USE: Before writing a query against a table, to get column names, types 
           references: c.references ?? null,
           indexes: c.indexes,
           comment: c.comment,
+          ...(masking && maskMethodOf(c.name, masking) && { masked: true }),
         })),
         indexes,
       }

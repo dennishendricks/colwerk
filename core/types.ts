@@ -172,6 +172,12 @@ export interface ConnectionConfig {
   mcpSandbox?: boolean
   /** Stop UPDATE and DELETE without WHERE and TRUNCATE before running them (UI only); undefined = as `confirmWrites`. */
   requireWhere?: boolean
+  /** Mask PII columns in the answers of MCP tools and refuse queries naming them (core/masking.ts); undefined = on. */
+  maskMcp?: boolean
+  /** Always masked, in addition to the patterns of the settings: `column`, `table.column` or `schema.table.column`. */
+  maskColumns?: string[]
+  /** Never masked, even if a pattern matches; same notation. */
+  unmaskColumns?: string[]
 }
 
 export type SessionAction = 'cancel' | 'terminate'

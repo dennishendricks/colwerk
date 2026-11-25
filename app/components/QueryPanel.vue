@@ -60,8 +60,18 @@ const { edit, sourceConnection, saveEdits } = useResultEditability(props.tab, cu
 const grid = useTemplateRef<{ filteredCount?: number; view(): { columns: ResultColumn[]; rows: CellValue[][] } }>(
   'grid',
 )
-const { exportFormat, exportScope, insertTable, insertBatch, insertTarget, scopeItems, download, copyItems } =
-  useResultExport(props.tab, shown, viewedPin, grid)
+const {
+  exportFormat,
+  exportScope,
+  exportMask,
+  maskedColumns,
+  insertTable,
+  insertBatch,
+  insertTarget,
+  scopeItems,
+  download,
+  copyItems,
+} = useResultExport(props.tab, shown, viewedPin, grid)
 
 // The whole editor content. Focus goes back to the editor so that ⌘Z undoes the formatting
 // (on the button, WebKit's native undo would act on the editor's DOM instead).
@@ -282,6 +292,7 @@ const status = computed(() => {
                 v-model:filter="filter"
                 :result="pinView.set"
                 :insert-target="insertTarget"
+                :mask-connection-id="pinView.source?.connectionId"
               />
             </SplitterPanel>
             <SplitterResizeHandle
@@ -295,6 +306,7 @@ const status = computed(() => {
                 v-model:filter="filter"
                 :result="currentSet"
                 :insert-target="insertTarget"
+                :mask-connection-id="tab.source?.connectionId"
               />
             </SplitterPanel>
           </SplitterGroup>
@@ -315,6 +327,7 @@ const status = computed(() => {
                 : undefined
             "
             :insert-target="insertTarget"
+            :mask-connection-id="(viewedPin?.source ?? tab.source)?.connectionId"
           />
           <!-- Statements without a result set (DML, DDL): the status bar has the affected rows. -->
           <div
@@ -344,6 +357,8 @@ const status = computed(() => {
           v-model:scope="exportScope"
           v-model:table="insertTable"
           v-model:batch="insertBatch"
+          v-model:mask="exportMask"
+          :masked-columns="maskedColumns"
           :tab="tab"
           :truncated="shown.truncated"
           :scope-items="scopeItems"

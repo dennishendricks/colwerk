@@ -67,6 +67,7 @@
 - `composables/grid-edits.ts`: Pending edits of one result grid (#60): changed, inserted and deleted rows; nothing is written until "Save"
 - `composables/import.ts`: exports ImportRequest, importRequest, useImport
 - `composables/lint.ts`: exports useLintSettings
+- `composables/masking.ts`: PII masking in the UI: which result columns a connection masks (patterns of the settings, its column lists) and changing its column lists from the grid's column menu
 - `composables/menu.ts`: exports useApplicationMenu
 - `composables/pinned-results.ts`: Result sets of a query tab: the current one, pinned ones, and which of them is shown
 - `composables/query-run.ts`: Running a query tab's SQL: variables, write confirmation, unfiltered writes, plan check and dry run

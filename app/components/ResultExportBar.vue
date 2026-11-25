@@ -10,12 +10,15 @@ defineProps<{
   scopeItems: { label: string; value: string; disabled?: boolean }[]
   copyItems: { label: string; onSelect: () => void }[]
   readOnly?: { block: EditBlock; columns?: string[] }
+  /** Columns that masking would mask in the export. */
+  maskedColumns: string[]
 }>()
 const emit = defineEmits<{ download: [] }>()
 const format = defineModel<ExportFormat>('format', { required: true })
 const scope = defineModel<'shown' | 'full'>('scope', { required: true })
 const table = defineModel<string>('table', { required: true })
 const batch = defineModel<number>('batch', { required: true })
+const mask = defineModel<boolean>('mask', { required: true })
 
 const { t } = useI18n()
 
@@ -60,6 +63,14 @@ const formatItems = [
         class="w-28"
       />
     </template>
+    <UCheckbox
+      v-model="mask"
+      size="xs"
+      :label="t('query.maskPii')"
+      :title="
+        maskedColumns.length ? t('query.maskPiiColumns', { columns: maskedColumns.join(', ') }) : t('query.maskPiiNone')
+      "
+    />
     <UButton
       icon="i-lucide-download"
       size="xs"

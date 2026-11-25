@@ -22,6 +22,11 @@ When the result was cut at the [row limit](/docs/editor/running-queries/#row-lim
 The export writes the result as the query returned it, with all columns and in their original order. Sorting, filters
 and hidden columns of the grid apply to **Copy as**, not to the file.
 
+## Mask personal data
+
+**Mask PII** in the export bar masks columns with personal data, such as email addresses or names, in the file. Which
+columns that are is set in the settings; see [Mask personal data](/docs/data/masking/).
+
 ## Formats
 
 | Format     | Details                                                                                                                                     |

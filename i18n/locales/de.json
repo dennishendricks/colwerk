@@ -311,7 +311,14 @@
     "clearMcpPassword": "Gespeichertes MCP-Passwort entfernen",
     "mcpExternalAccess": "KI-Assistenten (MCP) Dateien und URLs lesen lassen",
     "mcpExternalAccessHelp": "Aus: MCP-Abfragen öffnen die Datenbank schreibgeschützt in einer eigenen DuckDB-Instanz, die keine Dateien oder URLs lesen kann (read_csv, read_text, httpfs). An: Sie laufen in der Instanz des Editors mit deren Zugriff.",
-    "import": "Importieren"
+    "import": "Importieren",
+    "maskMcp": "PII für KI-Assistenten maskieren",
+    "maskMcpHelp": "MCP-Antworten zeigen maskierte Spalten nur maskiert, Abfragen, die sie nennen, werden abgelehnt. Eine Textprüfung: Für eine Garantie dem MCP-Login keine Rechte auf diese Spalten geben.",
+    "maskColumns": "Immer maskieren",
+    "maskColumnsHelp": "Spalten zusätzlich zu den Mustern der Einstellungen: Spalte, Tabelle.Spalte oder Schema.Tabelle.Spalte.",
+    "unmaskColumns": "Nie maskieren",
+    "unmaskColumnsHelp": "Spalten, auf die ein Muster fälschlich passt. Qualifizierte Namen (Tabelle.Spalte) gelten nur, wo die Tabelle bekannt ist.",
+    "columnsPlaceholder": "Spalte, Enter zum Hinzufügen"
   },
   "colors": {
     "red": "Rot",
@@ -489,7 +496,8 @@
     "retention": "Einträge aufbewahren",
     "retentionDays": "{n} Tage",
     "limited": "Die neuesten {n} Einträge werden angezeigt.",
-    "clear": "Protokoll leeren"
+    "clear": "Protokoll leeren",
+    "masked": "maskiert: {columns}"
   },
   "shortcuts": {
     "title": "Tastenkürzel",
@@ -574,7 +582,11 @@
     "planWarningDescription": "Der Ausführungsplan liest große Tabellen in „{connection}“ vollständig.",
     "planWarningScan": "{table}: etwa {rows} Zeilen",
     "showPlan": "Plan anzeigen",
-    "planWarningRun": "Trotzdem ausführen"
+    "planWarningRun": "Trotzdem ausführen",
+    "maskPii": "PII maskieren",
+    "maskPiiColumns": "Maskiert: {columns}",
+    "maskPiiNone": "Keine Spalte dieses Ergebnisses passt auf ein Maskierungsmuster",
+    "exportMasked": "maskiert: {columns}"
   },
   "plan": {
     "operator": "Operator",
@@ -640,7 +652,10 @@
       "view": "Sichten können nicht bearbeitet werden.",
       "noKey": "Die Tabelle hat keinen Primärschlüssel und keinen eindeutigen Schlüssel.",
       "keyMissing": "Das Ergebnis enthält nicht alle Schlüsselspalten ({columns})."
-    }
+    },
+    "maskColumn": "Spalte maskieren",
+    "unmaskColumn": "Spalte nicht maskieren",
+    "maskFailed": "Maskierung konnte nicht geändert werden"
   },
   "schema": {
     "title": "Schema",
@@ -906,7 +921,35 @@
     "logicalAfter": "Am Zeilenende",
     "expressionWidth": "Ausdrucksbreite",
     "expressionWidthHint": "Zeichen",
-    "bangNotEqual": "<> als != schreiben"
+    "bangNotEqual": "<> als != schreiben",
+    "masking": "PII-Maskierung",
+    "maskingHint": "Spalten, deren Name auf ein Muster passt, werden in Exporten (wenn „PII maskieren“ gewählt ist) und in den Antworten an KI-Assistenten (MCP) maskiert. Muster sind reguläre Ausdrücke auf den Spaltennamen in Kleinbuchstaben, camelCase als snake_case; eigene Muster werden zuerst geprüft.",
+    "maskEnabled": "Aktiv",
+    "maskMethod": "Maskierung",
+    "maskPattern": "Muster",
+    "maskPatternPlaceholder": "z. B. kunden_?nr",
+    "maskPatternInvalid": "Kein gültiger regulärer Ausdruck",
+    "maskAdd": "Hinzufügen",
+    "maskRemove": "Muster entfernen",
+    "maskMethods": {
+      "redact": "Ersetzen (***)",
+      "partial": "Teilweise (j***{'@'}x.de)",
+      "hash": "Hash (Pseudonym)",
+      "null": "Leer (NULL)"
+    },
+    "maskRules": {
+      "email": "E-Mail-Adresse",
+      "phone": "Telefonnummer",
+      "personName": "Vor- und Nachname",
+      "ip": "IP-Adresse",
+      "address": "Straße und Adresse",
+      "postalCode": "Postleitzahl",
+      "birthDate": "Geburtsdatum",
+      "bankAccount": "Bank- und Kartennummern",
+      "nationalId": "Ausweis-, Steuer- und Sozialversicherungsnummern",
+      "credentials": "Passwörter, Tokens und Schlüssel",
+      "name": "Spalte „name“"
+    }
   },
   "tours": {
     "menu": "Tutorials",
