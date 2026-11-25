@@ -254,6 +254,35 @@ async function act(kind: 'test' | 'save' | 'delete' | 'install', fn: () => Promi
               >
                 <USwitch v-model="form.mcpExternalAccess" color="warning" :label="t('connection.mcpExternalAccess')" />
               </UFormField>
+              <UFormField class="col-span-2" :help="t('connection.maskMcpHelp')">
+                <USwitch
+                  :model-value="form.maskMcp !== false"
+                  :label="t('connection.maskMcp')"
+                  @update:model-value="(v) => (form.maskMcp = v ? undefined : false)"
+                />
+              </UFormField>
+              <UFormField
+                :label="t('connection.maskColumns')"
+                :help="t('connection.maskColumnsHelp')"
+                class="col-span-2"
+              >
+                <UInputTags
+                  v-model="form.maskColumns"
+                  :placeholder="t('connection.columnsPlaceholder')"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField
+                :label="t('connection.unmaskColumns')"
+                :help="t('connection.unmaskColumnsHelp')"
+                class="col-span-2"
+              >
+                <UInputTags
+                  v-model="form.unmaskColumns"
+                  :placeholder="t('connection.columnsPlaceholder')"
+                  class="w-full"
+                />
+              </UFormField>
               <UFormField :label="t('connection.color')" :help="t('connection.colorHelp')" class="col-span-2">
                 <ConnectionColorPicker v-model="form.color" />
               </UFormField>

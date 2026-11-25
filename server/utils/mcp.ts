@@ -2,8 +2,11 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   AppError,
   type ConnectionSummary,
+  createMasker,
   type Dialect,
   isSelectStatement,
+  type MaskOptions,
+  maskViolation,
   ownMcpSessions,
   type QueryResult,
   type SchemaInfo,
@@ -60,7 +63,7 @@ export function sessionId(connection: ConnectionSummary): string {
 }
 
 // Details a tool call adds to its audit entry while it runs (readQuery fills in the SQL and row count).
-const auditing = new AsyncLocalStorage<{ sql?: string; rowCount?: number }>()
+const auditing = new AsyncLocalStorage<{ sql?: string; rowCount?: number; masked?: string[] }>()
 
 /** Runs a tool call and records it in the audit log (server/utils/audit.ts), also when it fails. Never records result rows. */
 export async function audited<T>(
@@ -69,7 +72,7 @@ export async function audited<T>(
   fn: () => Promise<T>,
   sql?: string,
 ): Promise<T> {
-  const details: { sql?: string; rowCount?: number } = { sql }
+  const details: { sql?: string; rowCount?: number; masked?: string[] } = { sql }
   const at = new Date().toISOString()
   const started = performance.now()
   let failure: { message: string; timeout: boolean } | undefined
@@ -137,8 +140,17 @@ const GUARD: Record<SplitDialect, string> = {
   clickhouse: 'set readonly = 2',
 }
 
-/** Runs one SELECT/WITH statement in a session of its own, closed afterwards. */
-export async function readQuery(connectionId: string, sql: string, rowLimit: number): Promise<QueryResult> {
+/**
+ * Runs one SELECT/WITH statement in a session of its own, closed afterwards. With masking on (connection option
+ * `maskMcp`), a statement naming masked columns is refused and masked columns of the result are replaced;
+ * `source` is the table a generated statement reads (sample-rows).
+ */
+export async function readQuery(
+  connectionId: string,
+  sql: string,
+  rowLimit: number,
+  source?: MaskOptions['source'],
+): Promise<QueryResult> {
   const connection = await connectionOf(connectionId)
   const dialect = sqlDialect(connection.dialect)
   const details = auditing.getStore()
@@ -146,6 +158,14 @@ export async function readQuery(connectionId: string, sql: string, rowLimit: num
   if (details) details.sql = sql
   if (!isSelectStatement(sql, dialect)) {
     throw createError({ statusCode: 400, message: 'Only a single SELECT or WITH statement is allowed.' })
+  }
+  const masking = masksMcp(connection) ? await maskOptions(connection, source) : undefined
+  const violation = masking && maskViolation(sql, dialect, masking)
+  if (violation) {
+    throw createError({
+      statusCode: 400,
+      message: `${violation} Masked columns contain personal data and cannot be read, filtered or joined on by MCP clients.`,
+    })
   }
   const tabId = `mcp:${crypto.randomUUID()}`
   try {
@@ -158,7 +178,15 @@ export async function readQuery(connectionId: string, sql: string, rowLimit: num
       return workbench.execute(tabId, id, sql, rowLimit, QUERY_TIMEOUT_SECONDS)
     })
     if (details) details.rowCount = result.resultSets[0]?.rows.length ?? 0
-    return result
+    if (!masking) return result
+    const masked = new Set<string>()
+    const resultSets = result.resultSets.map((set) => {
+      const masker = createMasker(set.columns, masking)
+      for (const name of masker.masked) masked.add(name)
+      return { ...set, columns: masker.columns, rows: masker.mask(set.rows) }
+    })
+    if (details && masked.size) details.masked = [...masked]
+    return { ...result, resultSets }
   } finally {
     await workbench.closeTab(tabId)
   }

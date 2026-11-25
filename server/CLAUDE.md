@@ -9,6 +9,7 @@
 - `api/connections/[id]/connect.post.ts`: POST /api/connections/:id/connect
 - `api/connections/[id]/disconnect.post.ts`: POST /api/connections/:id/disconnect; Closes all sessions of the connection until it is connected again, so other tools can open a DuckDB file
 - `api/connections/[id]/introspect.post.ts`: POST /api/connections/:id/introspect
+- `api/connections/[id]/masking.post.ts`: POST /api/connections/:id/masking; Sets the masked and unmasked columns of a connection without closing its sessions (unlike saving the connection)
 - `api/connections/[id]/sessions/[session]/stop.post.ts`: POST /api/connections/:id/sessions/:session/stop
 - `api/connections/[id]/sessions/index.delete.ts`: DELETE /api/connections/:id/sessions; Closes the monitor's session when the monitor is closed
 - `api/connections/[id]/sessions/index.get.ts`: GET /api/connections/:id/sessions
@@ -68,6 +69,7 @@
 - `utils/exports.ts`: exports writeExport, cancelExports, parseFormat, parseInsertOptions
 - `utils/history.ts`: exports getHistory, clearHistory, recordHistory
 - `utils/imports.ts`: exports startJob, progressOf, cancelJob, finishJob, parseSource, sourceDialect
+- `utils/masking.ts`: Masking options (core/masking.ts): patterns of the settings, column lists of the connection, HMAC key from the store
 - `utils/mcp.ts`: exports mcpRequest, connectionOf, sessionId, audited, databasesOf, tableOf, quoteIdent, readQuery
 - `utils/settings.ts`: Settings of the settings dialog in `settings.json` in the data directory (see core/settings.ts)
 - `utils/tours.ts`: Progress of the guided tours in `tours.json` in the data directory (see core/tours.ts)

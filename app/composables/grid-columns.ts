@@ -9,11 +9,13 @@ import type { GridColumn as Column, GridRow as Row } from '~/utils/grid-cells'
 import type { EditValue } from '~/utils/table-edit'
 
 // `root`: the table element, in which the column filter finds the header button to anchor at.
+// `masking`: PII masking of the result's connection (composables/masking.ts), shown in the headers and their menus.
 export function useGridColumns(
   result: () => ResultSet,
   editable: Ref<boolean>,
   edits: GridEdits,
   root: () => HTMLElement | undefined,
+  masking?: () => { isMasked(name: string): boolean; setMasked(name: string, masked: boolean): void } | undefined,
 ) {
   const { t } = useI18n()
   const { changes, pendingValue, rowActions } = edits
@@ -87,7 +89,7 @@ export function useGridColumns(
       header: ({ column, header }) => [
         h(
           UDropdownMenu,
-          { items: headerItems(column), content: { align: 'start', onCloseAutoFocus: openColumnFilter } },
+          { items: headerItems(column, col.name), content: { align: 'start', onCloseAutoFocus: openColumnFilter } },
           () =>
             h(
               UButton,
@@ -97,7 +99,11 @@ export function useGridColumns(
                 size: 'xs',
                 class: '-mx-1.5 -my-1 font-semibold',
                 title: col.type,
-                icon: column.getIsFiltered() ? 'i-lucide-filter' : undefined,
+                icon: column.getIsFiltered()
+                  ? 'i-lucide-filter'
+                  : masking?.()?.isMasked(col.name)
+                    ? 'i-lucide-shield'
+                    : undefined,
                 'data-column': column.id,
                 trailingIcon: sortIcon(column.getIsSorted()) ?? (column.getIsPinned() ? 'i-lucide-pin' : undefined),
               },
@@ -130,9 +136,11 @@ export function useGridColumns(
     if (sorted === 'desc') return 'i-lucide-arrow-down-wide-narrow'
   }
 
-  function headerItems(column: Column): DropdownMenuItem[][] {
+  function headerItems(column: Column, name: string): DropdownMenuItem[][] {
     const sorted = column.getIsSorted()
     const pinned = column.getIsPinned()
+    const mask = masking?.()
+    const masked = mask?.isMasked(name)
     return [
       [
         {
@@ -168,7 +176,18 @@ export function useGridColumns(
             ]
           : []),
       ],
-      [{ label: t('grid.hide'), icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) }],
+      [
+        { label: t('grid.hide'), icon: 'i-lucide-eye-off', onSelect: () => column.toggleVisibility(false) },
+        ...(mask
+          ? [
+              {
+                label: t(masked ? 'grid.unmaskColumn' : 'grid.maskColumn'),
+                icon: masked ? 'i-lucide-shield-off' : 'i-lucide-shield',
+                onSelect: () => mask.setMasked(name, !masked),
+              },
+            ]
+          : []),
+      ],
     ]
   }
 

@@ -1,3 +1,4 @@
+import { hkdfSync } from 'node:crypto'
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -133,6 +134,11 @@ export class ConnectionStore {
     })
     this.writing = run.catch(() => {})
     return run
+  }
+
+  /** HMAC key of the masking method `hash`, derived from the store's key: stable per data directory, never stored. */
+  async maskKey(): Promise<Uint8Array> {
+    return new Uint8Array(hkdfSync('sha256', unb64(await this.secret()), '', 'colwerk-mask', 32))
   }
 
   private cryptoKey(): Promise<CryptoKey> {

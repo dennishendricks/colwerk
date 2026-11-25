@@ -236,7 +236,7 @@
     {
       "name": "describe-table",
       "title": "Describe table",
-      "description": "Describes the structure of a table or view: columns with data type, nullability, primary key,\nforeign keys (target schema, table and column), indexes and comments; the table's indexes with key columns, uniqueness and primary flag;\nplus partitioning and clustering if present.\n\nWHEN TO USE: Before writing a query against a table, to get column names, types and join paths right.",
+      "description": "Describes the structure of a table or view: columns with data type, nullability, primary key,\nforeign keys (target schema, table and column), indexes and comments; the table's indexes with key columns, uniqueness and primary flag;\nplus partitioning and clustering if present. Columns with `masked: true` hold personal data: run-query refuses\nqueries naming them.\n\nWHEN TO USE: Before writing a query against a table, to get column names, types and join paths right.",
       "readOnly": true,
       "parameters": [
         {
@@ -347,7 +347,7 @@
     {
       "name": "run-query",
       "title": "Run query",
-      "description": "Runs one read-only SQL query (SELECT or WITH) and returns its rows.\n\nWHEN TO USE: To answer questions from the data.\nOnly a single SELECT/WITH statement is accepted; it runs in a transaction that is rolled back.\nThe server enforces a statement timeout of 30 s and the row limit. On large tables filter and aggregate\nin SQL instead of fetching raw rows. Write SQL in the connection's dialect (see list-connections).\nWHEN NOT TO USE: When the user wants to see, edit or run the query themselves; use open-query.",
+      "description": "Runs one read-only SQL query (SELECT or WITH) and returns its rows.\n\nWHEN TO USE: To answer questions from the data.\nOnly a single SELECT/WITH statement is accepted; it runs in a transaction that is rolled back.\nThe server enforces a statement timeout of 30 s and the row limit.\nWhen the connection masks PII, queries naming columns marked `masked` in describe-table are refused, and\nmatching result columns are masked; work with the other columns (keys, counts without those columns). On large tables filter and aggregate\nin SQL instead of fetching raw rows. Write SQL in the connection's dialect (see list-connections).\nWHEN NOT TO USE: When the user wants to see, edit or run the query themselves; use open-query.",
       "readOnly": true,
       "parameters": [
         {
@@ -376,7 +376,7 @@
     {
       "name": "sample-rows",
       "title": "Sample rows",
-      "description": "Returns a few rows of a table or view as JSON objects, in no particular order.\n\nWHEN TO USE: To understand what the values of a table look like (formats, codes, typical ranges).\nWHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-query with filters and aggregations.",
+      "description": "Returns a few rows of a table or view as JSON objects, in no particular order.\n\nWHEN TO USE: To understand what the values of a table look like (formats, codes, typical ranges).\nColumns with personal data may be masked (`***`, partial values or hashes) when the connection masks PII.\nWHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-query with filters and aggregations.",
       "readOnly": true,
       "parameters": [
         {

@@ -55,6 +55,7 @@ function details(e: AuditEntry): string {
   const parts = [new Date(e.at).toLocaleString(locale.value, { dateStyle: 'short', timeStyle: 'medium' })]
   parts.push(formatDuration(e.durationMs))
   if (e.rowCount !== undefined) parts.push(t('common.rows', { n: e.rowCount.toLocaleString(locale.value) }, e.rowCount))
+  if (e.masked?.length) parts.push(t('audit.masked', { columns: e.masked.join(', ') }))
   return parts.join(' · ')
 }
 

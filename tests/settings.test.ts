@@ -8,6 +8,7 @@ test('settings: keeps valid values and replaces missing or invalid ones by the d
   assertEquals(parseSettings({ csv: { delimiter: '\t', quote: "'", escape: 'nope', encoding: 'latin9' }, other: 1 }), {
     csv: { delimiter: '\t', quote: "'", escape: 'double', encoding: 'utf-8-bom' },
     sqlFormat: defaultSqlFormatOptions,
+    masking: defaultSettings.masking,
   })
   assertEquals(
     parseSettings({ sqlFormat: { keywordCase: 'upper', indent: 'tab', expressionWidth: 5, bangNotEqual: 'no' } })

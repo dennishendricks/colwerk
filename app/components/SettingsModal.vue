@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Settings chosen once and kept in the data directory; each change is saved at once
 import type { CsvOptions } from '#core'
+import { isValidPattern, type MaskMethod, maskMethods, type MaskRule } from '~~/core/masking.ts'
 import { type Settings, sqlExpressionWidths, type SqlFormatOptions } from '~~/core/settings.ts'
 
 const open = defineModel<boolean>('open', { default: false })
@@ -10,13 +11,14 @@ const toast = useToast()
 const { settings, save } = useSettings()
 
 // Sections of the sidebar; only the chosen one is shown, so the dialog stays short as settings grow
-type Section = 'csv' | 'sqlFormat'
+type Section = 'csv' | 'sqlFormat' | 'masking'
 const section = ref<Section>('csv')
 const sections = computed(() =>
   (
     [
       { id: 'csv', label: t('settings.csv'), icon: 'i-lucide-file-spreadsheet' },
       { id: 'sqlFormat', label: t('settings.sqlFormat'), icon: 'i-lucide-wand-sparkles' },
+      { id: 'masking', label: t('settings.masking'), icon: 'i-lucide-shield' },
     ] as const
   ).map((s) => ({
     label: s.label,
@@ -80,6 +82,26 @@ const setCsv = <K extends keyof CsvOptions>(key: K, value: CsvOptions[K]) =>
 
 const setSqlFormat = <K extends keyof SqlFormatOptions>(key: K, value: SqlFormatOptions[K]) =>
   update({ ...settings.value, sqlFormat: { ...settings.value.sqlFormat, [key]: value } })
+
+const methodItems = computed(() => maskMethods.map((m) => ({ label: t(`settings.maskMethods.${m}`), value: m })))
+
+const setRules = (rules: MaskRule[]) => update({ ...settings.value, masking: { rules } })
+const setRule = (id: string, change: Partial<MaskRule>) =>
+  setRules(settings.value.masking.rules.map((r) => (r.id === id ? { ...r, ...change } : r)))
+const removeRule = (id: string) => setRules(settings.value.masking.rules.filter((r) => r.id !== id))
+
+const newPattern = ref('')
+const newMethod = ref<MaskMethod>('redact')
+const newPatternInvalid = computed(() => !!newPattern.value.trim() && !isValidPattern(newPattern.value.trim()))
+async function addRule() {
+  const pattern = newPattern.value.trim()
+  if (!isValidPattern(pattern)) return
+  await setRules([
+    ...settings.value.masking.rules,
+    { id: crypto.randomUUID(), pattern, method: newMethod.value, enabled: true },
+  ])
+  newPattern.value = ''
+}
 
 async function update(next: Settings) {
   try {
@@ -192,6 +214,58 @@ async function update(next: Settings) {
               :label="t('settings.bangNotEqual')"
               @update:model-value="(v) => setSqlFormat('bangNotEqual', v === true)"
             />
+          </section>
+          <section v-else-if="section === 'masking'" class="space-y-3">
+            <h3 class="font-semibold">{{ t('settings.masking') }}</h3>
+            <p class="text-sm text-muted">{{ t('settings.maskingHint') }}</p>
+            <ul class="divide-y divide-default">
+              <li v-for="rule in settings.masking.rules" :key="rule.id" class="flex items-center gap-3 py-1.5">
+                <USwitch
+                  :model-value="rule.enabled"
+                  :aria-label="t('settings.maskEnabled')"
+                  @update:model-value="(v) => setRule(rule.id, { enabled: v })"
+                />
+                <div class="min-w-0 flex-1">
+                  <div v-if="rule.builtin" class="text-sm">{{ t(`settings.maskRules.${rule.id}`) }}</div>
+                  <code class="block truncate text-xs text-muted" :title="rule.pattern">{{ rule.pattern }}</code>
+                </div>
+                <USelect
+                  :model-value="rule.method"
+                  :items="methodItems"
+                  :aria-label="t('settings.maskMethod')"
+                  size="sm"
+                  class="w-40"
+                  @update:model-value="(v) => setRule(rule.id, { method: v as MaskMethod })"
+                />
+                <UButton
+                  v-if="!rule.builtin"
+                  icon="i-lucide-trash-2"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :aria-label="t('settings.maskRemove')"
+                  @click="removeRule(rule.id)"
+                />
+                <span v-else class="w-8" />
+              </li>
+            </ul>
+            <form class="flex items-start gap-2" @submit.prevent="addRule">
+              <UFormField :error="newPatternInvalid ? t('settings.maskPatternInvalid') : undefined" class="flex-1">
+                <UInput
+                  v-model="newPattern"
+                  :placeholder="t('settings.maskPatternPlaceholder')"
+                  :aria-label="t('settings.maskPattern')"
+                  class="w-full font-mono"
+                />
+              </UFormField>
+              <USelect v-model="newMethod" :items="methodItems" :aria-label="t('settings.maskMethod')" class="w-40" />
+              <UButton
+                type="submit"
+                icon="i-lucide-plus"
+                :label="t('settings.maskAdd')"
+                :disabled="!newPattern.trim() || newPatternInvalid"
+              />
+            </form>
           </section>
         </div>
       </div>

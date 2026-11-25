@@ -6,6 +6,7 @@ export default defineMcpTool({
   description: `Returns a few rows of a table or view as JSON objects, in no particular order.
 
 WHEN TO USE: To understand what the values of a table look like (formats, codes, typical ranges).
+Columns with personal data may be masked (\`***\`, partial values or hashes) when the connection masks PII.
 WHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-query with filters and aggregations.`,
   inputSchema: {
     connectionId: z.string().describe('connectionId from list-connections'),
@@ -19,7 +20,7 @@ WHEN NOT TO USE: For analyses, counts or anything that needs all rows; use run-q
       const { dialect } = await connectionOf(connectionId)
       await tableOf(connectionId, schema, table)
       const sql = `select * from ${quoteIdent(schema, dialect)}.${quoteIdent(table, dialect)}`
-      const set = (await readQuery(connectionId, sql, limit)).resultSets[0]
+      const set = (await readQuery(connectionId, sql, limit, { schema, table })).resultSets[0]
       return {
         rows: set?.rows.map((row) => Object.fromEntries(set.columns.map((c, i) => [c.name, row[i]]))) ?? [],
       }

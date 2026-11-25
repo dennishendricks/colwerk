@@ -6,6 +6,8 @@ import {
   type ExportFormat,
   type ExportOptions,
   exportFormats,
+  type MaskOptions,
+  maskingSink,
   type RowSink,
 } from '#core'
 
@@ -14,7 +16,10 @@ import {
 // renamed at the end, so a failed or cancelled export leaves an existing file untouched.
 const running = new Map<AbortController, string>()
 
-/** Runs `produce` into the file at `path`; resolves once it is written completely. */
+/**
+ * Runs `produce` into the file at `path`; resolves once it is written completely, with the names of the columns
+ * masked by `mask`.
+ */
 export async function writeExport(
   tabId: string,
   format: ExportFormat,
@@ -22,7 +27,8 @@ export async function writeExport(
   produce: (sink: RowSink) => Promise<void>,
   options?: ExportOptions,
   csv?: CsvOptions,
-): Promise<void> {
+  mask?: MaskOptions,
+): Promise<string[]> {
   const aborted = new AbortController()
   running.set(aborted, tabId)
   const part = `${path}.part`
@@ -37,21 +43,24 @@ export async function writeExport(
   )
   let hasColumns = false
   let ok = false
+  let masked: string[] = []
+  const sink: RowSink = {
+    columns: (columns) => {
+      exporter.columns(columns)
+      hasColumns = true
+    },
+    rows: (rows) => {
+      aborted.signal.throwIfAborted()
+      return exporter.rows(rows)
+    },
+  }
   try {
-    await produce({
-      columns: (columns) => {
-        exporter.columns(columns)
-        hasColumns = true
-      },
-      rows: (rows) => {
-        aborted.signal.throwIfAborted()
-        return exporter.rows(rows)
-      },
-    })
+    await produce(mask ? maskingSink(sink, mask, (m) => (masked = m)) : sink)
     if (!hasColumns) throw new AppError('noResultSet', 'The statement returned no result set.')
     aborted.signal.throwIfAborted()
     await exporter.finish()
     ok = true
+    return masked
   } finally {
     running.delete(aborted)
     await exporter.dispose()

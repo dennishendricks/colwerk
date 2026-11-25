@@ -311,7 +311,14 @@
     "clearMcpPassword": "Remove stored MCP password",
     "mcpExternalAccess": "Let AI assistants (MCP) read files and URLs",
     "mcpExternalAccessHelp": "Off: MCP queries open the database read-only in a DuckDB instance of their own, which cannot read files or URLs (read_csv, read_text, httpfs). On: they run in the editor's instance with its access.",
-    "import": "Import"
+    "import": "Import",
+    "maskMcp": "Mask PII for AI assistants",
+    "maskMcpHelp": "MCP answers show masked columns only masked, and queries naming them are refused. A text check: for a guarantee, give the MCP login no rights on these columns.",
+    "maskColumns": "Always mask",
+    "maskColumnsHelp": "Columns in addition to the patterns of the settings: column, table.column or schema.table.column.",
+    "unmaskColumns": "Never mask",
+    "unmaskColumnsHelp": "Columns a pattern matches by mistake. Qualified names (table.column) apply only where the table is known.",
+    "columnsPlaceholder": "Column, Enter to add"
   },
   "colors": {
     "red": "Red",
@@ -489,7 +496,8 @@
     "retention": "Keep entries for",
     "retentionDays": "{n} days",
     "limited": "Showing the newest {n} entries.",
-    "clear": "Clear log"
+    "clear": "Clear log",
+    "masked": "masked: {columns}"
   },
   "shortcuts": {
     "title": "Keyboard shortcuts",
@@ -574,7 +582,11 @@
     "planWarningDescription": "The execution plan reads large tables completely in “{connection}”.",
     "planWarningScan": "{table}: about {rows} rows",
     "showPlan": "Show plan",
-    "planWarningRun": "Run anyway"
+    "planWarningRun": "Run anyway",
+    "maskPii": "Mask PII",
+    "maskPiiColumns": "Masks: {columns}",
+    "maskPiiNone": "No column of this result matches a masking pattern",
+    "exportMasked": "masked: {columns}"
   },
   "plan": {
     "operator": "Operator",
@@ -640,7 +652,10 @@
       "view": "Views cannot be edited.",
       "noKey": "The table has no primary key or unique key.",
       "keyMissing": "The result does not contain all key columns ({columns})."
-    }
+    },
+    "maskColumn": "Mask column",
+    "unmaskColumn": "Do not mask column",
+    "maskFailed": "Masking could not be changed"
   },
   "schema": {
     "title": "Schema",
@@ -906,7 +921,37 @@
     "logicalAfter": "At the line end",
     "expressionWidth": "Expression width",
     "expressionWidthHint": "Characters",
-    "bangNotEqual": "Write <> as !="
+    "bangNotEqual": "Write <> as !=",
+    "masking": "PII masking",
+    "maskingHint": "Columns whose name matches a pattern are masked in exports (when \"Mask PII\" is chosen) and in the answers to AI assistants (MCP). Patterns are regular expressions on the column name in lower case, with camelCase and other separators written as snake_case (E-Mail → e_mail); your own patterns are checked first.",
+    "maskEnabled": "Active",
+    "maskMethod": "Masking",
+    "maskPattern": "Pattern",
+    "maskPatternPlaceholder": "e.g. customer_?no",
+    "maskPatternInvalid": "Not a valid regular expression",
+    "maskAdd": "Add",
+    "maskRemove": "Remove pattern",
+    "maskMethods": {
+      "redact": "Replace (***)",
+      "partial": "Partly (j***{'@'}x.de)",
+      "hash": "Hash (pseudonym)",
+      "null": "Empty (NULL)"
+    },
+    "maskRules": {
+      "email": "Email address",
+      "phone": "Phone number",
+      "personName": "First and last name",
+      "ip": "IP and device addresses",
+      "address": "Street and address",
+      "postalCode": "Postal code",
+      "birthDate": "Date of birth",
+      "bankAccount": "Bank, card and credit data",
+      "nationalId": "ID, tax and social security numbers",
+      "credentials": "Passwords, tokens and keys",
+      "name": "Column \"name\"",
+      "sensitive": "Gender, religion, health and origin",
+      "location": "Coordinates (latitude, longitude)"
+    }
   },
   "tours": {
     "menu": "Tutorials",

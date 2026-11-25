@@ -244,6 +244,87 @@ describe.skipIf(!built)('api: security and end-to-end flow', () => {
     await json(await call(`/api/connections/${target.id}`, { method: 'DELETE' }))
   })
 
+  test('masks PII in exports and MCP answers', async () => {
+    const post = (path: string, body: object) => call(path, { method: 'POST', body: JSON.stringify(body) })
+    const conn = await json(
+      await post('/api/connections', { name: 'pii', dialect: 'sqlite', file: `${dataDir}/pii.db` }),
+    )
+    await json(
+      await post('/api/tabs/pii/execute', {
+        connectionId: conn.id,
+        sql: 'create table customers (id integer, email text, note text)',
+      }),
+    )
+    await json(
+      await post('/api/tabs/pii/execute', {
+        connectionId: conn.id,
+        sql: "insert into customers values (1, 'jane.doe@example.com', 'vip')",
+      }),
+    )
+    const exported = await json(
+      await post('/api/tabs/pii/export', {
+        format: 'csv',
+        path: `${dataDir}/pii.csv`,
+        connectionId: conn.id,
+        sql: 'select * from customers',
+        mask: true,
+      }),
+    )
+    assertEquals(exported.masked, ['email'])
+    const csv = await readFile(`${dataDir}/pii.csv`, 'utf8')
+    assertStringIncludes(csv, 'j***@example.com')
+    assert(!csv.includes('jane.doe'))
+
+    let id = 0
+    const tool = async (name: string, args: object) => {
+      const res = await call(
+        '/mcp',
+        {
+          method: 'POST',
+          body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method: 'tools/call', params: { name, arguments: args } }),
+        },
+        { accept: 'application/json, text/event-stream', authorization: `Bearer ${mcpToken}` },
+      )
+      const { result } = await res.json()
+      return { error: result.isError === true, text: result.content[0].text as string }
+    }
+    const sample = JSON.parse(
+      (await tool('sample-rows', { connectionId: conn.id, schema: 'main', table: 'customers' })).text,
+    )
+    assertEquals(sample.rows, [{ id: 1, email: 'j***@example.com', note: 'vip' }])
+    const refused = await tool('run-query', { connectionId: conn.id, sql: 'select email as x from customers' })
+    assertEquals(refused.error, true)
+    assertStringIncludes(refused.text, 'masked columns')
+    assertEquals(
+      JSON.parse((await tool('run-query', { connectionId: conn.id, sql: 'select id from customers' })).text).rows,
+      [[1]],
+    )
+    const described = JSON.parse(
+      (await tool('describe-table', { connectionId: conn.id, schema: 'main', table: 'customers' })).text,
+    )
+    assertEquals(
+      described.columns.map((c: { name: string; masked?: boolean }) => [c.name, !!c.masked]),
+      [
+        ['id', false],
+        ['email', true],
+        ['note', false],
+      ],
+    )
+
+    // The grid's column menu changes the connection's lists without closing its sessions.
+    await json(await post(`/api/connections/${conn.id}/masking`, { maskColumns: ['note'], unmaskColumns: [] }))
+    const again = JSON.parse(
+      (await tool('sample-rows', { connectionId: conn.id, schema: 'main', table: 'customers' })).text,
+    )
+    assertEquals(again.rows, [{ id: 1, email: 'j***@example.com', note: '***' }])
+    await json(await post('/api/connections', { ...conn, maskMcp: false }))
+    const unmasked = JSON.parse(
+      (await tool('run-query', { connectionId: conn.id, sql: 'select email from customers' })).text,
+    )
+    assertEquals(unmasked.rows, [['jane.doe@example.com']])
+    await json(await call(`/api/connections/${conn.id}`, { method: 'DELETE' }))
+  })
+
   test('compares tables of two connections and checks the engines', async () => {
     const post = (path: string, body: object) => call(path, { method: 'POST', body: JSON.stringify(body) })
     const connect = async (name: string, dialect: string) =>

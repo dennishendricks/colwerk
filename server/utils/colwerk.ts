@@ -15,6 +15,7 @@ import {
   isLakehouse,
   mcpConfig,
   mcpLoginAuths,
+  parseColumnList,
   parseSecretRef,
   type SshAuth,
   splitMssqlBackslashes,
@@ -238,6 +239,9 @@ export function parseConnection(body: unknown): ConnectionInput {
     mcpPassword: !mcpLogin ? '' : typeof b.mcpPassword === 'string' ? b.mcpPassword : undefined,
     mcpExternalAccess: dialect === 'duckdb' && b.mcpExternalAccess === true,
     requireWhere: typeof b.requireWhere === 'boolean' ? b.requireWhere : undefined,
+    maskMcp: b.maskMcp === false ? false : undefined,
+    maskColumns: parseColumnList(b.maskColumns),
+    unmaskColumns: parseColumnList(b.unmaskColumns),
   }
 }
 

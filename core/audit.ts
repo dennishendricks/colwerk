@@ -13,6 +13,8 @@ export interface AuditEntry {
   durationMs: number
   /** Rows returned to the client (run-query, sample-rows). */
   rowCount?: number
+  /** Columns masked in the answer (core/masking.ts). */
+  masked?: string[]
   status: 'ok' | 'error' | 'timeout'
   error?: string
 }
