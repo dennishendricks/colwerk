@@ -255,11 +255,15 @@ const review = useTemplateRef('review')
         tbody: '[&>tr:hover>td]:bg-[color-mix(in_oklab,var(--ui-primary)_12%,var(--ui-bg))]',
         th: 'px-2 py-1.5 whitespace-nowrap overflow-hidden bg-elevated',
         td: 'px-2 py-1 whitespace-nowrap truncate',
-        // The empty row spans all columns; centred, it ends up out of view when there are many.
         empty: 'text-start',
       }"
       @dblclick="onDblclick"
-    />
+    >
+      <!-- The empty row spans all columns; the text sticks to the left edge so it stays in view when scrolled. -->
+      <template #empty>
+        <span class="sticky left-3 inline-block">{{ t('grid.noData') }}</span>
+      </template>
+    </UTable>
     <div
       v-if="edit"
       class="flex items-center gap-2 border-t border-default px-3 py-1.5 text-xs text-muted"

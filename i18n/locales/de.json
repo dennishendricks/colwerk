@@ -595,6 +595,7 @@
     "collapse": "Zuklappen"
   },
   "grid": {
+    "noData": "Keine Daten",
     "toggleColumns": "Spalten ein-/ausblenden",
     "resize": "Breite ziehen, Doppelklick setzt zurück",
     "sortAsc": "Aufsteigend sortieren",

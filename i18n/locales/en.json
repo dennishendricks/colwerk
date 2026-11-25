@@ -595,6 +595,7 @@
     "collapse": "Collapse"
   },
   "grid": {
+    "noData": "No data",
     "toggleColumns": "Show/hide columns",
     "resize": "Drag to resize, double-click resets",
     "sortAsc": "Sort ascending",
