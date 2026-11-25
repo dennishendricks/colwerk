@@ -19,19 +19,19 @@ Which columns are masked depends on their name. Open **Settings → PII masking*
 regular expression on the column name in lower case, with camelCase written as snake_case (`firstName` is tested as
 `first_name`). The first matching pattern decides the masking; your own patterns are checked before the built-in ones.
 
-| Built-in pattern                    | Examples                                  | Masking |
-| ----------------------------------- | ----------------------------------------- | ------- |
-| Email address                       | `email`, `e_mail`, `customerEmail`        | Partly  |
-| Phone number                        | `phone`, `telefon`, `tel`, `mobile`       | Partly  |
-| First and last name                 | `first_name`, `surname`, `nachname`       | Replace |
-| IP address                          | `ip`, `ip_address`                        | Hash    |
-| Street and address                  | `street`, `strasse`, `address`            | Replace |
-| Postal code                         | `zip`, `postal_code`, `plz`               | Replace |
-| Date of birth                       | `birth_date`, `dob`, `geburtsdatum`       | Replace |
-| Bank and card numbers               | `iban`, `bic`, `card_number`              | Partly  |
-| ID, tax and social security numbers | `ssn`, `tax_id`, `passport`, `ausweis_nr` | Replace |
-| Passwords, tokens and keys          | `password`, `api_key`, `token`            | Empty   |
-| Column `name` (off by default)      | `name`                                    | Replace |
+| Built-in pattern                    | Examples                                        | Masking |
+| ----------------------------------- | ----------------------------------------------- | ------- |
+| Email address                       | `email`, `e_mail`, `customerEmail`              | Partly  |
+| Phone number                        | `phone`, `telefon`, `mobil_1`, `fax1`           | Partly  |
+| First and last name                 | `first_name`, `surname`, `nachname`             | Replace |
+| IP address                          | `ip`, `ip_address`                              | Hash    |
+| Street and address                  | `street`, `strasse`, `address`                  | Replace |
+| Postal code                         | `zip`, `postal_code`, `plz`                     | Replace |
+| Date of birth                       | `birth_date`, `dob`, `geburtsdatum`             | Replace |
+| Bank, card and credit data          | `iban`, `card_number`, `kredit`, `credit_limit` | Partly  |
+| ID, tax and social security numbers | `ssn`, `tax_id`, `passport`, `ausweis_nr`       | Replace |
+| Passwords, tokens and keys          | `password`, `api_key`, `token`                  | Empty   |
+| Column `name` (off by default)      | `name`                                          | Replace |
 
 You can switch each pattern off or change its masking. Below the list, add patterns of your own, for example
 `kunden_?nr` for customer numbers. The patterns are kept in `settings.json` in the

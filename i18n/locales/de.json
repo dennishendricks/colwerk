@@ -945,7 +945,7 @@
       "address": "Straße und Adresse",
       "postalCode": "Postleitzahl",
       "birthDate": "Geburtsdatum",
-      "bankAccount": "Bank- und Kartennummern",
+      "bankAccount": "Bank-, Karten- und Kreditdaten",
       "nationalId": "Ausweis-, Steuer- und Sozialversicherungsnummern",
       "credentials": "Passwörter, Tokens und Schlüssel",
       "name": "Spalte „name“"

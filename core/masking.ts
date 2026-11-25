@@ -26,7 +26,7 @@ const builtin = (id: string, pattern: string, method: MaskMethod, enabled = true
 
 export const defaultMaskRules: MaskRule[] = [
   builtin('email', 'e_?mail', 'partial'),
-  builtin('phone', 'phone|telefon|(^|_)(tel|mobil|mobile|handy|fax)(_|$)', 'partial'),
+  builtin('phone', 'phone|telefon|(^|_)(tel|mobil|mobile|handy|fax)_?[0-9]*(_|$)', 'partial'),
   builtin('personName', '(first|last|middle|full|sur|given|family|maiden|vor|nach|geburts)_?name', 'redact'),
   builtin('ip', '(^|_)ip(_|$)|ip_?addr', 'hash'),
   builtin('address', 'street|strasse|straße|address|adresse|(^|_)addr(_|$)|house_?(no|number)|hausnummer', 'redact'),
@@ -34,7 +34,7 @@ export const defaultMaskRules: MaskRule[] = [
   builtin('birthDate', 'birth|(^|_)dob(_|$)|geburt', 'redact'),
   builtin(
     'bankAccount',
-    'iban|(^|_)bic(_|$)|account_?(no|number)|konto_?(nr|nummer)|card_?(no|num|number)|credit_?card',
+    'iban|(^|_)bic(_|$)|account_?(no|number)|konto_?(nr|nummer)|card_?(no|num|number)|(^|_)(kred|credit)',
     'partial',
   ),
   builtin(

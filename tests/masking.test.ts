@@ -28,6 +28,10 @@ test('masking: built-in patterns match common PII column names and leave others 
   assertEquals(method('phone_number'), 'partial')
   assertEquals(method('tel'), 'partial')
   assertEquals(method('hotel'), undefined)
+  for (const name of ['mobil1', 'mobil_1', 'Mobil2', 'fax1', 'fax_1', 'tel_2_privat', 'phone1']) {
+    assertEquals(method(name), 'partial', name)
+  }
+  assertEquals(method('telemetry'), undefined)
   assertEquals(method('firstName'), 'redact')
   assertEquals(method('nachname'), 'redact')
   assertEquals(method('street'), 'redact')
@@ -35,6 +39,10 @@ test('masking: built-in patterns match common PII column names and leave others 
   assertEquals(method('zip_code'), 'redact')
   assertEquals(method('date_of_birth'), 'redact')
   assertEquals(method('iban'), 'partial')
+  for (const name of ['kredit', 'kreditkarte', 'kreditor_nr', 'credit_limit', 'creditCardNumber', 'customer_credit']) {
+    assertEquals(method(name), 'partial', name)
+  }
+  assertEquals(method('accredited'), undefined)
   assertEquals(method('ip_address'), 'hash')
   assertEquals(method('password_hash'), 'null')
   assertEquals(method('name'), undefined)
