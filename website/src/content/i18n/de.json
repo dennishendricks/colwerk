@@ -45,9 +45,8 @@
   "landing.glance.fit4": "Teams mit sensiblen Daten: keine Telemetrie, Passwörter bleiben lokal, personenbezogene Daten werden maskiert",
   "landing.glance.fit5": "Alle, die Claude, Codex oder Cursor eine Datenbank nur lesend erkunden lassen wollen",
   "landing.glance.notFitsTitle": "Nicht das richtige Tool, wenn du brauchst",
-  "landing.glance.notFit1": "Oracle, MongoDB oder andere Datenbanken außer den sechs unterstützten",
-  "landing.glance.notFit2": "Intel-Macs (Colwerk braucht Apple Silicon) oder Linux-Distributionen ohne .deb-Pakete",
-  "landing.glance.notFit3": "Einen grafischen Abfrage-Designer: In Colwerk schreibst du SQL",
+  "landing.glance.notFit1": "Intel-Macs (Colwerk braucht Apple Silicon) oder Linux-Distributionen ohne .deb-Pakete",
+  "landing.glance.notFit2": "Einen grafischen Abfrage-Designer: In Colwerk schreibst du SQL",
   "landing.glance.limits": "Siehe <a href=\"/docs/reference/limitations/\">bekannte Einschränkungen</a> (englisch).",
 
   "landing.features.title": "Ein SQL-Editor für alle, die",
