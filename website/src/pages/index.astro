@@ -1,40 +1,6 @@
 ---
-// Landing page: Starlight splash layout with the launch video, overview, features, privacy, MCP, FAQ and downloads.
-import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
-import Engines from '../components/Engines.astro'
-import Glance from '../components/Glance.astro'
-import Features from '../components/Features.astro'
-import Privacy from '../components/Privacy.astro'
-import Ai from '../components/Ai.astro'
-import Faq from '../components/Faq.astro'
-import Download from '../components/Download.astro'
-
-const websiteLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: 'Colwerk',
-  url: Astro.site,
-  inLanguage: 'en',
-  publisher: { '@type': 'Person', name: 'Dennis Hendricks', url: 'https://github.com/dennishendricks' },
-}
+// Landing page in English; the German one is /de/ (src/pages/de/index.astro).
+import Landing from '../components/Landing.astro'
 ---
 
-<StarlightPage
-  frontmatter={{
-    title: 'Free, open-source SQL editor & database client',
-    description:
-      'Free, open-source SQL editor and database client for macOS, Windows and Linux. PostgreSQL, MySQL, SQLite, SQL Server, ClickHouse, DuckDB and lakehouses.',
-    template: 'splash',
-    // the content comes from the Hero override in src/components/Hero.astro
-    hero: {},
-  }}
->
-  <Engines />
-  <Glance />
-  <Features />
-  <Privacy />
-  <Ai />
-  <Faq />
-  <Download />
-  <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteLd)} />
-</StarlightPage>
+<Landing />

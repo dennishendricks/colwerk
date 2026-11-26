@@ -1,33 +1,19 @@
 ---
-// Privacy section of the landing page: a full-width band with four key figures.
-const points = [
-  {
-    figure: 'DE',
-    title: 'Developed in Germany',
-    text: 'Colwerk is built and maintained in Germany. The code is MIT licensed, so anyone can audit it. Updates are signed, and every release includes a software bill of materials.',
-  },
-  {
-    figure: '0',
-    title: 'No tracking',
-    text: 'Colwerk has no telemetry, no analytics and no account, and it does not report what you do or which databases you connect to.',
-  },
-  {
-    figure: '0',
-    title: 'No built-in AI',
-    text: 'Colwerk sends nothing to any AI service. If you want an assistant, you connect your own and decide which model sees your data.',
-  },
-  {
-    figure: '256-bit',
-    title: 'Credentials stay local',
-    text: 'Passwords are encrypted with AES-256-GCM, and the key lives in your OS keychain. They never leave your machine and are never shown to an AI.',
-  },
-]
+// Privacy section of the landing page: a full-width band with four key figures (texts in src/content/i18n).
+const { t } = Astro.locals
+
+const figures = ['DE', '0', '0', '256-bit']
+const points = ([1, 2, 3, 4] as const).map((i) => ({
+  figure: figures[i - 1],
+  title: t(`landing.privacy.point${i}.title`),
+  text: t(`landing.privacy.point${i}.text`),
+}))
 ---
 
 <section id="privacy" class="privacy cw-section not-content">
-  <p class="cw-eyebrow">Privacy by design</p>
-  <h2>Your databases. <span>Your rules.</span></h2>
-  <p class="cw-lead">A database client sees everything you query. Colwerk keeps all of it on your machine.</p>
+  <p class="cw-eyebrow">{t('landing.privacy.eyebrow')}</p>
+  <h2>{t('landing.privacy.title')} <span>{t('landing.privacy.accent')}</span></h2>
+  <p class="cw-lead">{t('landing.privacy.lead')}</p>
   <div class="points">
     {
       points.map((p) => (

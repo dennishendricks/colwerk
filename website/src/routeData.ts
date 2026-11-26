@@ -1,4 +1,5 @@
-// Starlight route middleware: og:type of the landing page, the Markdown version and breadcrumbs (JSON-LD) of a page.
+// Starlight route middleware: og:type and WebSite data of the landing pages, canonical URLs of untranslated German pages, the Markdown
+// version and breadcrumbs (JSON-LD) of a page.
 import { defineRouteMiddleware, type StarlightRouteData } from '@astrojs/starlight/route-data'
 import { getCollection } from 'astro:content'
 import { markdownPath, pagePath, site } from './markdown'
@@ -16,9 +17,30 @@ export const onRequest = defineRouteMiddleware(async (context) => {
   const route = context.locals.starlightRoute
   const { pathname } = context.url
 
-  if (pathname === '/') {
+  if (pathname === '/' || pathname === '/de/') {
     const ogType = route.head.find((h) => h.attrs?.property === 'og:type')
     if (ogType?.attrs) ogType.attrs.content = 'website'
+    route.head.push({
+      tag: 'script',
+      attrs: { type: 'application/ld+json' },
+      content: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Colwerk',
+        url: new URL(pathname, site).href,
+        inLanguage: route.lang,
+        publisher: { '@type': 'Person', name: 'Dennis Hendricks', url: 'https://github.com/dennishendricks' },
+      }),
+    })
+    return
+  }
+
+  // Only the landing page is translated. Starlight shows the other pages under /de/ with the English content (fallback
+  // pages): they point to the English original, and no English page announces them as its German version.
+  route.head = route.head.filter((h) => !h.attrs?.hreflang)
+  if (route.isFallback) {
+    const canonical = route.head.find((h) => h.attrs?.rel === 'canonical')
+    if (canonical?.attrs) canonical.attrs.href = new URL(pathname.replace(/^\/de\//, '/'), site).href
     return
   }
 

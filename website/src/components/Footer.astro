@@ -1,16 +1,18 @@
 ---
 // Starlight's footer plus links to the pages per engine and topic, copyright and the legal pages.
-import { guides } from '../config'
 import Default from '@astrojs/starlight/components/Footer.astro'
-import { repo } from '../config'
+import { guides, repo } from '../config'
+
+const { t } = Astro.locals
 ---
 
 <Default />
-<nav class="guides" aria-label="Colwerk for">
+<nav class="guides" aria-label={t('footer.guides')}>
   {guides.map((g) => <a href={g.href}>{g.label}</a>)}
 </nav>
 <p class="legal">
-  © 2026 Dennis Hendricks · MIT License · <a href="/imprint/">Imprint</a> · <a href="/privacy/">Privacy policy</a> ·
+  © 2026 Dennis Hendricks · {t('footer.license')} · <a href="/imprint/">{t('footer.imprint')}</a> ·
+  <a href="/privacy/">{t('footer.privacy')}</a> ·
   <a href={repo}>GitHub</a>
 </p>
 

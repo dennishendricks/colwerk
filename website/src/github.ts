@@ -15,8 +15,8 @@ export const getReleases = () =>
     return { releases, latest, version: latest.tag_name.replace(/^v/, '') }
   })())
 
-export const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+export const formatDate = (iso: string, lang = 'en') =>
+  new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : lang, { day: 'numeric', month: 'long', year: 'numeric' })
 
 /** Releases grouped by minor version (0.9 → [0.9.2, 0.9.1, 0.9.0]), newest first like the releases. */
 export const byMinor = (releases: Release[]) => Map.groupBy(releases, minorOf)

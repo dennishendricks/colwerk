@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro'
 import { getReleases } from '../github'
 import { llmsTxt } from '../llms'
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ locals }) => {
   const { version } = await getReleases()
-  return new Response(await llmsTxt(version), { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+  return new Response(await llmsTxt(version, locals.t), { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
 }

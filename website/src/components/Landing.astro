@@ -1,0 +1,32 @@
+---
+// Landing page in English (/) or German (/de/): Starlight splash layout with the launch video, overview, features,
+// privacy, MCP, FAQ and downloads.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
+import Engines from './Engines.astro'
+import Glance from './Glance.astro'
+import Features from './Features.astro'
+import Privacy from './Privacy.astro'
+import Ai from './Ai.astro'
+import Faq from './Faq.astro'
+import Download from './Download.astro'
+
+const { t } = Astro.locals
+---
+
+<StarlightPage
+  frontmatter={{
+    title: t('landing.title'),
+    description: t('landing.description'),
+    template: 'splash',
+    // the content comes from the Hero override in src/components/Hero.astro
+    hero: {},
+  }}
+>
+  <Engines />
+  <Glance />
+  <Features />
+  <Privacy />
+  <Ai />
+  <Faq />
+  <Download />
+</StarlightPage>

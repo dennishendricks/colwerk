@@ -1,59 +1,28 @@
 ---
-// FAQ section of the landing page: sticky intro beside an accordion, with FAQPage structured data.
+// FAQ section of the landing page: sticky intro beside an accordion, with FAQPage structured data (texts in
+// src/content/i18n).
 import { repo } from '../config'
 
-const faqs = [
-  {
-    q: 'Is Colwerk really free?',
-    href: '/docs/start/',
-    a: 'Yes. Colwerk is open source under the MIT license. There is no paid tier, no account and no trial. The source code is on GitHub for anyone to read and audit.',
-  },
-  {
-    q: 'Which databases does Colwerk support?',
-    href: '/docs/reference/features/',
-    a: 'SQLite, PostgreSQL, MySQL and MariaDB, SQL Server, ClickHouse and DuckDB. Through DuckDB, Colwerk also reads lakehouses: Apache Iceberg, Delta Lake, Databricks Unity Catalog and Microsoft Fabric OneLake.',
-  },
-  {
-    q: 'Which operating systems are supported?',
-    href: '/docs/start/install/',
-    a: 'macOS on Apple Silicon, Windows on x64 and Linux on x64 and arm64 as a .deb package. On macOS and Windows, Colwerk installs signed updates itself.',
-  },
-  {
-    q: 'Does Colwerk collect any data?',
-    href: '/docs/reference/security/',
-    a: 'No. There is no telemetry, no analytics and no account. Queries go directly from your computer to your databases. Colwerk only contacts GitHub to check for updates, and downloads the DuckDB library and its extensions the first time they are needed.',
-  },
-  {
-    q: 'Where are my passwords stored?',
-    href: '/docs/connections/passwords/',
-    a: 'On your computer only. Passwords are encrypted with AES-256-GCM, and the key lives in your operating system’s keychain. They are never shown to an AI assistant.',
-  },
-  {
-    q: 'Does Colwerk include AI?',
-    href: '/docs/mcp/',
-    a: 'No. Colwerk has a built-in MCP server instead, so you can connect Claude, Codex, Cursor or any other MCP client you already use. Your AI can explore schemas and run read-only queries, and hands its final query to a new tab. You decide what runs.',
-  },
-  {
-    q: 'Can I use Colwerk with my production database?',
-    href: '/docs/editor/safety/',
-    a: 'Yes, with guard rails. Give the connection a color, for example red, and it marks the sidebar, tabs and toolbar. On request, Colwerk asks before any statement that may change data or structures. New tabs start with a 200-row limit and a 60-second timeout.',
-  },
-  {
-    q: 'Can I use Colwerk as a SQL Server client on a Mac?',
-    href: '/sql-server-gui/',
-    a: 'Yes. Colwerk runs natively on Macs with Apple Silicon and connects to SQL Server in Docker, on the network or in Azure, with graphical execution plans. It also imports connections from Azure Data Studio, which Microsoft retired in February 2026.',
-  },
-  {
-    q: 'Can I open Parquet, CSV or Excel files without a database?',
-    href: '/parquet-viewer/',
-    a: 'Yes. Drop the files onto the Colwerk window: each one becomes a view in an in-memory DuckDB database that you query and join with SQL. Files on S3, Google Cloud Storage or the web work too.',
-  },
-  {
-    q: 'How do I switch from DBeaver or another database tool?',
-    href: '/dbeaver-alternative/',
-    a: 'Colwerk imports connections from DBeaver, Beekeeper Studio, Azure Data Studio, .pgpass files and dbt profiles.yml, including saved passwords where the other tool stores them readably.',
-  },
+const { t } = Astro.locals
+
+// one docs or landing page per question, in the order of the questions
+const links = [
+  '/docs/start/',
+  '/docs/reference/features/',
+  '/docs/start/install/',
+  '/docs/reference/security/',
+  '/docs/connections/passwords/',
+  '/docs/mcp/',
+  '/docs/editor/safety/',
+  '/sql-server-gui/',
+  '/parquet-viewer/',
+  '/dbeaver-alternative/',
 ]
+const faqs = ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((i) => ({
+  href: links[i - 1],
+  q: t(`landing.faq.q${i}`),
+  a: t(`landing.faq.a${i}`),
+}))
 
 const faqLd = {
   '@context': 'https://schema.org',
@@ -65,8 +34,8 @@ const faqLd = {
 <section id="faq" class="faq cw-section not-content">
   <div class="intro">
     <p class="cw-eyebrow">FAQ</p>
-    <h2>Questions, <span>answered.</span></h2>
-    <p class="cw-muted">Something missing? <a href={`${repo}/issues`}>Ask on GitHub</a>.</p>
+    <h2>{t('landing.faq.title')} <span>{t('landing.faq.accent')}</span></h2>
+    <p class="cw-muted" set:html={t('landing.faq.missing', { issues: `${repo}/issues` })} />
   </div>
   <div class="list">
     {
@@ -74,7 +43,7 @@ const faqLd = {
         <details name="faq" open={i === 0}>
           <summary>{f.q}</summary>
           <p>
-            {f.a} <a href={f.href}>Learn more</a>
+            {f.a} <a href={f.href}>{t('landing.faq.more')}</a>
           </p>
         </details>
       ))

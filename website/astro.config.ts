@@ -33,7 +33,9 @@ const getLastmods = () =>
         changed(`${dir}/${file}`),
       )
     }
-    map.set('/', changed('src/pages/index.astro', 'src/components', 'src/facts.ts'))
+    const home = changed('src/pages/index.astro', 'src/pages/de/index.astro', 'src/components', 'src/content/i18n')
+    map.set('/', home)
+    map.set('/de/', home)
     const list = await getReleases()
     map.set('/changelog/', list[0]?.published_at)
     for (const r of list)
@@ -70,6 +72,9 @@ export default defineConfig({
   integrations: [
     // Starlight adds no sitemap of its own when there is one
     sitemap({
+      // under /de/ only the landing page is translated; the rest are Starlight's fallback pages (src/routeData.ts)
+      filter: (page) => !new URL(page).pathname.startsWith('/de/') || new URL(page).pathname === '/de/',
+      i18n: { defaultLocale: 'en', locales: { en: 'en', de: 'de' } },
       serialize: async (item) => {
         const lastmod = (await getLastmods()).get(new URL(item.url).pathname)
         return lastmod ? { ...item, lastmod } : item
@@ -91,6 +96,9 @@ export default defineConfig({
     starlight({
       title: 'Colwerk',
       titleDelimiter: '·',
+      // Only the landing page is translated (src/pages/de/index.astro); the docs stay English.
+      defaultLocale: 'root',
+      locales: { root: { label: 'English', lang: 'en' }, de: { label: 'Deutsch', lang: 'de' } },
       description:
         'Free, open-source SQL editor and database client for macOS, Windows and Linux. PostgreSQL, MySQL, SQLite, SQL Server, ClickHouse, DuckDB and lakehouses.',
       logo: { src: './src/assets/favicon.svg' },
@@ -103,6 +111,7 @@ export default defineConfig({
         Footer: './src/components/Footer.astro',
         Head: './src/components/Head.astro',
         Hero: './src/components/Hero.astro',
+        LanguageSelect: './src/components/LanguageSelect.astro',
       },
       head: [
         { tag: 'meta', attrs: { property: 'og:image', content: `${site}/og-image.jpg` } },
