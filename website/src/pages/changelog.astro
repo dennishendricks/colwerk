@@ -1,14 +1,14 @@
 ---
-// Overview of every published release, from the GitHub API; the notes of each are on /changelog/<version>/.
+// Overview of every published release, from the GitHub API; the notes are on one page per minor version.
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
 import { Badge } from '@astrojs/starlight/components'
 import { releases as releasesUrl } from '../config'
-import { changelogSidebar, formatDate, getReleases, versionOf } from '../github'
+import { byMinor, changelogSidebar, formatDate, getReleases, versionOf } from '../github'
 
 const { releases, version } = await getReleases()
 
 // grouped by minor version (0.7.x), newest first
-const groups = Map.groupBy(releases, (r) => versionOf(r).split('.').slice(0, 2).join('.'))
+const groups = byMinor(releases)
 const headings = [...groups.keys()].map((minor) => ({ depth: 2, slug: `v${minor}`, text: minor }))
 ---
 
@@ -27,11 +27,13 @@ const headings = [...groups.keys()].map((minor) => ({ depth: 2, slug: `v${minor}
   {
     [...groups].map(([minor, list]) => (
       <section>
-        <h2 id={`v${minor}`}>{minor}</h2>
+        <h2 id={`v${minor}`}>
+          <a href={`/changelog/${minor}/`}>{minor}</a>
+        </h2>
         <ul class="releases">
           {list.map((r) => (
             <li>
-              <a href={`/changelog/${versionOf(r)}/`}>{versionOf(r)}</a>
+              <a href={`/changelog/${minor}/#v${versionOf(r)}`}>{versionOf(r)}</a>
               <time datetime={r.published_at}>{formatDate(r.published_at)}</time>
               {r.prerelease && <Badge text="Pre-release" variant="caution" />}
             </li>

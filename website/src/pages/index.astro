@@ -7,6 +7,15 @@ import Privacy from '../components/Privacy.astro'
 import Ai from '../components/Ai.astro'
 import Faq from '../components/Faq.astro'
 import Download from '../components/Download.astro'
+
+const websiteLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Colwerk',
+  url: Astro.site,
+  inLanguage: 'en',
+  publisher: { '@type': 'Person', name: 'Dennis Hendricks', url: 'https://github.com/dennishendricks' },
+}
 ---
 
 <StarlightPage
@@ -25,4 +34,5 @@ import Download from '../components/Download.astro'
   <Ai />
   <Faq />
   <Download />
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(websiteLd)} />
 </StarlightPage>

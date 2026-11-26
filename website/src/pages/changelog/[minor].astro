@@ -1,0 +1,70 @@
+---
+// Release notes of one minor version (0.9.0, 0.9.1, 0.9.2 on /changelog/0.9/), from the GitHub API; the overview is
+// /changelog/. The former pages per version redirect here (astro.config.ts).
+import type { GetStaticPaths } from 'astro'
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
+import { Badge } from '@astrojs/starlight/components'
+import { byMinor, changelogSidebar, formatDate, getReleases, versionOf } from '../../github'
+
+export const getStaticPaths = (async () => {
+  const { releases } = await getReleases()
+  const minors = [...byMinor(releases)]
+  // minors are sorted newest first
+  return minors.map(([minor, list], i) => ({
+    params: { minor },
+    props: { minor, list, newer: minors[i - 1]?.[0], older: minors[i + 1]?.[0] },
+  }))
+}) satisfies GetStaticPaths
+
+const { minor, list, newer, older } = Astro.props
+const { releases } = await getReleases()
+const link = (other?: string) => other && { label: other, link: `/changelog/${other}/` }
+
+function slug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+const plain = (html: string) => html.replace(/<[^>]+>/g, '').trim()
+
+// Each release is an <h2>, so the headings of its notes move one level down; their ids carry the version to stay unique.
+const sections = list.map((r) => {
+  const id = `v${versionOf(r)}`
+  const headings: { depth: number; slug: string; text: string }[] = []
+  const body = (r.body_html ?? '').replace(/<h([2-5])([^>]*)>(.*?)<\/h\1>/gs, (_, level: string, attrs, text) => {
+    const depth = Number(level) + 1
+    const s = `${id}-${slug(plain(text))}`
+    if (depth === 3) headings.push({ depth, slug: s, text: plain(text) })
+    return `<h${depth}${attrs} id="${s}">${text}</h${depth}>`
+  })
+  return { r, id, body, headings }
+})
+const headings = sections.flatMap((s) => [{ depth: 2, slug: s.id, text: versionOf(s.r) }, ...s.headings])
+const versions = list.map(versionOf)
+const range = versions.length > 1 ? `${versions.at(-1)} to ${versions[0]}` : versions[0]
+---
+
+<StarlightPage
+  frontmatter={{
+    title: `Release notes ${minor}`,
+    description: `What changed in Colwerk ${range}: new features, fixes and changes, released ${formatDate(list.at(-1)!.published_at)}${list.length > 1 ? ` to ${formatDate(list[0]!.published_at)}` : ''}.`,
+    prev: link(older) || { label: 'All releases', link: '/changelog/' },
+    next: link(newer) || false,
+  }}
+  headings={headings}
+  sidebar={changelogSidebar(releases)}
+>
+  {
+    sections.map(({ r, id, body }) => (
+      <section>
+        <h2 id={id}>{versionOf(r)}</h2>
+        <p>
+          <time datetime={r.published_at}>{formatDate(r.published_at)}</time>
+          {r.prerelease && <Badge text="Pre-release" variant="caution" />} · <a href={r.html_url}>Downloads on GitHub</a>
+        </p>
+        <Fragment set:html={body} />
+      </section>
+    ))
+  }
+</StarlightPage>

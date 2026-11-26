@@ -2,7 +2,9 @@
 // Download section of the landing page: latest version, platform links and the app's structured data.
 import { releases, repo } from '../config'
 import { formatDate, getReleases } from '../github'
+import { getImage } from 'astro:assets'
 import logo from '../assets/favicon.svg'
+import poster from '../assets/colwerk-poster.jpg'
 
 const { latest, version } = await getReleases()
 
@@ -17,6 +19,8 @@ const downloads = [
   href: latest.assets.find((a) => a.name.endsWith(`-${d.file}`))?.browser_download_url ?? latest.html_url,
 }))
 
+const screenshot = await getImage({ src: poster, format: 'webp', width: 1280 })
+
 const softwareLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -25,14 +29,29 @@ const softwareLd = {
     'Colwerk is a free, open-source SQL editor and database client for SQLite, PostgreSQL, MySQL/MariaDB, SQL Server, ClickHouse, DuckDB and different lakehouses, on macOS, Windows and Linux.',
   url: Astro.site,
   image: new URL('/og-image.jpg', Astro.site),
+  screenshot: new URL(screenshot.src, Astro.site),
   applicationCategory: 'DeveloperApplication',
+  applicationSubCategory: 'Database client',
   operatingSystem: 'macOS, Windows, Linux',
+  softwareRequirements: 'macOS on Apple Silicon, Windows x64, or Linux x64 or arm64 (.deb)',
+  featureList: [
+    'SQL editor with autocomplete, formatting and multiple cursors',
+    'PostgreSQL, MySQL, MariaDB, SQL Server, ClickHouse, DuckDB and SQLite',
+    'Apache Iceberg, Delta Lake, Databricks Unity Catalog and Microsoft Fabric OneLake',
+    'SQL on CSV, Parquet, JSON and Excel files',
+    'Result grid with filters and row editing',
+    'Export to CSV, Parquet, Excel, JSON and SQL',
+    'Schema and data compare',
+    'ER diagrams and execution plans',
+    'Built-in MCP server for AI assistants',
+    'No telemetry, passwords encrypted in the OS keychain',
+  ],
   softwareVersion: version,
   dateModified: latest.published_at,
   releaseNotes: new URL('/changelog/', Astro.site),
   downloadUrl: releases,
   license: 'https://opensource.org/license/mit',
-  author: { '@type': 'Person', name: 'Dennis Hendricks' },
+  author: { '@type': 'Person', name: 'Dennis Hendricks', url: 'https://github.com/dennishendricks' },
   sameAs: [repo],
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
 }
