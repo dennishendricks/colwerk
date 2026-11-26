@@ -1,36 +1,16 @@
-// Fetches the published Colwerk releases from the GitHub API at build time (changelog, version, download section).
+// Published Colwerk releases at build time (changelog, version, download section), and the changelog's sidebar.
 import { GITHUB_TOKEN } from 'astro:env/server'
-import { docsSidebar, repo } from './config'
+import { docsSidebar } from './config'
+import { fetchReleases, minorOf, type Release } from './releases'
 
-export interface Release {
-  tag_name: string
-  name: string | null
-  html_url: string
-  published_at: string
-  prerelease: boolean
-  draft: boolean
-  body_html?: string
-  assets: { name: string; browser_download_url: string }[]
-}
+export { minorOf, versionOf, type Release } from './releases'
 
 // Fetched once per build, lazily: Cloudflare's prerender runtime forbids fetch() in global scope.
-// GITHUB_TOKEN is optional and only raises the API rate limit (shared build IPs).
 let cached: Promise<{ releases: Release[]; latest: Release; version: string }> | undefined
 
 export const getReleases = () =>
   (cached ??= (async () => {
-    const res = await fetch(
-      `${repo.replace('https://github.com/', 'https://api.github.com/repos/')}/releases?per_page=100`,
-      {
-        headers: {
-          Accept: 'application/vnd.github.html+json',
-          'User-Agent': 'colwerk-website',
-          ...(GITHUB_TOKEN && { Authorization: `Bearer ${GITHUB_TOKEN}` }),
-        },
-      },
-    )
-    if (!res.ok) throw new Error(`GitHub releases: ${res.status} ${res.statusText}`)
-    const releases = ((await res.json()) as Release[]).filter((r) => !r.draft)
+    const releases = await fetchReleases(GITHUB_TOKEN)
     const latest = releases.find((r) => !r.prerelease)!
     return { releases, latest, version: latest.tag_name.replace(/^v/, '') }
   })())
@@ -38,20 +18,17 @@ export const getReleases = () =>
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
-export const versionOf = (r: Release) => r.tag_name.replace(/^v/, '')
+/** Releases grouped by minor version (0.9 → [0.9.2, 0.9.1, 0.9.0]), newest first like the releases. */
+export const byMinor = (releases: Release[]) => Map.groupBy(releases, minorOf)
 
-// Sidebar of the changelog pages: the docs, then every release, grouped by minor version (0.7.x) like the overview.
+// Sidebar of the changelog pages: the docs, then one page per minor version.
 export const changelogSidebar = (releases: Release[]) => [
   ...docsSidebar,
   {
     label: 'Changelog',
     items: [
       { label: 'All releases', link: '/changelog/' },
-      ...[...Map.groupBy(releases, (r) => versionOf(r).split('.').slice(0, 2).join('.'))].map(([minor, list], i) => ({
-        label: minor,
-        collapsed: i > 0,
-        items: list.map((r) => ({ label: versionOf(r), link: `/changelog/${versionOf(r)}/` })),
-      })),
+      ...[...byMinor(releases).keys()].map((minor) => ({ label: minor, link: `/changelog/${minor}/` })),
     ],
   },
 ]

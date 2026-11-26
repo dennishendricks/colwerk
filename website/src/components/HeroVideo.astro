@@ -61,8 +61,11 @@ const videoLd = {
 <script is:inline type="application/ld+json" set:html={JSON.stringify(videoLd)} />
 
 <script>
-  // autoplay only without reduced motion; otherwise nothing is downloaded until the user presses play
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  // autoplay only without reduced motion, data saver or a slow connection; otherwise nothing is downloaded until the
+  // user presses play. navigator.connection is missing in Safari and Firefox.
+  const connection = (navigator as { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+  const saveData = connection?.saveData || /2g|3g/.test(connection?.effectiveType ?? '')
+  if (!saveData && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const video = document.querySelector<HTMLVideoElement>('.video video')
     if (video) {
       video.autoplay = true

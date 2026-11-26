@@ -32,6 +32,12 @@ const faqs = [
     a: 'Yes, with guard rails. Give the connection a color, for example red, and it marks the sidebar, tabs and toolbar. On request, Colwerk asks before any statement that may change data or structures. New tabs start with a 200-row limit and a 60-second timeout.',
   },
 ]
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+}
 ---
 
 <section id="faq" class="faq cw-section not-content">
@@ -51,6 +57,7 @@ const faqs = [
     }
   </div>
 </section>
+<script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
 
 <style>
   .faq {
