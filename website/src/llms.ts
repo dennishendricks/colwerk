@@ -1,7 +1,6 @@
 // Content of /llms.txt and /llms-full.txt (https://llmstxt.org): what Colwerk is, key facts and the docs in Markdown.
 import { getCollection } from 'astro:content'
 import { docsSidebar, guides, releases, repo } from './config'
-import { facts, summary } from './facts'
 import { markdownPath, pagePath, site } from './markdown'
 
 /** Docs pages in sidebar order, grouped like the sidebar */
@@ -22,24 +21,28 @@ export async function guideEntries() {
   return guides.map((g) => entries.find((e) => pagePath(e.id) === g.href)!)
 }
 
-export function llmsHeader(version: string) {
+/** Title, summary and key facts, from the English UI strings of the landing page (src/content/i18n/en.json) */
+export function llmsHeader(version: string, t: App.Locals['t']) {
+  const facts = ([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map(
+    (i) => `- ${t(`landing.glance.fact${i}.label`)}: ${t(`landing.glance.fact${i}.value`)}`,
+  )
   return `# Colwerk
 
-> ${summary}
+> ${t('landing.glance.summary')}
 
-${facts.map(([label, value]) => `- ${label}: ${value}`).join('\n')}
+${facts.join('\n')}
 - Current version: ${version}
 
 Website: ${site}/ · Source code: ${repo} · Downloads: ${releases}
 `
 }
 
-export async function llmsTxt(version: string) {
+export async function llmsTxt(version: string, t: App.Locals['t']) {
   const groups = await docsGroups()
   const guidePages = await guideEntries()
   const link = (e: (typeof guidePages)[number]) =>
     `- [${e.data.title}](${site}${markdownPath(pagePath(e.id))}): ${e.data.description ?? ''}`
-  return `${llmsHeader(version)}
+  return `${llmsHeader(version, t)}
 Every docs page is also available as Markdown: append .md to its URL without the trailing slash. All docs in one file:
 ${site}/llms-full.txt
 

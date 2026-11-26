@@ -4,10 +4,10 @@ import { getReleases } from '../github'
 import { docsGroups, guideEntries, llmsHeader } from '../llms'
 import { docsMarkdown } from '../markdown'
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ locals }) => {
   const { version } = await getReleases()
   const pages = [...(await guideEntries()), ...(await docsGroups()).flatMap((g) => g.pages)].map(docsMarkdown)
-  return new Response(`${llmsHeader(version)}\n---\n\n${pages.join('\n---\n\n')}`, {
+  return new Response(`${llmsHeader(version, locals.t)}\n---\n\n${pages.join('\n---\n\n')}`, {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   })
 }

@@ -21,11 +21,13 @@ const [posterAvif, posterWebp, posterVerticalAvif, posterVerticalWebp] = await P
   getImage({ src: posterVertical, format: 'webp', widths: [360, 540, 720, 1080] }),
 ])
 
+const { t } = Astro.locals
+
 const videoLd = {
   '@context': 'https://schema.org',
   '@type': 'VideoObject',
-  name: 'Colwerk launch video',
-  description: 'A short introduction to Colwerk, a lightweight SQL editor and database client for the desktop.',
+  name: t('landing.video.label'),
+  description: t('landing.video.description'),
   thumbnailUrl: new URL(posterWebp.src, Astro.site),
   uploadDate: '2026-11-03T18:49:48+01:00',
   duration: 'PT25S',
@@ -49,7 +51,7 @@ const videoLd = {
       fetchpriority="high"
     />
   </picture>
-  <video muted loop playsinline controls preload="none" width="1920" height="1080" aria-label="Colwerk launch video">
+  <video muted loop playsinline controls preload="none" width="1920" height="1080" aria-label={t('landing.video.label')}>
     <source media={mobile} src={av1Vertical} type='video/webm; codecs="av01.0.08M.08, opus"' />
     <source media={mobile} src={vp9Vertical} type='video/webm; codecs="vp9, opus"' />
     <source media={mobile} src={mp4Vertical} type="video/mp4" />

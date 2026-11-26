@@ -1,5 +1,6 @@
 ---
 // Supported databases, lakehouses and files as pills below the hero, each linking to its page.
+const { t } = Astro.locals
 const engines = [
   { label: 'PostgreSQL', href: '/postgresql-gui/' },
   { label: 'MySQL / MariaDB', href: '/mysql-gui/' },
@@ -13,13 +14,13 @@ const more = [
   { label: 'Delta Lake', href: '/docs/connections/lakehouses/#delta-lake-folder' },
   { label: 'Databricks Unity Catalog', href: '/docs/connections/lakehouses/#databricks-unity-catalog' },
   { label: 'Microsoft Fabric OneLake', href: '/docs/connections/lakehouses/#microsoft-fabric-onelake' },
-  { label: 'Parquet, CSV, JSON & Excel', href: '/parquet-viewer/' },
+  { label: t('landing.engines.files'), href: '/parquet-viewer/' },
 ]
 ---
 
 <div class="engines not-content">
-  <div class="row" aria-label="Supported databases">{engines.map((e) => <a href={e.href}>{e.label}</a>)}</div>
-  <div class="row more" aria-label="Lakehouses and files">{more.map((e) => <a href={e.href}>{e.label}</a>)}</div>
+  <div class="row" aria-label={t('landing.engines.databases')}>{engines.map((e) => <a href={e.href}>{e.label}</a>)}</div>
+  <div class="row more" aria-label={t('landing.engines.more')}>{more.map((e) => <a href={e.href}>{e.label}</a>)}</div>
 </div>
 
 <style>

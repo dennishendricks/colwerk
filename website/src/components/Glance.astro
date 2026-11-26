@@ -1,26 +1,16 @@
 ---
-// "Colwerk at a glance" on the landing page: the quotable summary and key facts of src/facts.ts, and who it is for.
-import { facts, summary } from '../facts'
-
-const fits = [
-  { text: 'Developers and analysts who query PostgreSQL, MySQL or SQL Server every day', href: '/postgresql-gui/' },
-  { text: 'SQL Server users who need a replacement for the retired Azure Data Studio', href: '/sql-server-gui/' },
-  { text: 'Data engineers who query Parquet files, Iceberg or Delta Lake with DuckDB', href: '/parquet-viewer/' },
-  { text: 'Teams with sensitive data: no telemetry, local passwords, masked personal data', href: '/docs/reference/security/' },
-  { text: 'Anyone who wants Claude, Codex or Cursor to explore a database read-only', href: '/docs/mcp/' },
-]
-
-const notFits = [
-  'Oracle, MongoDB or other databases beyond the six engines',
-  'Intel Macs (Colwerk needs Apple Silicon) or Linux distributions without .deb packages',
-  'A visual query builder: in Colwerk, you write SQL',
-]
+// "Colwerk at a glance" on the landing page: a quotable summary, key facts and who it is for (texts in src/content/i18n).
+const { t } = Astro.locals
+const facts = ([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((i) => [t(`landing.glance.fact${i}.label`), t(`landing.glance.fact${i}.value`)])
+const fitLinks = ['/postgresql-gui/', '/sql-server-gui/', '/duckdb-gui/', '/docs/reference/security/', '/docs/mcp/']
+const fits = ([1, 2, 3, 4, 5] as const).map((i) => ({ href: fitLinks[i - 1], text: t(`landing.glance.fit${i}`) }))
+const notFits = ([1, 2, 3] as const).map((i) => t(`landing.glance.notFit${i}`))
 ---
 
 <section id="at-a-glance" class="cw-section not-content">
-  <p class="cw-eyebrow">At a glance</p>
-  <h2>What is <span>Colwerk?</span></h2>
-  <p class="cw-lead">{summary}</p>
+  <p class="cw-eyebrow">{t('landing.glance.eyebrow')}</p>
+  <h2>{t('landing.glance.title')} <span>Colwerk?</span></h2>
+  <p class="cw-lead">{t('landing.glance.summary')}</p>
 
   <dl class="facts">
     {
@@ -35,7 +25,7 @@ const notFits = [
 
   <div class="who">
     <div>
-      <h3>Who it is for</h3>
+      <h3>{t('landing.glance.fitsTitle')}</h3>
       <ul class="fit">
         {
           fits.map((f) => (
@@ -47,9 +37,9 @@ const notFits = [
       </ul>
     </div>
     <div>
-      <h3>Not the right tool if you need</h3>
+      <h3>{t('landing.glance.notFitsTitle')}</h3>
       <ul class="no-fit">{notFits.map((n) => <li>{n}</li>)}</ul>
-      <p class="cw-muted small">See the <a href="/docs/reference/limitations/">known limitations</a>.</p>
+      <p class="cw-muted small" set:html={t('landing.glance.limits')} />
     </div>
   </div>
 </section>

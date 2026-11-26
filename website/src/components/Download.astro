@@ -7,6 +7,8 @@ import logo from '../assets/favicon.svg'
 import poster from '../assets/colwerk-poster.jpg'
 
 const { latest, version } = await getReleases()
+const { t } = Astro.locals
+const { lang } = Astro.locals.starlightRoute
 
 // Asset name endings as written by scripts/package.ts; without a matching asset the card links to the release page.
 const downloads = [
@@ -46,6 +48,7 @@ const softwareLd = {
     'Built-in MCP server for AI assistants',
     'No telemetry, passwords encrypted in the OS keychain',
   ],
+  inLanguage: lang,
   softwareVersion: version,
   dateModified: latest.published_at,
   releaseNotes: new URL('/changelog/', Astro.site),
@@ -59,13 +62,12 @@ const softwareLd = {
 
 <section id="download" class="download cw-section not-content">
   <img src={logo.src} alt="" width="72" height="72" />
-  <h2>Download <span>Colwerk</span></h2>
-  <p class="cw-lead">
-    Free, with builds for macOS, Windows and Linux. On macOS and Windows, Colwerk installs signed updates itself.
-  </p>
+  <h2>{t('landing.download.title')} <span>{t('landing.download.accent')}</span></h2>
+  <p class="cw-lead">{t('landing.download.lead')}</p>
   <p class="cw-muted version">
-    Version {version} · released <time datetime={latest.published_at}>{formatDate(latest.published_at)}</time> ·
-    <a href="/changelog/">What’s new</a>
+    Version {version} · {t('landing.download.released')}{' '}
+    <time datetime={latest.published_at}>{formatDate(latest.published_at, lang)}</time> ·
+    <a href="/changelog/">{t('landing.download.whatsNew')}</a>
   </p>
   <div class="platforms">
     {
@@ -78,7 +80,7 @@ const softwareLd = {
     }
   </div>
   <p class="cw-muted small">
-    <a href={releases}>All release files, checksums &amp; SBOM (CycloneDX)</a> · The release files are attested.
+    <a href={releases}>{t('landing.download.allFiles')}</a> · {t('landing.download.attested')}
   </p>
 </section>
 <script is:inline type="application/ld+json" set:html={JSON.stringify(softwareLd)} />

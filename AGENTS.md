@@ -23,6 +23,8 @@ file). Use it instead of listing directories or opening files to find your way.
   tools reach the reference pages through `website/src/data/reference.json`, written by `bun run docs-data`.
   Write shortcuts as `:kbd[meta+shift+D]` (key names of `app/utils/shortcuts.ts`), never as `⌘⇧D`: the page shows
   macOS or Windows/Linux notation (`website/src/keys.ts`); `{other="Ctrl+Y"}` where Windows/Linux differ.
+  Only the landing page is translated (`/de/`): its texts are in `website/src/content/i18n/{en,de}.json`, read with
+  `Astro.locals.t`; add every key to both files. Other pages under `/de/` are Starlight's English fallbacks.
 - `i18n/locales/{en,de}.json`: UI strings, about 45 KB each. Never read them whole: grep for the key, read around the
   line number, and add every key to both files.
 
