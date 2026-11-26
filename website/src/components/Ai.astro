@@ -1,7 +1,7 @@
 ---
 // MCP section of the landing page: four-step timeline, what the AI can and cannot do, and a handed-over query.
 const steps = [
-  { title: 'Ask', text: '“Which city buys the most coffee?” in Claude, ChatGPT or any other MCP client.' },
+  { title: 'Ask', text: '“Which city buys the most coffee?” in Claude, Codex, Cursor or any other MCP client.' },
   {
     title: 'Explore',
     text: 'Your AI looks at schemas, tables and sample rows and runs read-only queries to find the answer.',
@@ -26,11 +26,12 @@ const cannot = [
 ---
 
 <section id="ai" class="cw-section not-content">
-  <p class="cw-eyebrow">Ask your AI. You run it.</p>
-  <h2>Bring your <span>own AI.</span></h2>
+  <p class="cw-eyebrow">Bring your own AI. You run it.</p>
+  <h2>A database client with a built-in <span>MCP server.</span></h2>
   <p class="cw-lead">
     Colwerk has no AI inside. It speaks MCP, the open Model Context Protocol, so you can connect the cloud or local
-    assistant you already use and decide what it sees.
+    assistant you already use and decide what it sees. <a href="/docs/mcp/">Set it up</a> in one step, or start with
+    <a href="/docs/mcp/prompts/">example prompts</a>.
   </p>
 
   <ol class="steps">
@@ -73,7 +74,8 @@ const cannot = [
 
   <p class="note cw-muted">
     Queries from your AI run in a separate session inside a read-only transaction that is always rolled back, with a 30
-    s timeout and a row limit. Setup is a single entry in your MCP client; Colwerk shows it for you.
+    s timeout and a row limit. Setup is a single entry in your MCP client; Colwerk shows it for you. Every call ends up
+    in the <a href="/docs/mcp/audit-log/">audit log</a>, and personal data is <a href="/docs/data/masking/">masked</a>.
   </p>
 </section>
 
@@ -178,5 +180,9 @@ const cannot = [
   .note {
     margin-top: 2.5rem;
     font-size: var(--sl-text-sm);
+  }
+  .cw-lead a,
+  .note a {
+    color: var(--sl-color-text-accent);
   }
 </style>

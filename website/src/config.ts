@@ -1,4 +1,4 @@
-// Links to the Colwerk repository and its releases, and the documentation's sidebar.
+// Links to the Colwerk repository and its releases, the pages per engine and topic, and the documentation's sidebar.
 export const repo = 'https://github.com/dennishendricks/colwerk'
 export const releases = `${repo}/releases/latest`
 
@@ -11,4 +11,15 @@ export const docsSidebar = [
   { label: 'Working with data', items: [{ autogenerate: { directory: 'docs/data' } }] },
   { label: 'AI assistants (MCP)', items: [{ autogenerate: { directory: 'docs/mcp' } }] },
   { label: 'Reference', items: [{ autogenerate: { directory: 'docs/reference' } }] },
+]
+
+// Pages per engine and topic in src/content/docs/, outside the docs sidebar: linked from the footer and llms.txt
+export const guides = [
+  { label: 'PostgreSQL GUI', href: '/postgresql-gui/' },
+  { label: 'MySQL GUI', href: '/mysql-gui/' },
+  { label: 'SQL Server client', href: '/sql-server-gui/' },
+  { label: 'SQLite viewer', href: '/sqlite-viewer/' },
+  { label: 'DuckDB GUI', href: '/duckdb-gui/' },
+  { label: 'Parquet viewer', href: '/parquet-viewer/' },
+  { label: 'DBeaver alternative', href: '/dbeaver-alternative/' },
 ]

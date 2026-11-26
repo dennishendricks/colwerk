@@ -1,12 +1,25 @@
 ---
-// Supported databases and lakehouses as pills below the hero.
-const engines = ['SQLite', 'PostgreSQL', 'MySQL / MariaDB', 'SQL Server', 'ClickHouse', 'DuckDB']
-const lakehouses = ['Apache Iceberg', 'Delta Lake', 'Databricks Unity Catalog', 'Microsoft Fabric OneLake']
+// Supported databases, lakehouses and files as pills below the hero, each linking to its page.
+const engines = [
+  { label: 'PostgreSQL', href: '/postgresql-gui/' },
+  { label: 'MySQL / MariaDB', href: '/mysql-gui/' },
+  { label: 'SQL Server', href: '/sql-server-gui/' },
+  { label: 'SQLite', href: '/sqlite-viewer/' },
+  { label: 'ClickHouse', href: '/docs/connections/databases/#clickhouse' },
+  { label: 'DuckDB', href: '/duckdb-gui/' },
+]
+const more = [
+  { label: 'Apache Iceberg', href: '/docs/connections/lakehouses/#apache-iceberg-rest-catalog' },
+  { label: 'Delta Lake', href: '/docs/connections/lakehouses/#delta-lake-folder' },
+  { label: 'Databricks Unity Catalog', href: '/docs/connections/lakehouses/#databricks-unity-catalog' },
+  { label: 'Microsoft Fabric OneLake', href: '/docs/connections/lakehouses/#microsoft-fabric-onelake' },
+  { label: 'Parquet, CSV, JSON & Excel', href: '/parquet-viewer/' },
+]
 ---
 
 <div class="engines not-content">
-  <div class="row" aria-label="Supported databases">{engines.map((e) => <span>{e}</span>)}</div>
-  <div class="row lakehouses" aria-label="Lakehouses">{lakehouses.map((e) => <span>{e}</span>)}</div>
+  <div class="row" aria-label="Supported databases">{engines.map((e) => <a href={e.href}>{e.label}</a>)}</div>
+  <div class="row more" aria-label="Lakehouses and files">{more.map((e) => <a href={e.href}>{e.label}</a>)}</div>
 </div>
 
 <style>
@@ -19,18 +32,29 @@ const lakehouses = ['Apache Iceberg', 'Delta Lake', 'Databricks Unity Catalog', 
     justify-content: center;
     gap: 0.75rem;
   }
-  span {
+  a {
     padding: 0.35rem 0.9rem;
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 999px;
     color: var(--sl-color-gray-3);
     font-size: 0.9rem;
+    text-decoration: none;
+    transition: border-color 0.15s;
   }
-  .lakehouses {
+  a:hover {
+    border-color: var(--cw-brand);
+    color: var(--sl-color-white);
+  }
+  .more {
     margin-top: 0.75rem;
   }
-  .lakehouses span {
+  .more a {
     border-style: dashed;
     font-size: 0.85rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    a {
+      transition: none;
+    }
   }
 </style>
