@@ -79,7 +79,7 @@ read sample rows, run a `SELECT` and open a query in a new tab. It cannot:
 - connect without the MCP token, which only the bridge on your computer has.
 
 A typical session: you ask a question, the assistant explores the schema, tries a few queries and finally hands over
-its query with `open-query`. The query opens in a new tab with the assistant's explanation as a SQL comment above it,
+its query with `open-query`. [Example prompts](/docs/mcp/prompts/) show what to ask. The query opens in a new tab with the assistant's explanation as a SQL comment above it,
 and is not run.
 
 ## How queries are protected

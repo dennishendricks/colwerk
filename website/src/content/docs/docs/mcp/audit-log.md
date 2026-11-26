@@ -2,7 +2,7 @@
 title: Audit log
 description: Every tool call of an AI assistant is recorded in Colwerk's MCP audit log, without result data.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 Colwerk records every tool call of an AI assistant, including failed ones. Open the log with **Colwerk → MCP Audit Log

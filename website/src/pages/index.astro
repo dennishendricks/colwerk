@@ -1,7 +1,8 @@
 ---
-// Landing page: Starlight splash layout with the launch video, features, privacy, MCP, FAQ and downloads.
+// Landing page: Starlight splash layout with the launch video, overview, features, privacy, MCP, FAQ and downloads.
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro'
 import Engines from '../components/Engines.astro'
+import Glance from '../components/Glance.astro'
 import Features from '../components/Features.astro'
 import Privacy from '../components/Privacy.astro'
 import Ai from '../components/Ai.astro'
@@ -29,6 +30,7 @@ const websiteLd = {
   }}
 >
   <Engines />
+  <Glance />
   <Features />
   <Privacy />
   <Ai />

@@ -1,0 +1,118 @@
+---
+// "Colwerk at a glance" on the landing page: the quotable summary and key facts of src/facts.ts, and who it is for.
+import { facts, summary } from '../facts'
+
+const fits = [
+  { text: 'Developers and analysts who query PostgreSQL, MySQL or SQL Server every day', href: '/postgresql-gui/' },
+  { text: 'Mac users who need a SQL Server client now that Azure Data Studio is retired', href: '/sql-server-mac/' },
+  { text: 'Data engineers who query Parquet files, Iceberg or Delta Lake with DuckDB', href: '/parquet-viewer/' },
+  { text: 'Teams with sensitive data: no telemetry, local passwords, masked personal data', href: '/docs/reference/security/' },
+  { text: 'Anyone who wants Claude, Codex or Cursor to explore a database read-only', href: '/docs/mcp/' },
+]
+
+const notFits = [
+  'Oracle, MongoDB or other databases beyond the six engines',
+  'Intel Macs (Colwerk needs Apple Silicon) or Linux distributions without .deb packages',
+  'A visual query builder: in Colwerk, you write SQL',
+]
+---
+
+<section id="at-a-glance" class="cw-section not-content">
+  <p class="cw-eyebrow">At a glance</p>
+  <h2>What is <span>Colwerk?</span></h2>
+  <p class="cw-lead">{summary}</p>
+
+  <dl class="facts">
+    {
+      facts.map(([label, value]) => (
+        <div>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))
+    }
+  </dl>
+
+  <div class="who">
+    <div>
+      <h3>Who it is for</h3>
+      <ul class="fit">
+        {
+          fits.map((f) => (
+            <li>
+              <a href={f.href}>{f.text}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+    <div>
+      <h3>Not the right tool if you need</h3>
+      <ul class="no-fit">{notFits.map((n) => <li>{n}</li>)}</ul>
+      <p class="cw-muted small">See the <a href="/docs/reference/limitations/">known limitations</a>.</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1.25rem 2.5rem;
+    margin: 2.5rem 0 0;
+  }
+  .facts div {
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-gray-5);
+  }
+  .facts dt {
+    color: var(--sl-color-white);
+    font-weight: 650;
+  }
+  .facts dd {
+    margin: 0.25rem 0 0;
+    color: var(--sl-color-gray-3);
+  }
+  .who {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 2rem 4rem;
+    margin-top: 3rem;
+  }
+  .who ul {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .who li {
+    padding-left: 1.5rem;
+    text-indent: -1.5rem;
+  }
+  .who li::before {
+    display: inline-block;
+    width: 1.5rem;
+    text-indent: 0;
+    font-weight: 700;
+  }
+  .fit li::before {
+    content: '✓';
+    color: var(--sl-color-text-accent);
+  }
+  .no-fit li::before {
+    content: '✕';
+    color: var(--sl-color-gray-3);
+  }
+  .who a {
+    color: var(--sl-color-gray-2);
+  }
+  .who a:hover,
+  .small a {
+    color: var(--sl-color-text-accent);
+  }
+  .small {
+    margin-top: 1rem;
+    font-size: var(--sl-text-sm);
+  }
+</style>

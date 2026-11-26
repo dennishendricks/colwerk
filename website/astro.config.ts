@@ -117,7 +117,7 @@ export default defineConfig({
         },
       ],
       // Fails the build on dead links between the Markdown pages; the pages in src/pages/ are not checked.
-      plugins: [starlightLinksValidator({ exclude: ['/', '/changelog/', '/changelog/**'] })],
+      plugins: [starlightLinksValidator({ exclude: ['/', '/#download', '/changelog/', '/changelog/**'] })],
       sidebar: [...docsSidebar, { label: 'Changelog', link: '/changelog/' }],
     }),
   ],

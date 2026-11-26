@@ -1,28 +1,34 @@
 ---
-// Feature section of the landing page: numbered spec list "Under the hood" and the "Every day" grid.
+// Feature section of the landing page: numbered spec list "Under the hood" and the "Every day" grid, linked to the docs.
 const general = [
   {
     title: 'One session per tab',
+    href: '/docs/editor/transactions/',
     text: 'Every editor tab holds its own connection. Transactions, temp tables and SET options stay where you left them. If a transaction is still open, Colwerk offers to commit or roll it back.',
   },
   {
     title: 'Gentle on your database',
+    href: '/docs/data/schema-tree/',
     text: 'Drivers read only up to the row limit and cancel the rest. The schema tree loads on demand through its own metadata session, and table sizes come from statistics instead of COUNT(*).',
   },
   {
     title: 'Guard rails for production',
+    href: '/docs/editor/safety/',
     text: 'Give a connection a color, for example red for production, and it marks the sidebar, tabs and toolbar. On request, Colwerk asks before any statement that may change data or structures.',
   },
   {
     title: 'CSV & Parquet export',
+    href: '/docs/data/export/',
     text: 'Export the rows you see or the full result without limit. Colwerk writes the file to disk itself, so large exports never pass through the UI.',
   },
   {
     title: 'Built-in MCP server',
+    href: '/docs/mcp/',
     text: 'Your AI assistant can browse schemas, run read-only queries and open SQL in a new tab. You decide what actually runs.',
   },
   {
     title: 'Local by design',
+    href: '/docs/reference/security/',
     text: 'Bound to 127.0.0.1 on a random port with a per-start token. Passwords are encrypted with AES-256-GCM, and the key lives in your OS keychain.',
   },
 ]
@@ -31,41 +37,49 @@ const general = [
 const daily = [
   {
     title: 'A result grid that keeps up',
+    href: '/docs/data/result-grid/',
     text: 'Sort, filter, pin, hide and resize columns. Search the result, open long values, or copy a row as JSON or CSV.',
   },
   {
     title: 'Keys in the schema tree',
+    href: '/docs/data/schema-tree/',
     text: 'Primary keys, foreign keys with their target and indexes show right in the tree. Double-click a table to query all its columns.',
   },
   {
     title: 'Keyboard first',
+    href: '/docs/reference/shortcuts/',
     text: 'Format SQL with <kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>F</kbd>, run with <kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd> and open the execution plan with <kbd>⌘/Ctrl</kbd> <kbd>E</kbd>. Multiple cursors and block selection included. Press <kbd>?</kbd> for all shortcuts.',
   },
   {
     title: 'Sensible defaults',
+    href: '/docs/editor/running-queries/',
     text: 'New tabs start with a limit of 200 rows and a 60-second timeout. Enough to see your data, too little to strain the server. Both can be changed per tab.',
   },
   {
     title: 'SQL from the schema',
+    href: '/docs/data/schema-tree/',
     text: 'Generate SELECT, INSERT, UPDATE and DELETE templates with the right parameter style for each engine. UPDATE and DELETE match on the primary key.',
   },
   {
     title: 'Autocomplete and history',
+    href: '/docs/editor/',
     text: 'Autocompletion knows your tables and columns. The last 50 queries are searchable and open in a new tab with one click.',
   },
   {
     title: 'Opens your files',
+    href: '/docs/editor/tabs/',
     text: 'Double-click a .sql file to open it in a new tab, or a .duckdb, .sqlite or .sqlite3 file to open it as a connection. If Colwerk is already running, its window comes to the front.',
   },
   {
     title: 'Tabs in their own window',
+    href: '/docs/editor/tabs/',
     text: 'Move a tab to a new window and back to the main window when you are done. Each window has its own menu.',
   },
 ]
 ---
 
 <section id="features" class="cw-section not-content">
-  <h2>Built for people who live in SQL.</h2>
+  <h2>A SQL IDE for people who <span>live in SQL.</span></h2>
 
   <div class="group">
     <p class="cw-eyebrow">Under the hood</p>
@@ -73,7 +87,9 @@ const daily = [
       {
         general.map((f) => (
           <div>
-            <dt>{f.title}</dt>
+            <dt>
+              <a href={f.href}>{f.title}</a>
+            </dt>
             <dd>{f.text}</dd>
           </div>
         ))
@@ -87,7 +103,9 @@ const daily = [
       {
         daily.map((f) => (
           <article>
-            <h3>{f.title}</h3>
+            <h3>
+              <a href={f.href}>{f.title}</a>
+            </h3>
             <p set:html={f.text} />
           </article>
         ))
@@ -126,6 +144,15 @@ const daily = [
     color: var(--cw-brand);
     font-family: var(--sl-font-mono);
     font-size: 0.85rem;
+  }
+  .specs a,
+  .daily h3 a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .specs a:hover,
+  .daily h3 a:hover {
+    color: var(--sl-color-text-accent);
   }
   .specs dd {
     margin: 0;

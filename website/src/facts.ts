@@ -4,9 +4,9 @@ import reference from './data/reference.json'
 const engines = reference.engines.filter((e) => !e.lakehouse).map((e) => e.label.replace(' / ', ' and '))
 
 export const summary =
-  'Colwerk is a free, open-source (MIT) SQL editor and database client for macOS, Windows and Linux. It connects to ' +
-  'PostgreSQL, MySQL and MariaDB, SQL Server, ClickHouse, DuckDB and SQLite, queries lakehouses and CSV, Parquet, ' +
-  'JSON and Excel files with SQL, and has a built-in MCP server so AI assistants like Claude, ChatGPT or Cursor can ' +
+  'Colwerk is a free, open-source (MIT) SQL editor and database client for macOS, Windows and Linux: one desktop GUI ' +
+  'for PostgreSQL, MySQL and MariaDB, SQL Server, ClickHouse, DuckDB and SQLite that also queries lakehouses and CSV, ' +
+  'Parquet, JSON and Excel files with SQL. A built-in MCP server lets AI assistants like Claude, Codex or Cursor ' +
   'explore databases read-only. It runs entirely on your computer: no account, no telemetry, no cloud service.'
 
 /** [label, value] pairs, plain text */
@@ -23,7 +23,7 @@ export const facts: [string, string][] = [
   ],
   [
     'AI assistants',
-    'No built-in AI. A built-in MCP server lets Claude, ChatGPT, Codex, Cursor, VS Code or any MCP client browse schemas and run read-only queries; the assistant hands its final query to a new tab and you decide what runs.',
+    'No built-in AI. A built-in MCP server lets Claude, Codex, Cursor, VS Code or any other MCP client browse schemas and run read-only queries; the assistant hands its final query to a new tab and you decide what runs.',
   ],
   [
     'Privacy',
