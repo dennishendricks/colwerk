@@ -1,23 +1,13 @@
 ---
-title: SQL Server client for Mac
-description: Colwerk is a free SQL Server client for Mac on Apple Silicon. Connect to SQL Server in Docker or Azure SQL, run T-SQL with GO batches and read graphical plans.
+title: SQL Server client for Mac, Windows and Linux
+description: Colwerk is a free, open-source SQL Server client. Connect to SQL Server and Azure SQL, run T-SQL with GO batches, read graphical plans and edit rows.
 ---
 
-Colwerk is a free, open-source SQL Server client for Mac that runs natively on Apple Silicon. It connects to Microsoft
-SQL Server and Azure SQL, splits scripts at `GO` like SQL Server Management Studio and shows execution plans
-graphically. The SQL editor is a client only: the SQL Server itself runs elsewhere, for example in Docker, on a Windows
-or Linux server, or in Azure.
+Colwerk is a free, open-source SQL Server client for macOS, Windows and Linux. It connects to Microsoft SQL Server and
+Azure SQL, splits scripts at `GO` like SQL Server Management Studio and shows execution plans graphically. It runs
+entirely on your computer and also works with PostgreSQL, MySQL, ClickHouse, DuckDB and SQLite.
 
 [Download Colwerk](/#download) · [SQL Server connection settings](/docs/connections/databases/#sql-server)
-
-## SQL Server on a Mac: client and server
-
-Searching for "SQL Server for Mac" usually means one of two things:
-
-- **The database server.** SQL Server does not run on macOS itself. On a Mac, developers typically run it in a Docker
-  container or use a server on the network or in Azure.
-- **A client to work with it.** That is what Colwerk is: a desktop app that connects to any of these servers over the
-  network.
 
 ## Connect to SQL Server
 
@@ -50,27 +40,46 @@ SSH tunnels ([SSH tunnel and TLS](/docs/connections/ssh-tls/)).
 
 The [feature matrix](/docs/reference/features/) lists what each engine supports.
 
+## On Mac, Windows and Linux
+
+### SQL Server client for Mac
+
+Colwerk runs natively on Macs with Apple Silicon and installs signed updates itself. SQL Server Management Studio is not
+available for macOS, and SQL Server does not run on macOS itself: on a Mac, developers typically run it in a Docker
+container or connect to a server on the network or in Azure. Colwerk is the client for any of these.
+
+### SQL Server client for Windows
+
+On Windows (x64), Colwerk installs with a setup program, updates itself and needs the WebView2 Runtime, which Windows 11
+includes. It complements SQL Server Management Studio for everyday queries across several engines; for server
+administration (agent jobs, backups, security settings), SSMS remains the tool Microsoft provides.
+
+### SQL Server client for Linux
+
+On Linux (x64 and arm64), Colwerk comes as a `.deb` package. It connects to SQL Server on Linux, in Docker or on Windows
+servers, including **Windows (NTLM)** logins with domain.
+
+See [Install and update](/docs/start/install/) for downloads and requirements.
+
 ## An Azure Data Studio alternative
 
 Microsoft retired Azure Data Studio on 2026-02-28; it gets no more updates or security fixes
 ([Microsoft Learn](https://learn.microsoft.com/en-us/sql/tools/whats-happening-azure-data-studio)). Microsoft
-recommends Visual Studio Code with the MSSQL extension as its successor, and SQL Server Management Studio remains
-Microsoft's tool for administration on Windows.
+recommends Visual Studio Code with the MSSQL extension as its successor.
 
-If you want a standalone SQL client on the Mac instead, Colwerk imports Azure Data Studio connections: SQL Server and
-PostgreSQL connections with instance, encryption, application intent, failover and retry settings, and connection
-groups as folders. Azure Data Studio keeps passwords in the system's credential store, so the import asks for them
+If you want a standalone SQL client instead, Colwerk imports Azure Data Studio connections: SQL Server and PostgreSQL
+connections with instance, encryption, application intent, failover and retry settings, and connection groups as
+folders. Azure Data Studio keeps passwords in the system's credential store, so the import asks for them
 ([Import connections](/docs/connections/import/)).
 
 ## Who it is for
 
-Developers and analysts on a Mac who write T-SQL against SQL Server or Azure SQL and also work with PostgreSQL,
-MySQL, ClickHouse, DuckDB or SQLite in the same app. For server administration on Windows (agent jobs, backups,
-security settings), SQL Server Management Studio is the tool Microsoft provides.
+Developers and analysts who write T-SQL against SQL Server or Azure SQL and also work with PostgreSQL, MySQL,
+ClickHouse, DuckDB or SQLite in the same app, on any of the three systems.
 
 ## Limits
 
-- macOS: Apple Silicon only.
+- macOS: Apple Silicon only. Linux: `.deb` packages only, without automatic updates.
 - SQL Server sessions can only be terminated in the session monitor, not cancelled.
 - A read-only SQL Server connection relies on Colwerk's check of the SQL text; for real protection, use a login with
   read permissions only.

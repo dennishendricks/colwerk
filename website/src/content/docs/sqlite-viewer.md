@@ -33,6 +33,26 @@ To look at a file without risk of changing it, mark the connection [read-only](/
 then opens the file read-only. An AI assistant such as Claude, Codex, Cursor or VS Code can also read the database
 through Colwerk's [MCP server](/docs/mcp/), in a session that cannot write.
 
+## On Mac, Windows and Linux
+
+### SQLite viewer for Mac
+
+Colwerk runs natively on Macs with Apple Silicon and installs signed updates itself. Double-click a `.sqlite` or
+`.sqlite3` file in the Finder to open it.
+
+### SQLite viewer for Windows
+
+On Windows (x64), Colwerk installs with a setup program and updates itself. It needs the WebView2 Runtime, which Windows
+11 includes. Colwerk registers itself for `.sqlite` and `.sqlite3` files, so a double-click opens them.
+
+### SQLite viewer for Linux
+
+On Linux (x64 and arm64), Colwerk comes as a `.deb` package; the package manager installs WebKitGTK with it. New
+versions are announced in the app and installed like any package. It is registered for `.sqlite` and `.sqlite3` files as
+well.
+
+See [Install and update](/docs/start/install/) for downloads and requirements.
+
 ## Who it is for
 
 Anyone who needs to look into a SQLite file: app developers checking what their app stored, testers, analysts with a

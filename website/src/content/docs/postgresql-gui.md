@@ -34,6 +34,25 @@ ER diagrams, export to CSV, Parquet, Excel or SQL `INSERT`, and PostGIS geometri
 assistant such as Claude, Codex, Cursor or VS Code can explore the database through Colwerk's
 [MCP server](/docs/mcp/) with read-only queries.
 
+## On Mac, Windows and Linux
+
+### PostgreSQL GUI for Mac
+
+Colwerk runs natively on Macs with Apple Silicon and installs signed updates itself. It connects to PostgreSQL on your
+Mac, also through a Unix socket, in Docker or in the cloud.
+
+### PostgreSQL GUI for Windows
+
+On Windows (x64), Colwerk installs with a setup program and updates itself. It needs the WebView2 Runtime, which Windows
+11 includes.
+
+### PostgreSQL GUI for Linux
+
+On Linux (x64 and arm64), Colwerk comes as a `.deb` package; the package manager installs WebKitGTK with it. New
+versions are announced in the app and installed like any package. Local servers can be reached through a Unix socket.
+
+See [Install and update](/docs/start/install/) for downloads and requirements.
+
 ## Who it is for
 
 Developers, data analysts and database administrators who work with PostgreSQL on their own machine, in Docker or in

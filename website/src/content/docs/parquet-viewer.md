@@ -73,6 +73,27 @@ Text formats may be compressed with gzip or Zstandard.
   DuckDB or SQLite with the import wizard ([Import data](/docs/data/import/)).
 - For Parquet files in a data lake, Colwerk also reads [Delta Lake, Apache Iceberg and other lakehouses](/docs/connections/lakehouses/).
 
+## On Mac, Windows and Linux
+
+### Parquet viewer for Mac
+
+Colwerk runs natively on Macs with Apple Silicon and installs signed updates itself. In the Finder, Colwerk is offered
+to open CSV, TSV, Parquet, JSON and Excel files.
+
+### Parquet viewer for Windows
+
+On Windows (x64), Colwerk installs with a setup program and updates itself. It needs the WebView2 Runtime, which Windows
+11 includes. Drop Parquet or CSV files onto the window or use **File → Query Data File …**; Windows does not offer
+Colwerk for these file types.
+
+### Parquet viewer for Linux
+
+On Linux (x64 and arm64), Colwerk comes as a `.deb` package; the package manager installs WebKitGTK with it. New
+versions are announced in the app and installed like any package. Like on the Mac, Colwerk is offered to open CSV, TSV,
+Parquet, JSON and Excel files.
+
+See [Install and update](/docs/start/install/) for downloads and requirements.
+
 ## Who it is for
 
 Data engineers and analysts who receive Parquet or CSV exports and want to look at them, check them with SQL or load

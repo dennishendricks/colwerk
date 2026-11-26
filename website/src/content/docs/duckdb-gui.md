@@ -36,6 +36,25 @@ An AI assistant such as Claude, Codex or Cursor can explore a DuckDB database th
 [MCP server](/docs/mcp/). By default it opens the file read-only, in a DuckDB instance of its own that cannot read
 files or URLs.
 
+## On Mac, Windows and Linux
+
+### DuckDB GUI for Mac
+
+Colwerk runs natively on Macs with Apple Silicon and installs signed updates itself. Double-click a `.duckdb` file in
+the Finder to open it; DuckDB is included.
+
+### DuckDB GUI for Windows
+
+On Windows (x64), Colwerk installs with a setup program and updates itself. It needs the WebView2 Runtime, which Windows
+11 includes. Colwerk registers itself for `.duckdb` files, so a double-click opens them.
+
+### DuckDB GUI for Linux
+
+On Linux (x64 and arm64), Colwerk comes as a `.deb` package; the package manager installs WebKitGTK with it. New
+versions are announced in the app and installed like any package. It is registered for `.duckdb` files as well.
+
+See [Install and update](/docs/start/install/) for downloads and requirements.
+
 ## Who it is for
 
 Data engineers and analysts who use DuckDB for local analytics and want a desktop client instead of the command line:

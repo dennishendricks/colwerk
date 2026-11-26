@@ -35,6 +35,25 @@ Results export to CSV, Parquet, Excel, JSON, Markdown or SQL `INSERT`, and the [
 CSV, Excel, JSON or Parquet files into a table. MySQL and MariaDB geometries are shown as WKT. Through the built-in
 [MCP server](/docs/mcp/), Claude, Codex, Cursor or VS Code can explore the database with read-only queries.
 
+## On Mac, Windows and Linux
+
+### MySQL GUI for Mac
+
+Colwerk runs natively on Macs with Apple Silicon and installs signed updates itself. It connects to MySQL and MariaDB on
+your Mac, in Docker or in the cloud.
+
+### MySQL GUI for Windows
+
+On Windows (x64), Colwerk installs with a setup program and updates itself. It needs the WebView2 Runtime, which Windows
+11 includes.
+
+### MySQL GUI for Linux
+
+On Linux (x64 and arm64), Colwerk comes as a `.deb` package; the package manager installs WebKitGTK with it. New
+versions are announced in the app and installed like any package.
+
+See [Install and update](/docs/start/install/) for downloads and requirements.
+
 ## Who it is for
 
 Developers and administrators who want a desktop MySQL GUI instead of the `mysql` command line, for local databases,

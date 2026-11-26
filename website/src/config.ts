@@ -17,7 +17,7 @@ export const docsSidebar = [
 export const guides = [
   { label: 'PostgreSQL GUI', href: '/postgresql-gui/' },
   { label: 'MySQL GUI', href: '/mysql-gui/' },
-  { label: 'SQL Server on Mac', href: '/sql-server-mac/' },
+  { label: 'SQL Server client', href: '/sql-server-gui/' },
   { label: 'SQLite viewer', href: '/sqlite-viewer/' },
   { label: 'DuckDB GUI', href: '/duckdb-gui/' },
   { label: 'Parquet viewer', href: '/parquet-viewer/' },
